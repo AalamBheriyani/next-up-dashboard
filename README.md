@@ -1,8 +1,9 @@
 # Next Up
 
 A personal departures-board dashboard: next deadline countdown, the calendar block you're in,
-TickTick tasks with live countdowns, Weekly Time Tracker hours, a Time Timer style focus dial
-and an Ask Claude chat. Works on phone, iPad and laptop (add it to your home screen).
+TickTick tasks with live countdowns, Weekly Time Tracker hours, a Pomodoro timer with a Time Timer
+style dial (finished pomodoros and breaks log XP automatically), the Quest Log XP tracker and an
+Ask Claude chat. Works on phone, iPad and laptop (add it to your home screen).
 
 ## How it fits together
 
@@ -48,6 +49,7 @@ npx wrangler kv namespace create NEXTUP_KV     # paste the id into wrangler.toml
 # edit wrangler.toml: WORKER_URL (your workers.dev subdomain), GOOGLE_CLIENT_ID
 npx wrangler secret put ALLOWED_EMAIL          # the Google account allowed to sign in
 npx wrangler secret put SHEET_ID               # Weekly Time Tracker spreadsheet id
+npx wrangler secret put QUEST_SHEET_ID         # XP Tracker (Quest Log) spreadsheet id
 npx wrangler secret put TICKTICK_CLIENT_ID
 npx wrangler secret put TICKTICK_CLIENT_SECRET
 npx wrangler secret put ANTHROPIC_API_KEY
@@ -70,7 +72,8 @@ Open the site, **Sign in with Google**, then press **Connect TickTick** on the t
 | Now / next block | Google Calendar (primary) | browser → Google |
 | Hours this week, Rate your blocks | Weekly Time Tracker sheet | browser → Google Sheets |
 | Ask Claude | Claude API (`claude-opus-5-5`) | browser → Worker → Claude API |
-| Focus timer | none (stored in the browser) | browser only |
+| Focus timer | settings stored in the browser | browser only |
+| Quest Log (`quest.html`), pomodoro XP | XP Tracker sheet | browser → Google Sheets |
 
 ## License
 

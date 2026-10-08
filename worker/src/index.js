@@ -56,7 +56,7 @@ export default {
         try { links = JSON.parse(env.LINKS || "[]"); } catch {}
         let profile = {};
         try { profile = JSON.parse(env.PROFILE || "{}"); } catch {}
-        return json({ email: who.email, sheetId: env.SHEET_ID || "", links, profile, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
+        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
       }
 
       if (url.pathname === "/ticktick/start" && req.method === "POST") {

@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17122b">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Quest Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@500;700&family=Lilita+One&display=swap">
+<style>
+/* Layout: one column. HUD (level + XP bar), four stat tiles, quest board by category, week bars, badges, recent feed.
+   Committed single-theme dark look, like a handheld game screen at night. Gold = XP, coral = streak, cyan = combo, pink = crit, mint = done. */
+:root{
+  color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#17122b; --panel:#221a3f; --panel2:#2d2352; --line:#3d3069;
+  --ink:#f4efff; --muted:#aba2cf;
+  --xp:#ffc53d; --xp-ink:#2a1d00; --flame:#ff6b4a; --combo:#4cc9f0; --crit:#ff4fa3; --good:#3ddc97;
+  --display:'Lilita One',system-ui,sans-serif; --body:'Figtree',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink)}
+body{margin:0;padding-inline:16px;padding-block:20px 56px;font:15px/1.45 var(--body)}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2{font-family:var(--display);font-weight:400;letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{color:var(--muted);text-transform:uppercase;letter-spacing:.09em;font-family:var(--body);font-weight:700;font-size:.78rem}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--combo);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.back{color:var(--combo);text-decoration:none;font-weight:600;font-size:.9rem}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-size:1.6rem}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;background:var(--panel);border:1px solid var(--line);font-size:.8rem;font-weight:600;color:var(--muted)}
+.chip.ok{color:var(--good)} .chip.bad{color:var(--flame);cursor:pointer} .chip i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.notice{background:var(--panel);border:1px solid var(--flame);border-radius:12px;padding:10px 14px;color:var(--ink)}
+.notice button,.notice a.btn{margin-left:8px;background:var(--flame);border:0;color:#2b0d05;font-weight:700;padding:5px 12px;border-radius:8px;text-decoration:none;display:inline-block}
+
+.hud{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px}
+.lvl{flex:none;width:84px;height:84px;border-radius:24px;background:var(--xp);color:var(--xp-ink);display:grid;place-content:center;text-align:center;box-shadow:0 5px 0 #b88a14}
+.lvl small{font-weight:700;letter-spacing:.12em;font-size:.7rem;display:block}
+.lvl b{font-family:var(--display);font-weight:400;font-size:2.4rem;line-height:1}
+.hud-main{flex:1;min-width:0}
+.rank{font-family:var(--display);font-size:1.5rem;line-height:1.1}
+.bar{height:16px;border-radius:99px;background:var(--bg);margin:10px 0 6px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#ffb020,var(--xp));transition:width .5s cubic-bezier(.2,.9,.3,1.2)}
+.bar-l{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:.85rem}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .k{color:var(--muted);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.stat .v{font-family:var(--display);font-size:1.9rem;line-height:1.05;display:flex;align-items:center;gap:8px}
+.stat .s{color:var(--muted);font-size:.82rem}
+.stat svg.ic{width:26px;height:26px;flex:none}
+.ring{display:flex;flex-direction:row;align-items:center;gap:12px}
+.ring svg{width:68px;height:68px;flex:none;transform:rotate(-90deg)}
+.ring .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.combo .mini{height:8px;border-radius:99px;background:var(--bg);overflow:hidden;margin-top:4px}
+.combo .mini i{display:block;height:100%;background:var(--combo);width:0;transition:width 1s linear}
+.hot{color:var(--combo)} .fire{color:var(--flame)} .gold{color:var(--xp)} .done{color:var(--good)}
+
+.cat{display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.quest{position:relative;text-align:left;background:var(--panel2);border:1px solid var(--line);border-bottom-width:4px;border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;min-height:68px;transition:transform .08s,background .15s}
+.quest:hover{background:#372b63} .quest:active{transform:translateY(3px);border-bottom-width:1px}
+.quest .qn{font-weight:700;grid-column:1;min-width:0;overflow-wrap:anywhere}
+.quest .qx{grid-column:2;grid-row:1/3;font-family:var(--display);font-size:1.5rem;color:var(--xp)}
+.quest .qc{grid-column:1;color:var(--muted);font-size:.8rem}
+.quest.maxed{opacity:.55;border-bottom-width:1px;cursor:default}
+.quest.maxed .qx{color:var(--good);font-size:1.1rem}
+.quest.big{grid-column:1/-1;background:var(--xp);color:var(--xp-ink);border-color:#b88a14;min-height:84px}
+.quest.big .qx{color:var(--xp-ink);font-size:2rem} .quest.big .qc{color:#5a4208}
+.quest.big:hover{background:#ffd05e}
+.pop{position:absolute;right:14px;top:6px;pointer-events:none;font-family:var(--display);font-size:1.6rem;color:var(--xp);text-shadow:0 2px 0 #000a;animation:pop .95s ease-out forwards;white-space:nowrap;z-index:5}
+.pop.crit{color:var(--crit);font-size:2rem}
+@keyframes pop{0%{transform:translateY(0) scale(.7);opacity:0}15%{opacity:1;transform:translateY(-10px) scale(1.15)}100%{transform:translateY(-54px) scale(1);opacity:0}}
+.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:150px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 14px 10px;position:relative}
+.day{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%;min-width:0}
+.day .col{width:100%;max-width:34px;border-radius:7px 7px 3px 3px;background:var(--panel2);min-height:4px}
+.day .col.hit{background:var(--good)} .day .col.part{background:var(--xp)}
+.day .lab{font-size:.72rem;color:var(--muted);font-weight:700} .day.now .lab{color:var(--ink)}
+.day .xv{font-size:.68rem;color:var(--muted)}
+.day.now .col{outline:2px solid var(--combo);outline-offset:2px}
+#main{display:flex;flex-direction:column;gap:18px}
+
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.badge{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.badge svg{width:30px;height:30px;flex:none}
+.badge b{display:block;font-size:.9rem} .badge span{color:var(--muted);font-size:.76rem}
+.badge.lock{opacity:.5} .badge.lock svg{filter:grayscale(1)}
+
+.feed{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)} .row:first-child{border-top:0}
+.row .w{color:var(--muted);font-size:.78rem;flex:none;width:76px}
+.row .n{flex:1;min-width:0;overflow-wrap:anywhere}
+.row .x{font-family:var(--mono);font-weight:700;color:var(--xp)} .row .x.neg{color:var(--flame)}
+.tag{font-size:.68rem;font-weight:800;padding:2px 6px;border-radius:6px;background:var(--crit);color:#2a0516;margin-right:4px}
+.tag.auto{background:var(--combo);color:#04202b}
+.undo{background:transparent;border:1px solid var(--line);border-radius:8px;padding:3px 9px;color:var(--muted);font-size:.78rem}
+.empty{padding:18px 14px;color:var(--muted)}
+
+.foot{display:flex;gap:14px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:.82rem}
+.foot a{color:var(--combo)} .foot button{background:none;border:1px solid var(--line);border-radius:8px;padding:3px 10px;color:var(--muted)}
+
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:#0a0618d9;z-index:20;padding:20px}
+.lvlcard{background:var(--panel);border:2px solid var(--xp);border-radius:24px;padding:28px 32px;text-align:center;max-width:380px;animation:rise .45s cubic-bezier(.2,1.3,.4,1)}
+.lvlcard .big{font-family:var(--display);font-size:4.5rem;line-height:1;color:var(--xp)}
+.lvlcard p{margin:6px 0 16px;color:var(--muted)}
+.lvlcard button{background:var(--xp);color:var(--xp-ink);border:0;border-bottom:4px solid #b88a14;border-radius:12px;padding:10px 22px;font-weight:800}
+@keyframes rise{from{transform:scale(.6) translateY(30px);opacity:0}}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:30}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--good);color:var(--ink);padding:10px 18px;border-radius:99px;font-weight:700;z-index:25;max-width:calc(100vw - 32px);text-align:center;animation:rise .3s}
+@media (prefers-reduced-motion:reduce){.pop,.shake,.lvlcard,.toast{animation:none}.bar i,.combo .mini i{transition:none}}
+@media (max-width:420px){.hud{padding:14px;gap:12px}.lvl{width:70px;height:70px}.lvl b{font-size:2rem}}
+</style>
+<script src="config.js"></script>
+<script src="xp.js"></script>
+</head>
+<body>
+<div class="wrap" id="app">
+  <a class="back" href="./">← Next Up</a>
+  <div class="top"><h1>Quest Log</h1><span id="sync"></span></div>
+  <div id="notice"></div>
+  <div id="main"></div>
+</div>
+<div class="overlay" id="lvlup" hidden>
+  <div class="lvlcard" role="dialog" aria-live="polite" aria-label="Level up">
+    <div class="num" style="color:var(--muted);letter-spacing:.2em;font-size:.8rem">LEVEL UP</div>
+    <div class="big" id="lvbig">2</div>
+    <p id="lvtitle">Spark</p>
+    <button id="lvok">Keep going</button>
+  </div>
+</div>
+<canvas id="fx"></canvas>
+<div id="live" class="num" aria-live="polite" style="position:absolute;left:-9999px"></div>
+
+<script>
+// Quest Log, moved from the Claude artifact. Reads and writes the XP Tracker Google Sheet with the
+// Google sign-in from the dashboard (same site, same browser). The sheet id comes from the server config.
+const DEFAULTS={daily_goal:60,weekly_goal:500,crit_chance:0.12,combo_minutes:45,day_start_hour:4};
+const DEFAULT_QUESTS=[
+ {id:'start',name:'Started a planned block',cat:'Start',xp:10,cap:8},
+ {id:'timer',name:'Finished a timer session',cat:'Focus',xp:15,cap:6},
+ {id:'break',name:'Took the break (reverse pomodoro)',cat:'Focus',xp:5,cap:6},
+ {id:'block',name:'Finished a planned block',cat:'Finish',xp:25,cap:6},
+ {id:'top3',name:'Top 3 item done',cat:'Finish',xp:30,cap:3},
+ {id:'early',name:'Submitted before the personal deadline',cat:'Finish',xp:50,cap:3},
+ {id:'plan',name:'Daily Planning done',cat:'Habits',xp:15,cap:1},
+ {id:'log',name:'Daily Log done',cat:'Habits',xp:15,cap:1},
+ {id:'anki',name:'Anki reviews cleared',cat:'Habits',xp:15,cap:1},
+ {id:'sleep',name:'In bed on time',cat:'Habits',xp:20,cap:1},
+ {id:'meal',name:'Cooked or prepped a meal',cat:'Habits',xp:10,cap:2},
+ {id:'move',name:'Workout or walk',cat:'Habits',xp:30,cap:1},
+ {id:'weekly',name:'Weekly Planning done',cat:'Habits',xp:40,cap:1},
+ {id:'boss',name:'Boss fight: exam or big deadline done',cat:'Boss',xp:100,cap:2}
+];
+
+const TITLES=['Rookie','Spark','Starter','Momentum','Focus Cadet','Streaker','Deep Diver','Flow Knight','Time Lord','Deadline Slayer'];
+function levelFor(xp){xp=Math.max(0,xp);return Math.max(1,Math.floor((1+Math.sqrt(1+4*xp/25))/2));}
+function levelFloor(L){return 25*L*(L-1);}
+function titleFor(L){return TITLES[L-1]||('Legend '+(L-10));}
+function pad(n){return String(n).padStart(2,'0');}
+const dayKey=XP.dayKey;
+function addDays(key,n){const p=key.split('-').map(Number);const dt=new Date(p[0],p[1]-1,p[2]+n,12);return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());}
+function weekStart(key){const p=key.split('-').map(Number);const dow=(new Date(p[0],p[1]-1,p[2],12).getDay()+6)%7;return addDays(key,-dow);}
+function sumByDay(rows,sh){const m={};for(const r of rows){const k=dayKey(r.t,sh);m[k]=(m[k]||0)+r.xp;}return m;}
+function streakInfo(byDay,today,goal){
+  const keys=Object.keys(byDay).sort();
+  const todayMet=(byDay[today]||0)>=goal;
+  if(!keys.length)return{streak:0,best:0,shields:0,atRisk:false,todayMet:false};
+  let streak=0,best=0,shields=0;
+  for(let d=keys[0];d<=today;d=addDays(d,1)){
+    const met=(byDay[d]||0)>=goal;
+    if(met){streak++;if(streak%7===0)shields=Math.min(2,shields+1);}
+    else if(d!==today){if(shields>0)shields--;else streak=0;}
+    best=Math.max(best,streak);
+  }
+  return{streak,best,shields,atRisk:streak>0&&!todayMet,todayMet};
+}
+function comboChain(earnRows,now,windowMs){let n=0,ref=now;for(let i=earnRows.length-1;i>=0;i--){if(ref-earnRows[i].t<=windowMs){n++;ref=earnRows[i].t;}else break;}return n;}
+function countsOn(rows,day,sh){const c={};for(const r of rows){if(dayKey(r.t,sh)!==day)continue;c[r.q]=(c[r.q]||0)+(r.kind==='undo'?-1:1);}return c;}
+function netCount(rows,id){let n=0;for(const r of rows){if(r.q===id)n+=r.kind==='undo'?-1:1;}return n;}
+function weekTotals(byDay){const w={};for(const k in byDay){const s=weekStart(k);w[s]=(w[s]||0)+byDay[k];}return w;}
+function dayDiff(a,b){const x=a.split('-').map(Number),y=b.split('-').map(Number);return Math.round((new Date(y[0],y[1]-1,y[2],12)-new Date(x[0],x[1]-1,x[2],12))/864e5);}
+function earnedBadges(rows,byDay,info,weeklyGoal){
+  const days=Object.keys(byDay).sort();let comeback=false;
+  for(let i=1;i<days.length;i++){if(dayDiff(days[i-1],days[i])>=3){comeback=true;break;}}
+  const best=Math.max(0,...Object.values(byDay));
+  const wk=Math.max(0,...Object.values(weekTotals(byDay)));
+  return{first:rows.length>0,roll3:info.best>=3,week7:info.best>=7,century:best>=100,fullweek:wk>=weeklyGoal,
+    ahead:netCount(rows,'early')>=5,tamer:netCount(rows,'timer')>=10,comeback,boss:netCount(rows,'boss')>=1};
+}
+
+const BADGES=[
+ ['first','First Blood','Log your first quest'],['roll3','On a Roll','Hit the daily goal 3 days running'],
+ ['week7','Week Warrior','7-day streak'],['century','Century','100 XP in one day'],
+ ['fullweek','Full Week','Hit the weekly goal'],['ahead','Ahead of the Clock','Submit 5 things before the personal deadline'],
+ ['tamer','Timer Tamer','Finish 10 timer sessions'],['comeback','Comeback Kid','Log again after 2 quiet days'],
+ ['boss','Boss Slayer','Beat a boss fight']
+];
+const CAT_ORDER=['Start','Focus','Finish','Habits','Boss'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let quests=store.get('xp.quests',DEFAULT_QUESTS);
+let sheetLog=store.get('xp.log',[]);
+let settings=Object.assign({},DEFAULTS,store.get('xp.settings',{}));
+let muted=store.get('xp.mute',false);
+let sync={state:'loading',msg:''}, flushTimer=0, lastRefresh=0, lastFocus='';
+
+// Rows waiting to be written live in XP's shared queue, so dashboard pomodoros and taps here share one outbox.
+function allRows(){return sheetLog.concat(XP.pending().map(XP.fromRow)).sort((a,b)=>a.t-b.t);}
+function num(x,d){const n=parseFloat(x);return isFinite(n)?n:(d===undefined?0:d);}
+function parseQuests(v){return(v||[]).filter(r=>r[0]&&r[1]).map(r=>({id:String(r[0]),name:String(r[1]),cat:String(r[2]||'Other'),xp:num(r[3],10),cap:Math.max(1,num(r[4],99)),active:!/^(false|no|0)$/i.test(String(r[5]===undefined?'TRUE':r[5]))})).filter(q=>q.active);}
+function parseSettings(v){const s={};for(const r of(v||[])){const k=r[0];if(Object.prototype.hasOwnProperty.call(DEFAULTS,k)){const n=parseFloat(r[1]);if(isFinite(n))s[k]=n;}}return s;}
+
+function setSync(state,msg){sync={state,msg:msg||''};renderSync();}
+function handleErr(e){
+  if(e&&e.status===401){setSync('signin');return;}
+  if(e&&e.status===403){setSync('error','Your Google account can\'t open the XP sheet.');return;}
+  setSync('error',(e&&e.message)||'Google Sheets did not answer.');
+}
+async function refresh(){
+  lastRefresh=Date.now();setSync('loading');
+  try{
+    const d=await XP.load();
+    const nq=parseQuests(d.quests);if(nq.length)quests=nq;
+    sheetLog=d.log;settings=Object.assign({},DEFAULTS,parseSettings(d.settings));
+    store.set('xp.quests',quests);store.set('xp.log',sheetLog);store.set('xp.settings',settings);
+    setSync('ok');
+  }catch(e){handleErr(e);}
+  render();
+  flush();
+}
+async function flush(){
+  try{const n=await XP.flush();if(n&&n.length){sheetLog=sheetLog.concat(n);store.set('xp.log',sheetLog);setSync('ok');}}
+  catch(e){handleErr(e);}
+  renderSync();
+}
+function schedFlush(){clearTimeout(flushTimer);flushTimer=setTimeout(flush,700);}
+
+function model(now){
+  const rows=allRows(),sh=settings.day_start_hour,today=dayKey(now,sh);
+  const earn=rows.filter(r=>r.kind!=='undo');
+  const total=rows.reduce((a,r)=>a+r.xp,0);
+  const byDay=sumByDay(rows,sh),info=streakInfo(byDay,today,settings.daily_goal);
+  const L=levelFor(total),lo=levelFloor(L),hi=levelFloor(L+1);
+  const win=settings.combo_minutes*6e4,chain=comboChain(earn,now,win),lvl=Math.min(5,chain);
+  const last=earn.length?earn[earn.length-1].t:0;
+  const wk=weekTotals(byDay)[weekStart(today)]||0;
+  return{rows,earn,total,byDay,info,today,L,lo,hi,lvl,mult:1+0.1*lvl,left:chain?Math.max(0,win-(now-last)):0,win,
+    todayXp:byDay[today]||0,wk,counts:countsOn(rows,today,sh),sh};
+}
+
+const ICON={
+  flame:'<svg class="ic fire" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.8 3.6 5 5.6 5 10.5a5 5 0 0 1-10 0c0-2 .9-3.4 2-4.5.1 2 .9 3 2 3-.2-3-.8-5 1-9z"/></svg>',
+  bolt:'<svg class="ic gold" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+  combo:'<svg class="ic hot" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.6 6.2L21 9l-5 4.4L17.5 20 12 16.6 6.5 20 8 13.4 3 9l6.4-.8z"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="#ffc53d"><path d="m12 2 2.6 6.2L21 9l-5 4.4L17.5 20 12 16.6 6.5 20 8 13.4 3 9l6.4-.8z"/></svg>',
+  ring:'<svg viewBox="0 0 24 24" fill="none" stroke="#aba2cf" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>'
+};
+function renderSync(){
+  const el=$('#sync'),n=XP.pending().length;let h;
+  if(sync.state==='loading')h='<span class="chip"><i></i>Syncing</span>';
+  else if(n)h='<button class="chip bad" data-act="retry"><i></i>'+n+' not saved yet. Retry</button>';
+  else if(sync.state==='ok')h='<span class="chip ok"><i></i>Saved to Sheets</span>';
+  else if(sync.state==='signin')h='<span class="chip bad"><i></i>This device only</span>';
+  else h='<button class="chip bad" data-act="retry"><i></i>Not synced. Retry</button>';
+  el.innerHTML=h;
+  const nb=$('#notice');
+  if(sync.state==='error')nb.innerHTML='<div class="notice">'+esc(sync.msg)+' <button data-act="retry">Retry</button></div>';
+  else if(sync.state==='signin')nb.innerHTML='<div class="notice">Sign in on Next Up to sync with your XP sheet. XP is kept on this device until then. <a class="btn" href="./?return=quest.html">Sign in</a></div>';
+  else nb.innerHTML='';
+}
+function render(){
+  const m=model(Date.now()),goal=settings.daily_goal;
+  const pct=Math.min(100,Math.round((m.total-m.lo)/(m.hi-m.lo)*100));
+  const dpct=Math.min(1,m.todayXp/goal),C=2*Math.PI*30;
+  const comboOn=m.lvl>0;
+  let h='';
+  h+='<section class="hud"><div class="lvl"><small>LEVEL</small><b>'+m.L+'</b></div><div class="hud-main"><div class="rank">'+esc(titleFor(m.L))+'</div>'+
+     '<div class="bar" role="progressbar" aria-valuenow="'+pct+'" aria-valuemin="0" aria-valuemax="100"><i style="width:'+pct+'%"></i></div>'+
+     '<div class="bar-l"><span class="num">'+m.total+' XP</span><span class="num">'+(m.hi-m.total)+' to Lv '+(m.L+1)+'</span></div></div></section>';
+  h+='<section class="stats">';
+  h+='<div class="stat ring"><svg viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="#2d2352" stroke-width="9"/><circle cx="36" cy="36" r="30" fill="none" stroke="'+(m.info.todayMet?'#3ddc97':'#ffc53d')+'" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+(C*dpct).toFixed(1)+' '+C.toFixed(1)+'"/></svg>'+
+     '<div class="t"><span class="k">Today</span><span class="v num '+(m.info.todayMet?'done':'')+'">'+m.todayXp+'<span style="font-size:1rem;color:var(--muted)">/'+goal+'</span></span><span class="s">'+(m.info.todayMet?'Goal hit':(goal-m.todayXp)+' XP to keep the streak')+'</span></div></div>';
+  h+='<div class="stat"><span class="k">Streak</span><span class="v">'+ICON.flame+'<span class="num">'+m.info.streak+'</span></span><span class="s">'+
+     (m.info.atRisk?'Hit today\'s goal to keep it':m.info.streak?'Safe today':'Hit the goal to start one')+
+     (m.info.shields?' · '+m.info.shields+' shield'+(m.info.shields>1?'s':''):'')+(m.info.best>m.info.streak?' · best '+m.info.best:'')+'</span></div>';
+  h+='<div class="stat"><span class="k">This week</span><span class="v">'+ICON.bolt+'<span class="num">'+m.wk+'</span></span><span class="s num">of '+settings.weekly_goal+' XP</span></div>';
+  h+='<div class="stat combo"><span class="k">Combo</span><span class="v">'+ICON.combo+'<span class="num hot" id="cv">×'+m.mult.toFixed(1)+'</span></span><span class="s" id="cs">'+comboText(m)+'</span><div class="mini"><i id="cb" style="width:'+(comboOn?Math.round(m.left/m.win*100):0)+'%"></i></div></div>';
+  h+='</section>';
+  const cats=CAT_ORDER.concat(quests.map(q=>q.cat).filter((c,i,a)=>CAT_ORDER.indexOf(c)<0&&a.indexOf(c)===i));
+  h+='<section><h2 style="margin-bottom:12px">Quest board</h2><div style="display:flex;flex-direction:column;gap:18px">';
+  for(const c of cats){
+    const qs=quests.filter(q=>q.cat===c);if(!qs.length)continue;
+    h+='<div class="cat"><h2>'+esc(c)+'</h2><div class="grid">';
+    for(const q of qs){
+      const n=m.counts[q.id]||0,maxed=n>=q.cap,pay=Math.round(q.xp*m.mult);
+      h+='<button class="quest'+(maxed?' maxed':'')+(q.id==='start'?' big':'')+'" data-q="'+esc(q.id)+'"'+(maxed?' aria-disabled="true"':'')+'><span class="qn">'+esc(q.name)+'</span><span class="qx num">'+(maxed?'Done':'+'+pay)+'</span><span class="qc num">'+(q.cap>1?n+' of '+q.cap+' today':(n?'Done today':'Once a day'))+(q.id==='timer'||q.id==='break'?' · logs itself from the timer':'')+'</span></button>';
+    }
+    h+='</div></div>';
+  }
+  h+='</div></section>';
+  h+='<section><h2 style="margin-bottom:12px">This week</h2>'+weekHtml(m)+'</section>';
+  const earned=earnedBadges(m.rows,m.byDay,m.info,settings.weekly_goal);
+  h+='<section><h2 style="margin-bottom:12px">Badges</h2><div class="badges">'+BADGES.map(b=>'<div class="badge'+(earned[b[0]]?'':' lock')+'">'+(earned[b[0]]?ICON.star:ICON.ring)+'<div><b>'+esc(b[1])+'</b><span>'+esc(b[2])+'</span></div></div>').join('')+'</div></section>';
+  h+='<section><h2 style="margin-bottom:12px">Recent</h2>'+feedHtml(m)+'</section>';
+  h+='<div class="foot">'+(XP.sheetUrl()?'<a href="'+esc(XP.sheetUrl())+'" target="_blank" rel="noopener">Open the Google Sheet</a>':'')+'<span>Day rolls over at '+settings.day_start_hour+':00. Edit quests and goals in the sheet.</span><button data-act="mute">Sound '+(muted?'off':'on')+'</button></div>';
+  $('#main').innerHTML=h;
+  if(lastFocus){const b=document.querySelector('[data-q="'+lastFocus+'"]');if(b&&document.activeElement===document.body)b.focus({preventScroll:true});}
+  renderSync();
+}
+function comboText(m){
+  if(!m.lvl)return 'Log two quests within '+settings.combo_minutes+' minutes to start one';
+  return Math.ceil(m.left/6e4)+' min left to keep ×'+m.mult.toFixed(1);
+}
+function weekHtml(m){
+  const start=weekStart(m.today),names=['M','T','W','T','F','S','S'];
+  const vals=names.map((_,i)=>m.byDay[addDays(start,i)]||0);
+  const max=Math.max(settings.daily_goal*1.5,...vals);
+  let h='<div class="week">';
+  vals.forEach((v,i)=>{
+    const k=addDays(start,i),cls=v>=settings.daily_goal?'hit':(v>0?'part':'');
+    h+='<div class="day'+(k===m.today?' now':'')+'"><span class="xv num">'+(v||'')+'</span><div class="col '+cls+'" style="height:'+Math.max(3,Math.round(v/max*84))+'px"></div><span class="lab">'+names[i]+'</span></div>';
+  });
+  return h+'</div>';
+}
+function feedHtml(m){
+  const rows=m.rows.slice(-8).reverse();
+  if(!rows.length)return '<div class="feed"><div class="empty">No quests logged yet. Tap "Started a planned block" to earn your first +10.</div></div>';
+  let undoDone=false;
+  return '<div class="feed">'+rows.map(r=>{
+    const d=new Date(r.t),same=dayKey(r.t,m.sh)===m.today;
+    const when=(same?'':d.toLocaleDateString([],{weekday:'short'})+' ')+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    let u='';if(!undoDone&&r.kind!=='undo'){undoDone=true;u='<button class="undo" data-act="undo">Undo</button>';}
+    const tag=r.kind==='auto'?'<span class="tag auto">TIMER</span>':(r.mult>=2?'<span class="tag">CRIT</span>':'');
+    return '<div class="row"><span class="w">'+esc(when)+'</span><span class="n">'+tag+esc(r.kind==='undo'?'Undid: '+r.name:r.name)+'</span><span class="x num'+(r.xp<0?' neg':'')+'">'+(r.xp<0?'−':'+')+Math.abs(r.xp)+'</span>'+u+'</div>';
+  }).join('')+'</div>';
+}
+function tick(){
+  const now=Date.now(),m=model(now);
+  if(m.today!==tick.day){tick.day=m.today;render();return;}
+  const cv=$('#cv'),cs=$('#cs'),cb=$('#cb');if(!cv)return;
+  cv.textContent='×'+m.mult.toFixed(1);cs.textContent=comboText(m);cb.style.width=(m.lvl?Math.round(m.left/m.win*100):0)+'%';
+}
+
+let actx=null;
+function beep(freqs){
+  if(muted)return;
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const t0=actx.currentTime;
+    freqs.forEach((f,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.05,t0+i*.07);g.gain.exponentialRampToValueAtTime(.001,t0+i*.07+.12);o.connect(g);g.connect(actx.destination);o.start(t0+i*.07);o.stop(t0+i*.07+.13);});}catch(e){}
+}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
+function pop(id,xp,crit){
+  const b=document.querySelector('[data-q="'+id+'"]');if(!b)return;
+  const s=document.createElement('span');s.className='pop'+(crit?' crit':'');s.textContent=(crit?'CRIT ':'')+'+'+xp;b.appendChild(s);setTimeout(()=>s.remove(),1000);
+}
+function confetti(){
+  if(reduced)return;
+  const cv=$('#fx'),c=cv.getContext('2d');cv.width=innerWidth;cv.height=innerHeight;
+  const cols=['#ffc53d','#ff6b4a','#4cc9f0','#ff4fa3','#3ddc97'];
+  const ps=Array.from({length:110},()=>({x:innerWidth/2,y:innerHeight*.45,vx:(Math.random()-.5)*14,vy:-Math.random()*13-3,r:Math.random()*5+3,c:cols[Math.floor(Math.random()*cols.length)],a:1}));
+  let f=0;(function step(){c.clearRect(0,0,cv.width,cv.height);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.35;p.a-=.011;c.globalAlpha=Math.max(0,p.a);c.fillStyle=p.c;c.fillRect(p.x,p.y,p.r,p.r*1.6);});if(++f<110)requestAnimationFrame(step);else c.clearRect(0,0,cv.width,cv.height);})();
+}
+function levelUp(L){$('#lvbig').textContent=L;$('#lvtitle').textContent=titleFor(L);$('#lvlup').hidden=false;$('#lvok').focus();confetti();beep([523,659,784,1047]);}
+function doQuest(id){
+  const q=quests.find(x=>x.id===id);if(!q)return;
+  const now=Date.now(),m=model(now);
+  if((m.counts[id]||0)>=q.cap){toast('That quest is maxed for today. It resets at '+settings.day_start_hour+':00.');return;}
+  const crit=Math.random()<settings.crit_chance;
+  let mult=m.mult*(crit?2:1);mult=Math.round(mult*100)/100;
+  const xp=Math.round(q.xp*mult);
+  const before=levelFor(m.total),goalBefore=m.todayXp>=settings.daily_goal,wkBefore=m.wk>=settings.weekly_goal;
+  XP.queue({t:now,q:q.id,name:q.name,base:q.xp,mult,xp,kind:q.cat==='Boss'?'boss':'quest'},settings.day_start_hour);
+  lastFocus=id;render();pop(id,xp,crit);
+  $('#live').textContent='+'+xp+' XP';
+  const after=levelFor(m.total+xp);
+  if(crit&&!reduced){$('#app').classList.remove('shake');void $('#app').offsetWidth;$('#app').classList.add('shake');}
+  beep(crit?[880,1175,1568]:[660,880]);
+  if(after>before)levelUp(after);
+  else if(!goalBefore&&m.todayXp+xp>=settings.daily_goal)toast('Daily goal hit. Streak is safe.');
+  else if(!wkBefore&&m.wk+xp>=settings.weekly_goal)toast('Weekly goal hit.');
+  schedFlush();
+}
+function undoLast(){
+  const m=model(Date.now()),rows=m.rows;let i=rows.length-1;
+  const seen={};for(;i>=0;i--){const r=rows[i];if(r.kind==='undo'){seen[r.q]=(seen[r.q]||0)+1;continue;}if(seen[r.q]>0){seen[r.q]--;continue;}break;}
+  if(i<0)return;const r=rows[i];
+  XP.queue({t:Date.now(),q:r.q,name:r.name,base:r.base,mult:r.mult,xp:-r.xp,kind:'undo'},settings.day_start_hour);
+  render();schedFlush();
+}
+document.addEventListener('click',e=>{
+  const qb=e.target.closest('[data-q]');if(qb){doQuest(qb.dataset.q);return;}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  if(a.dataset.act==='retry')refresh();
+  else if(a.dataset.act==='undo')undoLast();
+  else if(a.dataset.act==='mute'){muted=!muted;store.set('xp.mute',muted);render();}
+});
+$('#lvok').addEventListener('click',()=>{$('#lvlup').hidden=true;});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastRefresh>30000)refresh();});
+
+render();tick.day=model(Date.now()).today;setInterval(tick,1000);
+refresh();
+</script>
+</body>
+</html>

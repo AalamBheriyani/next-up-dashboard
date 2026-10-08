@@ -147,25 +147,55 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .rb .btns input { width: 64px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 13px var(--f-mono); }
 .real { color: var(--board-ink); font-size: 12px; }
 
-/* Timer: Time Timer style dial, red disk = time left on a 60-minute face */
+/* Timer: Time Timer style dial (red disk = time left on a 60-minute face) or a minimal ring */
+.timer { --t-focus: var(--disk); --t-brk: var(--ok); }
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 999px; padding: 4px; }
+.tabs button { flex: 1; border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 8px; font-size: 13px; font-weight: 600; }
+.tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .dialwrap { display: grid; justify-items: center; gap: 6px; }
-.dial { width: min(100%, 200px); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; aspect-ratio: 1; max-width: 100%; }
+.dial { width: min(100%, 200px); aspect-ratio: 1; max-width: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.dial.dragging { cursor: grabbing; }
+.dial:focus-visible { outline: 2px solid var(--flap); outline-offset: 4px; border-radius: 50%; }
 .dial .face { fill: var(--face); }
 .dial .rim { fill: none; stroke: var(--line); stroke-width: 2; }
 .dial .tick { stroke: var(--face-ink); stroke-width: 1; }
 .dial .tick.major { stroke-width: 2.5; }
 .dial .num { fill: var(--face-ink); font: 600 13px var(--f-mono); text-anchor: middle; dominant-baseline: central; }
-.dial .wedge { fill: var(--disk); }
-.dial .wedge.brk { fill: var(--ok); }
-.dial .wedge.idle { fill: var(--disk); opacity: .35; }
-.dial.dragging { cursor: grabbing; }
-.dial:focus-visible { outline: 2px solid var(--flap); outline-offset: 4px; border-radius: 50%; }
+.dial .wedge { fill: var(--t-focus); }
+.dial .wedge.brk { fill: var(--t-brk); }
+.dial .wedge.idle { opacity: .35; }
 .dial .knob { fill: var(--face-ink); }
+.dial .track { fill: none; stroke: var(--line); stroke-width: 6; }
+.dial .ring { fill: none; stroke: var(--t-focus); stroke-width: 6; stroke-linecap: round; }
+.dial .ring.brk { stroke: var(--t-brk); }
+.dial .mintext { fill: var(--ink); font: 800 44px var(--f-display); text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; }
+.timer .classic-only, .timer .minimal-only { display: none; }
+.timer:not(.minimal) .classic-only, .timer.minimal .minimal-only { display: inline; }
+.timer.minimal .big { display: none; }
 .timer .big { font: 800 40px/1 var(--f-display); font-variant-numeric: tabular-nums; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
-.chip:hover { border-color: var(--ink); }
-.chip.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.tctl { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.tctl .go { background: var(--ink); color: var(--panel); border: 0; border-radius: 8px; padding: 10px 26px; font: 600 15px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; min-width: 140px; }
+.tctl .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.tset { display: grid; gap: 10px; font-size: 13px; padding-top: 8px; }
+.tset .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.tset label { display: inline-flex; gap: 6px; align-items: center; }
+.tset input[type=number] { width: 58px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 13px var(--f-mono); }
+.tset input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: transparent; }
+.timer.fs { position: fixed; inset: 0; z-index: 50; border-radius: 0; border: 0; align-content: center; justify-items: center; padding: calc(24px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); overflow: auto; }
+.timer.fs > * { width: min(100%, 560px); }
+.timer.fs .dial { width: min(78vmin, 520px); }
+.timer.fs .big { font-size: clamp(48px, 10vmin, 96px); }
+.timer.fs .tset-wrap, .timer.fs .note { display: none; }
+
+.xptoast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--board); color: var(--flap); padding: 10px 16px; border-radius: 999px; font: 600 14px var(--f-mono); z-index: 60; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+
+/* Jump to (top bar) */
+.jump { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.jump .label { flex: none; }
+.jump .links { display: flex; gap: 8px; flex-wrap: nowrap; }
+.jump .links a { flex: none; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--ink); font-weight: 500; font-size: 14px; background: var(--panel); white-space: nowrap; }
+.jump .links a:hover { border-color: var(--ink); }
+.jump .links a span { display: none; }
 
 /* Chat */
 .chat-log { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
@@ -196,6 +226,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .connect { background: var(--flap); color: #10141c; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
 </style>
 <script src="config.js"></script>
+<script src="xp.js"></script>
 </body>
 </html>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -226,6 +257,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
     </div>
   </header>
+  <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
   <div class="grid">
     <div class="col">
@@ -259,25 +291,57 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     </div>
 
     <div class="col">
-      <section class="panel timer" aria-labelledby="tH">
+      <section class="panel timer" id="timerPanel" aria-labelledby="tH">
         <div class="panel-h"><h2 id="tH">Focus timer</h2><span class="label" id="tMode">Ready</span></div>
+        <div class="tabs" role="group" aria-label="Timer mode">
+          <button type="button" data-mode="focus" aria-pressed="true">Pomodoro</button>
+          <button type="button" data-mode="short" aria-pressed="false">Short break</button>
+          <button type="button" data-mode="long" aria-pressed="false">Long break</button>
+        </div>
         <div class="dialwrap">
-          <svg class="dial" id="tDial" viewBox="0 0 200 200" role="slider" tabindex="0" aria-valuemin="1" aria-valuemax="60" aria-valuenow="25" aria-label="Drag the red disk to set minutes">
-            <circle class="face" cx="100" cy="100" r="96"></circle>
-            <circle class="rim" cx="100" cy="100" r="96"></circle>
-            <path class="wedge idle" id="tWedge" d=""></path>
-            <g id="tTicks"></g>
-            <circle class="knob" cx="100" cy="100" r="7"></circle>
+          <svg class="dial" id="tDial" viewBox="0 0 200 200" role="slider" tabindex="0" aria-valuemin="1" aria-valuemax="60" aria-valuenow="25" aria-label="Drag to set minutes">
+            <g class="classic-only">
+              <circle class="face" cx="100" cy="100" r="96"></circle>
+              <circle class="rim" cx="100" cy="100" r="96"></circle>
+              <path class="wedge idle" id="tWedge" d=""></path>
+              <g id="tTicks"></g>
+              <circle class="knob" cx="100" cy="100" r="7"></circle>
+            </g>
+            <g class="minimal-only">
+              <circle class="track" cx="100" cy="100" r="88"></circle>
+              <circle class="ring" id="tRing" cx="100" cy="100" r="88" transform="matrix(0 -1 -1 0 200 200)"></circle>
+              <text class="mintext" id="tMinText" x="100" y="100">25:00</text>
+            </g>
           </svg>
           <div class="big" id="tBig">25:00</div>
         </div>
-        <div class="note" id="tNote">Drag the red disk to set the time. It starts when you let go. Break is 15% of focus time.</div>
-        <div class="chips">
-          <button class="chip primary" data-min="25" type="button">Start 25</button>
-          <button class="chip" data-min="45" type="button">45</button>
-          <button class="chip" data-min="10" type="button">10 (just start)</button>
-          <button class="chip" id="tStop" type="button">Stop</button>
+        <div class="tctl">
+          <button class="go" id="tGo" type="button">Start</button>
+          <button class="ghost" id="tReset" type="button">Reset</button>
+          <button class="ghost" id="tSkip" type="button">Skip</button>
+          <button class="ghost" id="tFull" type="button">Fullscreen</button>
         </div>
+        <div class="note" id="tNote">Drag the dial to set the time. Pomodoro #1.</div>
+        <details class="tset-wrap">
+          <summary>Timer settings</summary>
+          <div class="tset">
+            <div class="row">
+              <label>Pomodoro <input id="sFocus" type="number" min="1" max="60"> min</label>
+              <label>Short <input id="sShort" type="number" min="1" max="60"> min</label>
+              <label>Long <input id="sLong" type="number" min="1" max="60"> min</label>
+            </div>
+            <div class="row">
+              <label>Long break every <input id="sEvery" type="number" min="2" max="8"> pomodoros</label>
+              <label><input id="sAuto" type="checkbox"> Start breaks automatically</label>
+            </div>
+            <div class="row">
+              <label><input id="sMinimal" type="checkbox"> Minimal (ring only)</label>
+              <label>Focus colour <input id="sColF" type="color"></label>
+              <label>Break colour <input id="sColB" type="color"></label>
+              <button class="ghost" id="sColReset" type="button" style="border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);padding:3px 8px">Default colours</button>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section class="panel" aria-labelledby="rH">
@@ -303,10 +367,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         <div id="askNote" class="note" hidden></div>
       </section>
 
-      <section class="panel" aria-labelledby="lH">
-        <div class="panel-h"><h2 id="lH">Jump to</h2></div>
-        <nav class="links" id="links"></nav>
-      </section>
     </div>
   </div>
 </div>
@@ -517,6 +577,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         if (resp.error) { $("gateMsg").textContent = "Sign-in didn't finish. Try again."; return; }
         auth = { token: resp.access_token, exp: Date.now() + (Number(resp.expires_in) || 3600) * 1000 };
         try { localStorage.setItem(AKEY, JSON.stringify(auth)); } catch {}
+        const ret = new URLSearchParams(location.search).get("return");
+        if (ret && /^[\w-]+\.html$/.test(ret)) { location.href = ret; return; }
         start();
       },
     });
@@ -551,15 +613,50 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   }
 
   // ---------- timer ----------
-  const TKEY = "nextup.timer";
-  let timer = null;
+  // Pomodoro / short break / long break, Time Timer dial or minimal ring. Settings and the running
+  // timer are kept in this browser only.
+  const TKEY = "nextup.timer2", SKEY = "nextup.timerSettings";
+  const DEF = { focus: 25, short: 5, long: 15, every: 4, auto: true, minimal: false, colF: "", colB: "" };
+  let set = { ...DEF };
+  try { set = { ...DEF, ...JSON.parse(localStorage.getItem(SKEY) || "{}") }; } catch {}
+  let timer = null; // {mode, dur, left, end, running, label, done}
   try { timer = JSON.parse(localStorage.getItem(TKEY) || "null"); } catch {}
-  function saveTimer() { try { timer ? localStorage.setItem(TKEY, JSON.stringify(timer)) : localStorage.removeItem(TKEY); } catch {} }
+  const LABEL = { focus: "Pomodoro", short: "Short break", long: "Long break" };
+  const save = () => { try { localStorage.setItem(TKEY, JSON.stringify(timer)); localStorage.setItem(SKEY, JSON.stringify(set)); } catch {} };
+  const minsFor = (mode) => Math.max(1, Math.min(60, Number(set[mode]) || DEF[mode]));
+  function fresh(mode, done) { return { mode, dur: minsFor(mode) * 6e4, left: minsFor(mode) * 6e4, end: 0, running: false, label: "", done: done || 0 }; }
+  if (!timer || !timer.mode) timer = fresh("focus", 0);
+  const leftNow = () => timer.running ? timer.end - Date.now() : timer.left;
+  function setMode(mode) { timer = fresh(mode, timer.done); save(); renderTimer(); }
+  function play() { if (timer.running) return; timer.end = Date.now() + timer.left; timer.running = true; save(); renderTimer(); }
+  function pause() { if (!timer.running) return; timer.left = Math.max(0, timer.end - Date.now()); timer.running = false; save(); renderTimer(); }
   function startTimer(min, label) {
-    min = Math.max(1, Math.min(180, Math.round(Number(min) || 25)));
-    timer = { phase: "focus", end: Date.now() + min * 6e4, min, brk: Math.max(1, Math.round(min * 0.15)), label: label || "" };
-    saveTimer(); renderTimer();
-    return { started: true, minutes: min, break_minutes: timer.brk };
+    min = Math.max(1, Math.min(60, Math.round(Number(min) || set.focus)));
+    timer = { ...fresh("focus", timer.done), dur: min * 6e4, left: min * 6e4, label: label || "" };
+    play();
+    return { started: true, minutes: min, break_minutes: minsFor("short") };
+  }
+  function finish(skipped) {
+    try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch {}
+    if (!skipped) logXp(timer.mode === "focus" ? "timer" : "break");
+    if (timer.mode === "focus") {
+      const done = timer.done + 1;
+      timer = fresh(done % (Number(set.every) || 4) === 0 ? "long" : "short", done);
+      if (set.auto) play();
+    } else timer = fresh("focus", timer.done);
+    save();
+  }
+  // Finished pomodoros and breaks earn XP in Quest Log automatically (quest ids "timer" and "break").
+  function logXp(id) {
+    let q = null; try { q = (JSON.parse(localStorage.getItem("xp.quests") || "[]") || []).find((x) => x.id === id); } catch {}
+    const base = q ? q.xp : (id === "timer" ? 15 : 5);
+    const name = q ? q.name : (id === "timer" ? "Finished a timer session" : "Took the break (reverse pomodoro)");
+    XP.queue({ t: Date.now(), q: id, name, base, mult: 1, xp: base, kind: "auto" }, 4);
+    XP.flush().catch(() => {});
+    xpToast(`+${base} XP · ${name}`);
+  }
+  function xpToast(msg) {
+    const t = el("div", "xptoast", msg); document.body.append(t); setTimeout(() => t.remove(), 3000);
   }
   (function drawTicks() {
     const g = $("tTicks"); const NS = "http://www.w3.org/2000/svg";
@@ -577,7 +674,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       }
     }
   })();
-  // Red disk covers the minutes left, measured counterclockwise from 0 at the top, like a Time Timer.
+  // Red disk covers the minutes left, counterclockwise from 0 at the top, like a Time Timer.
   function setWedge(minLeft, cls) {
     const w = $("tWedge"); const m = Math.max(0, Math.min(60, minLeft)); const R = 88;
     w.setAttribute("class", "wedge " + (cls || ""));
@@ -587,23 +684,44 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     const x = 100 - R * Math.sin(a), y = 100 - R * Math.cos(a);
     w.setAttribute("d", `M100 100 L100 ${100 - R} A${R} ${R} 0 ${m > 30 ? 1 : 0} 0 ${x.toFixed(2)} ${y.toFixed(2)} Z`);
   }
+  // Minimal ring: full circle = the whole session, shrinking as time runs out.
+  function setRing(frac, cls) {
+    const c = 2 * Math.PI * 88, r = $("tRing");
+    r.setAttribute("class", "ring " + (cls || ""));
+    r.setAttribute("stroke-dasharray", `${(Math.max(0, Math.min(1, frac)) * c).toFixed(2)} ${c.toFixed(2)}`);
+  }
+  const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; };
   function renderTimer() {
     if (drag) return;
-    if (!timer) { setWedge(25, "idle"); $("tMode").textContent = "Ready"; $("tBig").textContent = "25:00"; $("tNote").textContent = "Drag the red disk to set the time. It starts when you let go. Break is 15% of focus time."; return; }
-    let left = timer.end - Date.now();
-    if (left <= 0) {
-      try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch {}
-      if (timer.phase === "focus") { timer = { ...timer, phase: "break", end: Date.now() + timer.brk * 6e4 }; saveTimer(); left = timer.end - Date.now(); }
-      else { timer = null; saveTimer(); setWedge(0); $("tMode").textContent = "Done"; $("tBig").textContent = "00:00"; $("tNote").textContent = "Cycle finished. Log it in Quest Log and start the next one."; return; }
-    }
-    setWedge(left / 6e4, timer.phase === "break" ? "brk" : "");
+    let left = leftNow();
+    if (timer.running && left <= 0) { finish(); left = leftNow(); }
+    const brk = timer.mode !== "focus";
+    const panel = $("timerPanel");
+    panel.classList.toggle("minimal", !!set.minimal);
+    panel.style.setProperty("--t-focus", set.colF || "var(--disk)");
+    panel.style.setProperty("--t-brk", set.colB || "var(--ok)");
+    document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === timer.mode)));
+    setWedge(left / 6e4, (brk ? "brk" : "") + (timer.running ? "" : " idle"));
+    setRing(left / timer.dur, brk ? "brk" : "");
+    $("tBig").textContent = mmss(left); $("tMinText").textContent = mmss(left);
     $("tDial").setAttribute("aria-valuenow", String(Math.ceil(left / 6e4)));
-    const s = Math.ceil(left / 1000);
-    $("tBig").textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
-    $("tMode").textContent = timer.phase === "focus" ? "Focus" : "Break";
-    $("tNote").textContent = timer.phase === "focus" ? `${timer.label ? timer.label + " · " : ""}then a ${timer.brk}-min break` : "Break. Stand up, water, back soon.";
+    $("tGo").textContent = timer.running ? "Pause" : (left < timer.dur ? "Resume" : "Start");
+    $("tMode").textContent = timer.running ? LABEL[timer.mode] : (left < timer.dur ? "Paused" : "Ready");
+    const n = timer.done + (timer.mode === "focus" ? 1 : 0);
+    $("tNote").textContent = timer.mode === "focus"
+      ? `${timer.label ? timer.label + " · " : ""}Pomodoro #${n}. Drag the dial to set the time.`
+      : `${LABEL[timer.mode]}. Stand up, water, back soon.`;
+    if (document.title !== undefined) {
+      const base = document.title.replace(/^\d\d:\d\d · /, "");
+      document.title = timer.running ? `${mmss(left)} · ${base}` : base;
+    }
   }
-  // Drag the disk like a real Time Timer: angle counterclockwise from 0 at the top = minutes.
+  $("tGo").onclick = () => (timer.running ? pause() : play());
+  $("tReset").onclick = () => setMode(timer.mode);
+  $("tSkip").onclick = () => { timer.running = false; timer.left = 0; finish(true); renderTimer(); };
+  document.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => setMode(b.dataset.mode));
+
+  // Drag the dial: angle counterclockwise from the top = minutes. Letting go starts the timer.
   let drag = null;
   function minutesAt(ev) {
     const svg = $("tDial"), r = svg.getBoundingClientRect();
@@ -614,25 +732,57 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     return Math.max(1, Math.min(60, m));
   }
   function showPick(m) {
-    setWedge(m, "");
-    $("tBig").textContent = `${pad(m)}:00`;
+    const brk = timer.mode !== "focus";
+    setWedge(m, brk ? "brk" : ""); setRing(1, brk ? "brk" : "");
+    $("tBig").textContent = `${pad(m)}:00`; $("tMinText").textContent = `${pad(m)}:00`;
     $("tMode").textContent = "Set";
-    $("tNote").textContent = `Let go to start ${m} min, then a ${Math.max(1, Math.round(m * 0.15))}-min break.`;
-    $("tDial").setAttribute("aria-valuenow", String(m));
+    $("tNote").textContent = `Let go to start ${m} min.`;
   }
   const dial = $("tDial");
   dial.addEventListener("pointerdown", (ev) => { ev.preventDefault(); drag = { m: 25 }; drag.m = minutesAt(ev); dial.setPointerCapture(ev.pointerId); dial.classList.add("dragging"); showPick(drag.m); });
   dial.addEventListener("pointermove", (ev) => { if (!drag) return; drag.m = minutesAt(ev); showPick(drag.m); });
-  const endDrag = (ev) => { if (!drag) return; const m = drag.m; drag = null; dial.classList.remove("dragging"); startTimer(m); };
-  dial.addEventListener("pointerup", endDrag);
+  dial.addEventListener("pointerup", () => {
+    if (!drag) return; const m = drag.m; drag = null; dial.classList.remove("dragging");
+    timer = { ...fresh(timer.mode, timer.done), dur: m * 6e4, left: m * 6e4, label: timer.label }; play();
+  });
   dial.addEventListener("pointercancel", () => { drag = null; dial.classList.remove("dragging"); renderTimer(); });
   dial.addEventListener("keydown", (ev) => {
-    const cur = timer ? Math.ceil((timer.end - Date.now()) / 6e4) : 25;
     const step = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[ev.key];
-    if (step) { ev.preventDefault(); startTimer(Math.max(1, Math.min(60, cur + step))); }
+    if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); $("tGo").click(); return; }
+    if (!step) return; ev.preventDefault();
+    const m = Math.max(1, Math.min(60, Math.ceil(leftNow() / 6e4) + step));
+    const was = timer.running; timer = { ...timer, dur: Math.max(timer.dur, m * 6e4), left: m * 6e4, end: Date.now() + m * 6e4 };
+    timer.running = was; save(); renderTimer();
   });
-  document.querySelectorAll("[data-min]").forEach((b) => b.onclick = () => startTimer(b.dataset.min));
-  $("tStop").onclick = () => { timer = null; saveTimer(); renderTimer(); };
+
+  // Fullscreen: real fullscreen where allowed, otherwise the panel fills the window.
+  function setFull(on) {
+    $("timerPanel").classList.toggle("fs", on);
+    $("tFull").textContent = on ? "Exit fullscreen" : "Fullscreen";
+    document.body.style.overflow = on ? "hidden" : "";
+  }
+  $("tFull").onclick = () => {
+    const on = !$("timerPanel").classList.contains("fs");
+    setFull(on);
+    try {
+      if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    } catch {}
+  };
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && $("timerPanel").classList.contains("fs")) setFull(false); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && $("timerPanel").classList.contains("fs")) setFull(false); });
+
+  // Settings
+  const bindNum = (id, key) => { const e = $(id); e.value = set[key]; e.onchange = () => { set[key] = Math.max(Number(e.min) || 1, Math.min(Number(e.max) || 60, Math.round(Number(e.value) || DEF[key]))); e.value = set[key]; if (!timer.running && timer.left === timer.dur && key === timer.mode) timer = fresh(key, timer.done); save(); renderTimer(); }; };
+  bindNum("sFocus", "focus"); bindNum("sShort", "short"); bindNum("sLong", "long"); bindNum("sEvery", "every");
+  $("sAuto").checked = !!set.auto; $("sAuto").onchange = () => { set.auto = $("sAuto").checked; save(); };
+  $("sMinimal").checked = !!set.minimal; $("sMinimal").onchange = () => { set.minimal = $("sMinimal").checked; save(); renderTimer(); };
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function syncColors() { $("sColF").value = set.colF || cssVar("--disk") || "#e3343b"; $("sColB").value = set.colB || cssVar("--ok") || "#3d9a6c"; }
+  syncColors();
+  $("sColF").oninput = () => { set.colF = $("sColF").value; save(); renderTimer(); };
+  $("sColB").oninput = () => { set.colB = $("sColB").value; save(); renderTimer(); };
+  $("sColReset").onclick = () => { set.colF = ""; set.colB = ""; save(); syncColors(); renderTimer(); };
 
   // ---------- Claude chat ----------
   const turns = [];
@@ -645,7 +795,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     const ts = allTasks().slice(0, 20).map(({ t, due }) =>
       `- [${t.id}] ${t.title} | list: ${projName(pid(t))} | personal deadline ${dayFmt(due)} ${timeFmt(due)} (${fmtLeft(due - now)} from now)${realDeadline(t) ? ` | real deadline ${realDeadline(t)}` : ""} | priority ${t.priority || 0}${t.content ? ` | note: ${t.content.slice(0, 240).replace(/\n/g, " ")}` : ""}`
     ).join("\n") || "(none loaded)";
-    return `Current time: ${now.toString()}\n\nCalendar, rest of today:\n${evs}\n\nOpen TickTick tasks (overdue and next 7 days), soonest first:\n${ts}\n\nHours this week (Time Tracker): ${hoursSummary()}\n\nFocus timer: ${timer ? `${timer.phase}, ${fmtLeft(timer.end - Date.now(), true)} left` : "not running"}`;
+    return `Current time: ${now.toString()}\n\nCalendar, rest of today:\n${evs}\n\nOpen TickTick tasks (overdue and next 7 days), soonest first:\n${ts}\n\nHours this week (Time Tracker): ${hoursSummary()}\n\nFocus timer: ${timer.running ? `${LABEL[timer.mode]}, ${mmss(leftNow())} left` : "not running"}`;
   }
   // Personal details (name, routine, planning rules) come from the server's PROFILE secret, never this public file.
   let PROFILE = {};
@@ -670,7 +820,7 @@ You can call tools: complete_task to mark a task done (only when the user clearl
         if (!t) throw new Error("No open task with that id.");
         await completeTask(t.t); addMsg("sys", `Marked done: ${t.t.title}`); return { ok: true, title: t.t.title };
       } },
-    { name: "start_timer", description: "Start the dashboard's focus timer. Input: minutes (1-180) and an optional short label. The break after it is 15% of the focus time. Returns the minutes started.",
+    { name: "start_timer", description: "Start a pomodoro on the dashboard's focus timer. Input: minutes (1-60) and an optional short label. A short or long break follows. Returns the minutes started.",
       input_schema: { type: "object", properties: { minutes: { type: "number" }, label: { type: "string" } }, required: ["minutes"] },
       execute(input) { const r = startTimer(input.minutes, input.label ? String(input.label) : ""); addMsg("sys", `Timer started: ${r.minutes} min`); return r; } },
   ];
@@ -866,11 +1016,13 @@ You can call tools: complete_task to mark a task done (only when the user clearl
     const base = [
       { name: "TickTick", note: "main task list", url: "https://ticktick.com/webapp/" },
       { name: "Calendar", note: "today's blocks", url: "https://calendar.google.com/calendar/r/day" },
+      { name: "Quest Log", note: "XP and streaks", url: "quest.html", local: true },
     ];
     if (SHEET) base.push({ name: "Time Tracker", note: "plan vs actual", url: `https://docs.google.com/spreadsheets/d/${SHEET}` });
     for (const l of [...base, ...(links || [])]) {
-      if (!/^https:\/\//.test(String(l.url || ""))) continue;
-      const a = el("a"); a.href = l.url; a.target = "_blank"; a.rel = "noopener";
+      if (!l.local && !/^https:\/\//.test(String(l.url || ""))) continue;
+      if (!l.local && /quest log/i.test(l.name || "")) continue;
+      const a = el("a"); a.href = l.url; if (!l.local) { a.target = "_blank"; a.rel = "noopener"; }
       a.append(document.createTextNode(l.name || "Link"), el("span", null, l.note || ""));
       nav.append(a);
     }
@@ -882,7 +1034,7 @@ You can call tools: complete_task to mark a task done (only when the user clearl
     renderAll(); renderTimer();
     try {
       const cfg = await api.config();
-      SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
+      SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
       renderLinks(cfg.links);
     } catch (e) {
       if (e.status === 401) return;
