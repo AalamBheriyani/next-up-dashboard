@@ -19,7 +19,7 @@ Your email, sheet id, routine and private links live in Worker secrets, not in t
 
 ### 1. GitHub Pages
 Repo **Settings → Pages → Build and deployment**: Source *Deploy from a branch*, branch `main`,
-folder `/docs`. The site appears at `https://<github-user>.github.io/<repo>/`.
+folder `/docs`. The site appears at https://aalambheriyani.github.io/next-up-dashboard/.
 
 ### 2. Google sign-in (Google Cloud Console)
 1. Create a project at https://console.cloud.google.com/.
@@ -27,12 +27,12 @@ folder `/docs`. The site appears at `https://<github-user>.github.io/<repo>/`.
 3. **OAuth consent screen**: External, app name "Next Up", add yourself as a **test user**.
    Leave it in *Testing*; only test users can sign in.
 4. **Credentials → Create credentials → OAuth client ID → Web application**.
-   Authorized JavaScript origin: `https://<github-user>.github.io` (no path).
+   Authorized JavaScript origin: `https://aalambheriyani.github.io` (no path).
 5. Copy the client ID.
 
 ### 3. TickTick app
 1. Go to https://developer.ticktick.com/manage and create an app.
-2. Redirect URL: `https://next-up.<your-subdomain>.workers.dev/ticktick/callback`.
+2. Redirect URL: `https://next-up-dashboard.<your-subdomain>.workers.dev/ticktick/callback`.
 3. Copy the client ID and client secret.
 
 ### 4. Claude API key
@@ -45,7 +45,7 @@ cd worker
 npm install
 npx wrangler login
 npx wrangler kv namespace create NEXTUP_KV     # paste the id into wrangler.toml
-# edit wrangler.toml: SITE_URL, WORKER_URL, GOOGLE_CLIENT_ID
+# edit wrangler.toml: WORKER_URL (your workers.dev subdomain), GOOGLE_CLIENT_ID
 npx wrangler secret put ALLOWED_EMAIL          # the Google account allowed to sign in
 npx wrangler secret put SHEET_ID               # Weekly Time Tracker spreadsheet id
 npx wrangler secret put TICKTICK_CLIENT_ID
@@ -71,3 +71,7 @@ Open the site, **Sign in with Google**, then press **Connect TickTick** on the t
 | Hours this week, Rate your blocks | Weekly Time Tracker sheet | browser → Google Sheets |
 | Ask Claude | Claude API (`claude-opus-5-5`) | browser → Worker → Claude API |
 | Focus timer | none (stored in the browser) | browser only |
+
+## License
+
+MIT, see [LICENSE](LICENSE).

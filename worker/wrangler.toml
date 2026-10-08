@@ -1,4 +1,4 @@
-name = "next-up"
+name = "next-up-dashboard"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
@@ -10,6 +10,6 @@ id = "REPLACE_WITH_KV_ID"
 
 [vars]
 # Public values. Private ones (email, sheet id, API keys) are set with `wrangler secret put`.
-SITE_URL = "https://REPLACE.github.io/next-up/"
-WORKER_URL = "https://next-up.REPLACE.workers.dev"
+SITE_URL = "https://aalambheriyani.github.io/next-up-dashboard/"
+WORKER_URL = "https://next-up-dashboard.REPLACE.workers.dev"
 GOOGLE_CLIENT_ID = "REPLACE.apps.googleusercontent.com"

@@ -2,5 +2,5 @@
 // Fill these in after the setup steps in README.md.
 window.NEXTUP_CONFIG = {
   googleClientId: "", // e.g. 1234-abc.apps.googleusercontent.com
-  workerUrl: "",      // e.g. https://next-up.<your-subdomain>.workers.dev
+  workerUrl: "",      // e.g. https://next-up-dashboard.<your-subdomain>.workers.dev
 };
