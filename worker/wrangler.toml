@@ -1,0 +1,15 @@
+name = "next-up"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Create with: npx wrangler kv namespace create NEXTUP_KV  (then paste the id here)
+[[kv_namespaces]]
+binding = "NEXTUP_KV"
+id = "REPLACE_WITH_KV_ID"
+
+[vars]
+# Public values. Private ones (email, sheet id, API keys) are set with `wrangler secret put`.
+SITE_URL = "https://REPLACE.github.io/next-up/"
+WORKER_URL = "https://next-up.REPLACE.workers.dev"
+GOOGLE_CLIENT_ID = "REPLACE.apps.googleusercontent.com"

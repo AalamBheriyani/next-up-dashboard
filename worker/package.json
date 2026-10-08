@@ -1,0 +1,8 @@
+{
+  "name": "next-up-worker",
+  "private": true,
+  "type": "module",
+  "scripts": { "deploy": "wrangler deploy", "dev": "wrangler dev" },
+  "dependencies": { "@anthropic-ai/sdk": "^0.132.1" },
+  "devDependencies": { "wrangler": "^4.0.0" }
+}
