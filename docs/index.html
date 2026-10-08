@@ -341,6 +341,15 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tabrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
 .tabrow .tabsbar { flex: none; }
 
+/* Clock and date sit compactly at the start of the tabs row, the settings gear at its end, so the
+   calendar gets the whole header. */
+header.top { grid-template-columns: minmax(0, 1fr); }
+.tabrow .headline-left { display: flex; align-items: baseline; gap: 10px; }
+.tabrow .headline-left .label { display: none; }
+.tabrow .clock { font-size: 34px; }
+.tabrow .gear { margin-left: auto; }
+.tabrow .gear .who { left: auto; right: 0; }
+
 /* One accent, used sparingly: the big countdown and the "now" lines. Everything else is white and
    blue; urgency shows as a small dot instead of coloured text. */
 .banner.late .cd { color: var(--flap); }
@@ -379,14 +388,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="headline-left">
-      <div class="label" id="placeLbl">Next up</div>
-      <div class="clock num" id="clock">--:--</div>
-      <div class="date" id="date"></div>
-      <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
-        <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
-        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div></details>
-    </div>
     <section class="panel headcal" aria-labelledby="nowH">
       <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
       <div class="cal-split">
@@ -396,6 +397,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     </section>
   </header>
   <div class="tabrow">
+    <div class="headline-left">
+      <div class="label" id="placeLbl">Next up</div>
+      <div class="clock num" id="clock">--:--</div>
+      <div class="date" id="date"></div>
+    </div>
     <nav class="tabsbar" aria-label="Pages">
     <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a>
     </nav>
@@ -404,6 +410,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
       <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
     </div>
+    <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
+      <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
+      <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div></details>
   </div>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
