@@ -131,7 +131,7 @@ export default {
             if (due >= from && due < to) tasks.push(t);
           }
         }
-        return json({ projects: projects.map((p) => ({ id: p.id, name: p.name })), tasks });
+        return json({ projects: projects.map((p) => ({ id: p.id, name: p.name, color: p.color || "" })), tasks });
       }
 
       if (url.pathname === "/ticktick/complete" && req.method === "POST") {
