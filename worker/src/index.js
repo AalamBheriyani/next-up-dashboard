@@ -74,6 +74,7 @@ export default {
           sheetId: mine.sheetId || (who.owner ? env.SHEET_ID || "" : ""),
           questSheetId: mine.questSheetId || (who.owner ? env.QUEST_SHEET_ID || "" : ""),
           links, profile,
+          theme: mine.theme || null,
           claudeApi: !!env.ANTHROPIC_API_KEY,
           relay: who.owner && !!env.RELAY_TOKEN,
           ticktick: !!(await store(env).get(ttKey(who.email))),
@@ -88,6 +89,12 @@ export default {
           const v = String(body[k] || "").trim();
           if (v && !/^[\w-]{20,100}$/.test(v)) return fail(400, "That doesn't look like a Google Sheet id");
           mine[k] = v;
+        }
+        // Each person's dashboard theme: accent colour and whether deadlines are red.
+        if (body.theme && typeof body.theme === "object") {
+          const a = String(body.theme.accent || "");
+          if (a && !/^#[0-9a-f]{6}$/i.test(a)) return fail(400, "bad colour");
+          mine.theme = { accent: a, redDeadlines: body.theme.redDeadlines !== false };
         }
         await store(env).put("user:" + who.email, mine);
         return json({ ok: true });

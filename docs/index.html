@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Next Up</title>
-<script>try { const a = localStorage.getItem("nu.accent"); if (/^#[0-9a-f]{6}$/i.test(a || "")) document.documentElement.style.setProperty("--flap", a); } catch {}</script>
+<script>try { const t = JSON.parse(localStorage.getItem("nu.theme.last") || "null"); if (t) { if (/^#[0-9a-f]{6}$/i.test(t.accent || "")) document.documentElement.style.setProperty("--accent", t.accent); if (t.redDeadlines === false) document.documentElement.dataset.redDl = "0"; } } catch {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
@@ -27,10 +27,11 @@
 /* One theme: black, with white text, blue labels and links, red for urgency. The accent is
    picked with the colour picker in the header (saved per device). */
 :root {
-  --bg: #000000; --panel: #0b0b0d; --ink: #ffffff; --muted: #7fa7ff; --line: #1c1f26;
-  --board: #000000; --board-ink: #ffffff; --board-muted: #7fa7ff; --board-line: #1c1f26;
-  --flap: #ff3b3b; --link: #4d8dff; --face: #ffffff; --face-ink: #000000;
-  --late: #ff3b3b; --final: #ff6a3d; --boarding: #4d8dff; --ok: #3ddc84; color-scheme: dark;
+  --accent: #4d8dff; --dl: #ff3b3b;
+  --bg: #000000; --panel: #0b0b0d; --ink: #ffffff; --muted: color-mix(in srgb, var(--accent) 65%, #ffffff); --line: #1c1f26;
+  --board: #000000; --board-ink: #ffffff; --board-muted: color-mix(in srgb, var(--accent) 65%, #ffffff); --board-line: #1c1f26;
+  --flap: var(--dl); --link: var(--accent); --face: #ffffff; --face-ink: #000000;
+  --late: var(--dl); --final: #ff6a3d; --boarding: #4d8dff; --ok: #3ddc84; color-scheme: dark;
 }
 /* Fewer borders: surfaces separate by tint instead of outlines. */
 :root { --chip: color-mix(in srgb, var(--ink) 6%, transparent); --chip-hi: color-mix(in srgb, var(--ink) 12%, transparent); }
@@ -381,6 +382,10 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 #rcOut { display: grid; gap: 6px; }
 .rcpick { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
 .rcpick b { min-width: 90px; }
+
+/* Deadline colour: red by default; with "Red deadlines" off they use the accent. */
+:root[data-red-dl="0"] { --dl: var(--accent); }
+.gear .who .tog { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -407,7 +412,7 @@ header.top { grid-template-columns: minmax(0, 1fr); }
         <span class="stale" id="calStamp"></span>
         <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
         <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
-        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div></details>
+        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button><label class="tog"><input type="checkbox" id="redDl" checked> Red deadlines</label></div></details>
       </div>
       <div class="cal-split">
         <div class="cal-left">
@@ -573,14 +578,25 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 })();
 </script>
 <script>
-// Accent colour picker: saved per device; everything else stays black, white, blue and red.
-(() => {
-  const sel = document.getElementById("accentSel"), root = document.documentElement, DEF = "#ff3b3b";
-  const apply = (c) => root.style.setProperty("--flap", c);
-  let c = DEF; try { c = localStorage.getItem("nu.accent") || DEF; } catch {}
-  sel.value = c; apply(c);
-  sel.oninput = () => { apply(sel.value); try { localStorage.setItem("nu.accent", sel.value); } catch {} };
-  document.getElementById("accentReset").onclick = () => { sel.value = DEF; apply(DEF); try { localStorage.removeItem("nu.accent"); } catch {} };
+// Theme: accent colour (labels, links, highlights) and red deadlines on or off. Saved to your account
+// on the server, so it follows you to every device; the last one used here paints first.
+window.NU_THEME = (() => {
+  const root = document.documentElement, DEF = { accent: "#4d8dff", redDeadlines: true };
+  const sel = document.getElementById("accentSel"), red = document.getElementById("redDl");
+  let cur = { ...DEF }, save = null;
+  const apply = (t) => {
+    cur = { ...DEF, ...(t || {}) };
+    root.style.setProperty("--accent", cur.accent);
+    if (cur.redDeadlines) delete root.dataset.redDl; else root.dataset.redDl = "0";
+    sel.value = cur.accent; red.checked = cur.redDeadlines;
+    try { localStorage.setItem("nu.theme.last", JSON.stringify(cur)); } catch {}
+  };
+  let timer = null;
+  const changed = () => { apply({ accent: sel.value, redDeadlines: red.checked }); clearTimeout(timer); timer = setTimeout(() => save && save(cur), 600); };
+  sel.oninput = changed; red.onchange = changed;
+  document.getElementById("accentReset").onclick = () => { sel.value = DEF.accent; red.checked = true; changed(); };
+  try { apply(JSON.parse(localStorage.getItem("nu.theme.last") || "null")); } catch { apply(null); }
+  return { apply, onSave: (fn) => { save = fn; } };
 })();
 (() => {
   const TT = "TickTick", GC = "Google Calendar", GS = "Google Sheets";
@@ -1741,6 +1757,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
       const cfg = await api.config();
       // A different account on this browser: drop the previous person's cached sheet id and XP queue.
       try { if (localStorage.getItem("nextup.who") !== cfg.email) { localStorage.removeItem("xp.outbox"); localStorage.removeItem("nextup.cfg"); localStorage.setItem("nextup.who", cfg.email || ""); } } catch {}
+      NU_THEME.apply(cfg.theme); NU_THEME.onSave((t) => api.saveSettings({ theme: t }).catch(() => {}));
       SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(cfg); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
       renderLinks(cfg.links);
     } catch (e) {
