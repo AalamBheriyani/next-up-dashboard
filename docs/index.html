@@ -49,10 +49,11 @@ a { color: var(--link); }
 .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 
 /* Header */
-header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+header.top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 12px 24px; }
+@media (max-width: 800px) { header.top { grid-template-columns: minmax(0, 1fr); } }
 .clock { font: 800 clamp(44px, 9vw, 72px)/.9 var(--f-display); letter-spacing: .01em; }
 .date { color: var(--muted); }
-.dayleft { flex: 1 1 320px; max-width: 520px; display: grid; gap: 6px; }
+.dayleft { flex: 1 1 320px; display: grid; gap: 6px; }
 .dayleft .row { display: flex; justify-content: space-between; gap: 12px; }
 .daybar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
 .daybar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); border-radius: 5px; }
@@ -328,6 +329,12 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .uprow .meta { font-size: 12px; color: var(--muted); }
 .who .accent { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .who .accent input { width: 28px; height: 22px; padding: 0; border: 0; background: transparent; }
+
+/* Calendar in the header, beside the clock; work time left beside the tabs. */
+.headcal { padding: 12px 14px; }
+.headcal .cal-day { max-height: 230px; }
+.tabrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
+.tabrow .tabsbar { flex: none; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -352,15 +359,24 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
         <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div>
     </div>
+    <section class="panel headcal" aria-labelledby="nowH">
+      <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
+      <div class="cal-split">
+        <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
+        <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
+      </div>
+    </section>
+  </header>
+  <div class="tabrow">
+    <nav class="tabsbar" aria-label="Pages">
+    <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a>
+    </nav>
     <div class="dayleft">
       <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
       <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
       <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
     </div>
-  </header>
-  <nav class="tabsbar" aria-label="Pages">
-    <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a>
-  </nav>
+  </div>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
   <div id="mainView" class="stack">
@@ -465,13 +481,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         <div id="trErr" class="err" hidden></div>
         <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
       </section>
-    <section class="panel" aria-labelledby="nowH">
-      <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
-      <div class="cal-split">
-        <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
-        <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
-      </div>
-    </section>
   </div>
   <div id="depView" class="stack" hidden>
     <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
