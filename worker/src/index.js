@@ -56,7 +56,7 @@ export default {
         try { links = JSON.parse(env.LINKS || "[]"); } catch {}
         let profile = {};
         try { profile = JSON.parse(env.PROFILE || "{}"); } catch {}
-        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
+        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, claudeApi: !!env.ANTHROPIC_API_KEY, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
       }
 
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
@@ -96,6 +96,7 @@ export default {
       }
 
       if (url.pathname === "/claude" && req.method === "POST") {
+        if (!env.ANTHROPIC_API_KEY) return fail(501, "No Claude API key on the server");
         const { system, messages, tools } = await req.json();
         if (!Array.isArray(messages) || !messages.length) return fail(400, "messages required");
         const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });

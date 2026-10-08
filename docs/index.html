@@ -358,11 +358,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
           <button class="chip" type="button">Plan the rest of today</button>
         </div>
         <div class="chat-log" id="log" aria-live="polite">
-          <div class="msg sys">Ask anything about today. Claude can also mark tasks done or start your timer.</div>
+          <div class="msg sys" id="askIntro">Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.</div>
         </div>
         <form class="composer" id="form">
           <textarea id="q" rows="2" placeholder="Type a question…" aria-label="Message to Claude"></textarea>
-          <button class="send" id="send" type="submit">Send</button>
+          <button class="send" id="send" type="submit">Ask</button>
         </form>
         <div id="askNote" class="note" hidden></div>
       </section>
@@ -824,8 +824,27 @@ You can call tools: complete_task to mark a task done (only when the user clearl
       input_schema: { type: "object", properties: { minutes: { type: "number" }, label: { type: "string" } }, required: ["minutes"] },
       execute(input) { const r = startTimer(input.minutes, input.label ? String(input.label) : ""); addMsg("sys", `Timer started: ${r.minutes} min`); return r; } },
   ];
+  // Free mode (default): open a Claude chat (app or claude.ai) prefilled with the page snapshot, so it runs on the
+  // user's Claude plan and their TickTick/Calendar connectors. Built-in chat is used only when the server has an API key.
+  let chatMode = "app";
+  function setChatMode(apiOn) {
+    chatMode = apiOn ? "api" : "app";
+    $("send").textContent = apiOn ? "Send" : "Ask";
+    $("askIntro").textContent = apiOn ? "Ask anything about today. Claude can also mark tasks done or start your timer."
+      : "Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.";
+  }
+  function askInApp(text) {
+    const intro = rules().replace(/You can call tools:[^\n]*/, "If the user says a task is done, complete it with the TickTick connector. Task ids are in square brackets.");
+    let prompt = `${text}\n\n---\nContext from my Next Up dashboard:\n${intro}\n\n${snapshot()}`;
+    if (prompt.length > 7000) prompt = prompt.slice(0, 7000) + "\n(trimmed)";
+    try { navigator.clipboard && navigator.clipboard.writeText(prompt); } catch {}
+    window.open("https://claude.ai/new?q=" + encodeURIComponent(prompt), "_blank", "noopener");
+    addMsg("sys", "Opened in Claude. If the message box there is empty, paste: it's on your clipboard.");
+  }
   async function ask(text) {
-    if (busy || !text.trim()) return;
+    if (!text.trim()) return;
+    if (chatMode === "app") { addMsg("me", text); askInApp(text); return; }
+    if (busy) return;
     busy = true; $("send").disabled = true;
     addMsg("me", text);
     turns.push({ role: "user", content: text });
@@ -1034,7 +1053,7 @@ You can call tools: complete_task to mark a task done (only when the user clearl
     renderAll(); renderTimer();
     try {
       const cfg = await api.config();
-      SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
+      SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(!!cfg.claudeApi); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
       renderLinks(cfg.links);
     } catch (e) {
       if (e.status === 401) return;
