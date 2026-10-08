@@ -421,7 +421,7 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 
 /* Habit heatmap */
 .hbsel { font: inherit; font-size: 13px; color: var(--ink); background: var(--chip); border: 0; border-radius: 6px; padding: 4px 8px; }
-.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 3px; overflow-x: auto; justify-content: start; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 3px; overflow-x: auto; justify-content: start; padding-bottom: 4px; scrollbar-width: thin; }
 .heat i { width: 13px; height: 13px; border-radius: 3px; background: var(--chip); }
 .heat i.l1 { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 .heat i.l2 { background: color-mix(in srgb, var(--accent) 55%, transparent); }
@@ -1906,7 +1906,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
     const key = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     const per = new Map();
     for (const r of HB.log) if (ids.has(r.q)) { const k = key(new Date(r.t)); per.set(k, (per.get(k) || 0) + 1); }
-    const weeks = Math.max(8, Math.min(53, Math.floor((host.clientWidth + 3) / 16)));
+    const weeks = 53; // a full year; narrow screens scroll, starting at today
     const end = new Date(); end.setHours(0, 0, 0, 0);
     const start = new Date(end); start.setDate(start.getDate() - end.getDay() - (weeks - 1) * 7);
     const max = Math.max(1, ...per.values());
@@ -1918,6 +1918,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
       if (n) { days++; total += n; }
     }
     for (let d = new Date(end); per.get(key(d)); d.setDate(d.getDate() - 1)) streak++;
+    requestAnimationFrame(() => { host.scrollLeft = host.scrollWidth; });
     $("hbSum").textContent = `${total} habit check-ins on ${days} days · current streak ${streak} day${streak === 1 ? "" : "s"}`;
   }
   $("hbSel").onchange = renderHeat;
