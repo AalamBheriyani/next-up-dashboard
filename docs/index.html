@@ -704,6 +704,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   function signedOut(msg) {
     auth = null; try { localStorage.removeItem(AKEY); } catch {}
     $("app").hidden = true; $("gate").hidden = false; $("fab").hidden = true; $("gateMsg").textContent = msg;
+    $("gateMsg").className = /isn't allowed|expired|couldn't|failed/i.test(msg || "") ? "err" : "";
   }
 
   // ---------- actions ----------
@@ -1494,7 +1495,7 @@ Do not use any other tools.`;
       renderLinks(cfg.links);
     } catch (e) {
       if (e.status === 401) return;
-      if (e.status === 403) { signedOut("This Google account isn't allowed on this dashboard."); return; }
+      if (e.status === 403) { signedOut("This Google account isn't allowed on this dashboard yet. The owner needs to add it to ALLOWED_EMAIL in the Cloudflare Worker settings."); return; }
       $("taskErr").hidden = false; $("taskErr").textContent = "Can't reach the dashboard server: " + (e.message || "error");
     }
     refreshAll();
