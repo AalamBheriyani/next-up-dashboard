@@ -225,6 +225,48 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .who button { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
 .connect { background: var(--flap); color: #10141c; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
 .sheetform{display:grid;gap:10px}.sheetform label{display:grid;gap:4px;font-size:13px}.sheetform input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line,#444);background:transparent;color:inherit}
+/* Track: one-tap category timers, day timeline (plan vs tracked), totals vs targets */
+.tr-now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 34px; }
+.tr-now .dot { width: 12px; height: 12px; border-radius: 50%; animation: trpulse 1.6s infinite; }
+.tr-now .cat { font: 600 18px/1.2 var(--f-body); }
+.tr-now .el { font: 700 20px var(--f-mono); font-variant-numeric: tabular-nums; }
+.tr-now button { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 6px 12px; font-weight: 600; }
+@keyframes trpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .tr-now .dot { animation: none; } }
+.tr-cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.tr-cats button { border: 1px solid var(--line); border-left: 6px solid var(--c); background: transparent; color: var(--ink); border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 600; min-height: 40px; }
+.tr-cats button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 22%, transparent); }
+.tr-dayh { display: flex; align-items: center; gap: 8px; }
+.tr-dayh strong { min-width: 110px; text-align: center; }
+.tr-nav, .tr-add { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; padding: 4px 10px; font-size: 14px; }
+.tr-add { margin-left: auto; }
+.tr-line { position: relative; height: 104px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; touch-action: pan-y; }
+.tr-line .lane { position: absolute; left: 0; right: 0; height: 30px; }
+.tr-line .lane.plan { top: 18px; } .tr-line .lane.act { top: 54px; }
+.tr-line .lbl { position: absolute; left: 4px; font: 10px var(--f-mono); color: var(--muted); z-index: 1; }
+.tr-line .blk { position: absolute; top: 0; bottom: 0; border-radius: 4px; overflow: hidden; font-size: 11px; line-height: 30px; padding: 0 4px; white-space: nowrap; color: var(--ink); border: 0; text-align: left; min-width: 3px; }
+.tr-line .plan .blk { background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.tr-line .act .blk { background: color-mix(in srgb, var(--c) 55%, transparent); cursor: pointer; }
+.tr-line .hr { position: absolute; top: 0; bottom: 0; border-left: 1px dashed color-mix(in srgb, var(--line) 80%, transparent); font: 9px/1 var(--f-mono); color: var(--muted); padding-left: 2px; display: flex; align-items: flex-end; padding-bottom: 3px; }
+.tr-line .nowln { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--final); z-index: 2; }
+.tr-form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); align-items: end; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.tr-form label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.tr-form input, .tr-form select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.tr-form .row { display: flex; gap: 8px; grid-column: 1 / -1; }
+.tr-form button { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; padding: 6px 12px; font-weight: 600; }
+.tr-form button.primary { background: var(--ink); color: var(--panel); }
+.tr-form button.danger { margin-left: auto; color: var(--late); }
+.tr-stats { display: grid; gap: 6px; }
+.tr-stats .tabs2 { display: flex; gap: 6px; }
+.tr-stats .tabs2 button { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.tr-stats .tabs2 button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.tr-row { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.tr-row .trk { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
+.tr-row .trk i { position: absolute; inset: 0 auto 0 0; background: var(--c); border-radius: 5px; }
+.tr-row .v { font: 12px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.tr-row.hit .v { color: var(--ink); font-weight: 700; }
+.confetti { position: fixed; top: -12px; width: 8px; height: 14px; z-index: 80; pointer-events: none; animation: trfall 2.4s ease-in forwards; }
+@keyframes trfall { to { transform: translateY(105vh) rotate(720deg); opacity: .7; } }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -288,6 +330,23 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         <div class="panel-h"><h2 id="hH">Hours this week</h2><span class="stale" id="hStamp"></span></div>
         <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
         <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
+      </section>
+
+      <section class="panel" id="trackPanel" aria-labelledby="trH">
+        <div class="panel-h"><h2 id="trH">Track</h2><span class="stale" id="trStamp"></span></div>
+        <div class="tr-now" id="trNow"><span class="note">Tap what you're doing to start tracking.</span></div>
+        <div class="tr-cats" id="trCats" role="group" aria-label="Start tracking"></div>
+        <div class="tr-dayh">
+          <button type="button" class="tr-nav" id="trPrev" aria-label="Previous day">‹</button>
+          <strong id="trDay">Today</strong>
+          <button type="button" class="tr-nav" id="trNext" aria-label="Next day">›</button>
+          <button type="button" class="tr-add" id="trAdd">+ Add block</button>
+        </div>
+        <div class="tr-line" id="trLine" aria-label="Day timeline: plan above, tracked below"></div>
+        <div id="trEdit" hidden></div>
+        <div class="tr-stats" id="trStats"></div>
+        <div id="trErr" class="err" hidden></div>
+        <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
       </section>
     </div>
 
@@ -567,6 +626,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     ticktickConnectUrl: () => http(W("/ticktick/start"), { method: "POST", body: "{}" }),
     claude: (body) => http(W("/claude"), { method: "POST", body: JSON.stringify(body) }),
     relayStatus: () => http(W("/relay/status")),
+    sheetMeta: () => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties.title`),
+    sheetBatch: (requests) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, { method: "POST", body: JSON.stringify({ requests }) }),
+    sheetPutRaw: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ range, values }) }),
+    sheetAppend: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: "POST", body: JSON.stringify({ values }) }),
     saveSettings: (body) => http(W("/settings"), { method: "POST", body: JSON.stringify(body) }),
     relayAsk: (prompt) => http(W("/relay/ask"), { method: "POST", body: JSON.stringify({ prompt }) }),
     relayAnswer: (id) => http(W("/relay/answer?id=" + encodeURIComponent(id))),
@@ -633,7 +696,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   if (!timer || !timer.mode) timer = fresh("focus", 0);
   const leftNow = () => timer.running ? timer.end - Date.now() : timer.left;
   function setMode(mode) { timer = fresh(mode, timer.done); save(); renderTimer(); }
-  function play() { if (timer.running) return; timer.end = Date.now() + timer.left; timer.running = true; save(); renderTimer(); }
+  function play() { if (timer.running) return; timer.end = Date.now() + timer.left; timer.running = true; save(); renderTimer(); if (timer.mode === "focus") trackAuto(true); }
   function pause() { if (!timer.running) return; timer.left = Math.max(0, timer.end - Date.now()); timer.running = false; save(); renderTimer(); }
   function startTimer(min, label) {
     min = Math.max(1, Math.min(60, Math.round(Number(min) || set.focus)));
@@ -644,6 +707,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   function finish(skipped) {
     try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch {}
     if (!skipped) logXp(timer.mode === "focus" ? "timer" : "break");
+    if (timer.mode === "focus") trackAuto(false);
     if (timer.mode === "focus") {
       const done = timer.done + 1;
       timer = fresh(done % (Number(set.every) || 4) === 0 ? "long" : "short", done);
@@ -933,6 +997,264 @@ Do not use any other tools.`;
   $("sheetsBtn").onclick = () => sheetForm();
   $("fab").onclick = () => { $("ask").scrollIntoView({ behavior: "smooth" }); setTimeout(() => $("q").focus(), 300); };
 
+  // ---------- Track (Timelines-style time tracking) ----------
+  // Stored in the Time Tracker sheet's "Tracked" tab. A: start, B: end (blank while running), C: category,
+  // D: note, E: id. Targets sit in G:I (category, daily hours, weekly hours) so they can be edited in the sheet too.
+  const TRTAB = "Tracked";
+  const TR = { rows: null, targets: [], day: 0, view: "day", ready: false, plan: {}, busy: false, edit: null };
+  const PALETTE = ["#e4572e", "#2e86ab", "#f6ae2d", "#43aa8b", "#9c4dcc", "#00a6a6", "#ff7f50", "#6c6cd8", "#d81b60", "#8d6e63", "#7cb342", "#f3722c"];
+  function trCats() {
+    const fromSheet = (S.types || []).map((r) => String(r[0] || "").trim()).filter((n) => n && !/^(type|buffer)$/i.test(n));
+    const base = fromSheet.length ? fromSheet : ["Class", "Study", "Homework", "Debate", "Meals", "Commute", "Chores", "Personal", "Free Time"];
+    const extra = [...(TR.rows || []).map((r) => r.cat), ...TR.targets.map((t) => t.cat)];
+    return [...new Set([...base, ...extra].filter(Boolean))];
+  }
+  function trColor(cat) {
+    let i = trCats().indexOf(cat);
+    if (i < 0) { i = 0; for (const ch of String(cat)) i = (i * 31 + ch.charCodeAt(0)) >>> 0; }
+    return PALETTE[i % PALETTE.length];
+  }
+  const trRunning = () => (TR.rows || []).filter((r) => !r.end).sort((a, b) => b.start - a.start)[0] || null;
+  const trEnd = (r) => r.end || new Date();
+  const hfmt = (ms) => { const m = Math.round(ms / 6e4); return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${pad(m % 60)}m`; };
+  const dayStart = (off) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + off); return d; };
+  const weekStart = () => { const d = dayStart(0); d.setDate(d.getDate() - d.getDay()); return d; }; // weeks run Sunday to Saturday, like the Time Tracker
+  const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const rowOf = (range) => { const m = String(range || "").match(/![A-Z]+(\d+)/); return m ? +m[1] : 0; };
+  function trFail(e) { $("trErr").hidden = false; $("trErr").textContent = copyFor(e, GS); }
+
+  async function trEnsureTab() {
+    if (TR.ready) return;
+    const meta = await api.sheetMeta();
+    if (!(meta.sheets || []).some((s) => s.properties && s.properties.title === TRTAB)) {
+      await api.sheetBatch([{ addSheet: { properties: { title: TRTAB } } }]);
+      await api.sheetPutRaw(`${TRTAB}!A1:I1`, [["Start", "End", "Category", "Note", "Id", "", "Target category", "Daily target (h)", "Weekly target (h)"]]);
+    }
+    TR.ready = true;
+  }
+  async function loadTrack() {
+    if (!SHEET) { $("trErr").hidden = false; $("trErr").textContent = "Set your Time Tracker sheet under My sheets to start tracking."; return; }
+    try {
+      await trEnsureTab();
+      const [a, g] = await Promise.all([api.sheetGet(`${TRTAB}!A2:E5000`), api.sheetGet(`${TRTAB}!G2:I60`)]);
+      TR.rows = (a.values || []).map((r, i) => ({ row: i + 2, start: new Date(r[0]), end: r[1] ? new Date(r[1]) : null, cat: String(r[2] || "").trim(), note: String(r[3] || ""), id: String(r[4] || "") }))
+        .filter((r) => r.cat && !isNaN(r.start) && !(r.end && isNaN(r.end)));
+      TR.targets = (g.values || []).map((r) => ({ cat: String(r[0] || "").trim(), day: parseFloat(r[1]) || 0, week: parseFloat(r[2]) || 0 })).filter((t) => t.cat);
+      $("trErr").hidden = true; stamp("trStamp");
+      renderTrack();
+    } catch (e) { trFail(e); }
+  }
+  async function trWriteEnd(r, end) {
+    await api.sheetPutRaw(`${TRTAB}!B${r.row}`, [[end.toISOString()]]);
+    r.end = end;
+  }
+  async function trAppend(r) {
+    const res = await api.sheetAppend(`${TRTAB}!A1:E1`, [[r.start.toISOString(), r.end ? r.end.toISOString() : "", r.cat, r.note || "", r.id]]);
+    r.row = rowOf(res && res.updates && res.updates.updatedRange);
+    TR.rows.push(r);
+    if (!r.row) await loadTrack(); // couldn't tell which row it landed on; reload to get row numbers
+  }
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // Starts tracking a category; whatever was running stops at the same moment.
+  async function trStart(cat, note) {
+    if (TR.busy || !TR.rows) return; TR.busy = true;
+    try {
+      const now = new Date(), run = trRunning();
+      if (run && run.cat === cat && !note) return;
+      if (run) await trWriteEnd(run, now);
+      await trAppend({ start: now, end: null, cat, note: note || "", id: newId() });
+    } catch (e) { trFail(e); } finally { TR.busy = false; renderTrack(); }
+  }
+  async function trStop() {
+    const run = trRunning(); if (!run || TR.busy) return; TR.busy = true;
+    try { await trWriteEnd(run, new Date()); } catch (e) { trFail(e); } finally { TR.busy = false; renderTrack(); }
+  }
+  // Pomodoros count automatically: a focus session starts tracking (if nothing else is) and stops what it started.
+  function trackAuto(on) {
+    if (!TR.rows) return;
+    const run = trRunning();
+    if (on && !run) {
+      const cats = trCats(); const cat = cats.find((c) => /^study$/i.test(c)) || cats[0];
+      trStart(cat, "pomodoro" + (timer.label ? ": " + timer.label : ""));
+    } else if (!on && run && /^pomodoro/.test(run.note)) trStop();
+  }
+
+  function renderTrack() { renderTrackNow(); renderTrackCats(); renderTrackLine(); renderTrackStats(); }
+  function renderTrackNow() {
+    const box = $("trNow"); if (!box || !TR.rows) return;
+    const run = trRunning();
+    if (!run) { if (box.dataset.state !== "idle") { box.dataset.state = "idle"; box.replaceChildren(el("span", "note", "Not tracking. Tap what you're doing to start.")); } return; }
+    const elapsed = Date.now() - run.start;
+    if (box.dataset.state !== run.id + run.row) {
+      box.dataset.state = run.id + run.row;
+      const dot = el("span", "dot"); dot.style.background = trColor(run.cat);
+      const stop = el("button", null, "Stop"); stop.type = "button"; stop.onclick = trStop;
+      box.replaceChildren(dot, el("span", "cat", run.cat + (run.note ? ` · ${run.note}` : "")), el("span", "el"), stop);
+    }
+    box.querySelector(".el").textContent = fmtLeft(elapsed, true).replace(/^0m /, "");
+  }
+  function renderTrackCats() {
+    const box = $("trCats"); const run = trRunning(); box.replaceChildren();
+    for (const c of trCats()) {
+      const b = el("button", null, c); b.type = "button"; b.style.setProperty("--c", trColor(c));
+      b.setAttribute("aria-pressed", String(!!run && run.cat === c));
+      b.onclick = () => (run && run.cat === c ? trStop() : trStart(c));
+      box.append(b);
+    }
+  }
+  async function trPlanFor(off) {
+    if (off === 0) return todayEvents();
+    const key = String(off);
+    if (!TR.plan[key]) {
+      TR.plan[key] = "loading";
+      const d0 = dayStart(off), d1 = dayStart(off + 1);
+      try { const r = await api.events(isoLocal(d0), isoLocal(d1)); TR.plan[key] = (r.items || []).filter((e) => e.status !== "cancelled" && e.start && e.start.dateTime).map((e) => ({ e, s: new Date(e.start.dateTime), en: new Date(e.end.dateTime) })); }
+      catch { TR.plan[key] = []; }
+      renderTrackLine();
+    }
+    return Array.isArray(TR.plan[key]) ? TR.plan[key] : [];
+  }
+  async function renderTrackLine() {
+    const off = TR.day, d0 = dayStart(off), d1 = dayStart(off + 1);
+    $("trDay").textContent = off === 0 ? "Today" : off === -1 ? "Yesterday" : dayFmt(d0);
+    $("trNext").disabled = off >= 0;
+    const plan = await trPlanFor(off);
+    const acts = (TR.rows || []).filter((r) => r.start < d1 && trEnd(r) > d0);
+    // Show from the earlier of 6 AM or the first block, to midnight.
+    let h0 = 6;
+    for (const x of [...plan.map((p) => p.s), ...acts.map((r) => r.start)]) if (x >= d0 && x < d1) h0 = Math.min(h0, x.getHours());
+    const t0 = d0.getTime() + h0 * 36e5, span = d1.getTime() - t0;
+    const pos = (t) => Math.max(0, Math.min(100, ((t - t0) / span) * 100));
+    const line = $("trLine"); line.replaceChildren();
+    for (let h = Math.ceil(h0 / 3) * 3; h < 24; h += 3) { const m = el("div", "hr", h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`); m.style.left = pos(d0.getTime() + h * 36e5) + "%"; line.append(m); }
+    const lane = (cls, label) => { const l = el("div", "lane " + cls); l.append(el("span", "lbl", label)); line.append(l); return l; };
+    const pl = lane("plan", "plan"), al = lane("act", "tracked");
+    pl.querySelector(".lbl").style.top = "-12px"; al.querySelector(".lbl").style.top = "-12px";
+    for (const p of plan) {
+      const b = el("div", "blk", p.e.summary || ""); const a = pos(p.s), z = pos(p.en);
+      b.style.left = a + "%"; b.style.width = Math.max(0.3, z - a) + "%"; b.title = `${timeFmt(p.s)}–${timeFmt(p.en)} ${p.e.summary || ""}`; pl.append(b);
+    }
+    for (const r of acts) {
+      const b = el("button", "blk", r.cat); b.type = "button"; const a = pos(r.start), z = pos(trEnd(r));
+      b.style.left = a + "%"; b.style.width = Math.max(0.3, z - a) + "%"; b.style.setProperty("--c", trColor(r.cat));
+      b.title = `${timeFmt(r.start)}–${r.end ? timeFmt(r.end) : "now"} ${r.cat}${r.note ? " · " + r.note : ""}`;
+      b.setAttribute("aria-label", b.title + ". Tap to edit.");
+      b.onclick = () => trEditor(r); al.append(b);
+    }
+    if (off === 0) { const n = el("div", "nowln"); n.style.left = pos(Date.now()) + "%"; line.append(n); }
+  }
+
+  // Edit or add a block. Times use the device's local time.
+  function trEditor(r) {
+    const box = $("trEdit"); const isNew = !r;
+    if (isNew) { const s = new Date(); s.setDate(s.getDate() + TR.day); s.setMinutes(0, 0, 0); s.setHours(s.getHours() - 1); r = { start: s, end: new Date(s.getTime() + 36e5), cat: trCats()[0], note: "" }; }
+    const f = el("form", "tr-form");
+    const field = (label, input) => { const l = el("label", null, label); l.append(input); f.append(l); return input; };
+    const cat = field("Category", el("input")); cat.value = r.cat; cat.setAttribute("list", "trCatList"); cat.required = true;
+    const dl = el("datalist"); dl.id = "trCatList"; for (const c of trCats()) { const o = el("option"); o.value = c; dl.append(o); } f.append(dl);
+    const st = field("Start", el("input")); st.type = "datetime-local"; st.value = localInput(r.start); st.required = true;
+    const en = field("End", el("input")); en.type = "datetime-local"; if (r.end) en.value = localInput(r.end); en.placeholder = "still running";
+    const note = field("Note", el("input")); note.value = r.note || "";
+    const row = el("div", "row");
+    const save = el("button", "primary", isNew ? "Add" : "Save"); save.type = "submit";
+    const cancel = el("button", null, "Cancel"); cancel.type = "button"; cancel.onclick = () => { box.hidden = true; };
+    row.append(save, cancel);
+    if (!isNew) { const del = el("button", "danger", "Delete"); del.type = "button"; del.onclick = () => trDelete(r); row.append(del); }
+    f.append(row);
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const s = new Date(st.value), x = en.value ? new Date(en.value) : null;
+      if (isNaN(s) || (x && !(x > s))) { $("trErr").hidden = false; $("trErr").textContent = "End has to be after start."; return; }
+      save.disabled = true;
+      try {
+        if (isNew) await trAppend({ start: s, end: x, cat: cat.value.trim(), note: note.value.trim(), id: newId() });
+        else {
+          await api.sheetPutRaw(`${TRTAB}!A${r.row}:D${r.row}`, [[s.toISOString(), x ? x.toISOString() : "", cat.value.trim(), note.value.trim()]]);
+          Object.assign(r, { start: s, end: x, cat: cat.value.trim(), note: note.value.trim() });
+        }
+        box.hidden = true; $("trErr").hidden = true;
+      } catch (err) { trFail(err); save.disabled = false; }
+      renderTrack();
+    };
+    box.replaceChildren(f); box.hidden = false; cat.focus();
+  }
+  async function trDelete(r) {
+    try {
+      await api.sheetPutRaw(`${TRTAB}!A${r.row}:E${r.row}`, [["", "", "", "", ""]]);
+      TR.rows = TR.rows.filter((x) => x !== r); $("trEdit").hidden = true; renderTrack();
+    } catch (e) { trFail(e); }
+  }
+
+  // Totals per category for today or this week, against targets; confetti the first time a target is hit.
+  function renderTrackStats() {
+    const box = $("trStats"); if (!TR.rows) return;
+    const from = TR.view === "day" ? dayStart(0) : weekStart(), to = TR.view === "day" ? dayStart(1) : new Date(weekStart().getTime() + 7 * 864e5);
+    const tot = new Map();
+    for (const r of TR.rows) {
+      const a = Math.max(r.start, from), z = Math.min(trEnd(r), to);
+      if (z > a) tot.set(r.cat, (tot.get(r.cat) || 0) + (z - a));
+    }
+    const tgt = (c) => { const t = TR.targets.find((x) => x.cat.toLowerCase() === c.toLowerCase()); return t ? (TR.view === "day" ? t.day : t.week) * 36e5 : 0; };
+    const cats = [...new Set([...tot.keys(), ...TR.targets.filter((t) => (TR.view === "day" ? t.day : t.week)).map((t) => t.cat)])];
+    cats.sort((a, b) => (tot.get(b) || 0) - (tot.get(a) || 0));
+    const max = Math.max(36e5, ...cats.map((c) => Math.max(tot.get(c) || 0, tgt(c))));
+    const head = el("div", "tabs2");
+    for (const [v, label] of [["day", "Today"], ["week", "This week"]]) {
+      const b = el("button", null, label); b.type = "button"; b.setAttribute("aria-pressed", String(TR.view === v));
+      b.onclick = () => { TR.view = v; renderTrackStats(); }; head.append(b);
+    }
+    const tb = el("button", null, "Targets"); tb.type = "button"; tb.onclick = trTargetsEditor; head.append(tb);
+    box.replaceChildren(head);
+    if (!cats.length) { box.append(el("div", "note", TR.view === "day" ? "Nothing tracked today yet." : "Nothing tracked this week yet.")); return; }
+    const key = TR.view === "day" ? from.toDateString() : "w" + from.toDateString();
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem("track.hit") || "{}"); } catch {}
+    for (const c of cats) {
+      const v = tot.get(c) || 0, t = tgt(c), hit = t > 0 && v >= t;
+      const row = el("div", "tr-row" + (hit ? " hit" : "")); row.style.setProperty("--c", trColor(c));
+      const trk = el("div", "trk"), fill = el("i"); fill.style.width = Math.min(100, (v / (t || max)) * 100) + "%"; trk.append(fill);
+      row.append(el("span", null, c), trk, el("span", "v", t ? `${hfmt(v)} / ${hfmt(t)}${hit ? " ✓" : ""}` : hfmt(v)));
+      box.append(row);
+      const k = key + "|" + c;
+      if (hit && !seen[k]) { seen[k] = 1; confetti(); xpToast(`Target hit: ${c} ${TR.view === "day" ? "today" : "this week"}`); }
+    }
+    try { localStorage.setItem("track.hit", JSON.stringify(seen)); } catch {}
+  }
+  function trTargetsEditor() {
+    const box = $("trEdit"); const f = el("form", "tr-form");
+    f.append(el("div", "note", "Hours per category. Leave blank for no target."));
+    const inputs = [];
+    for (const c of trCats()) {
+      const t = TR.targets.find((x) => x.cat.toLowerCase() === c.toLowerCase()) || {};
+      const l = el("label", null, c); const wrap = el("div", "row");
+      const d = el("input"); d.type = "number"; d.min = "0"; d.step = "0.25"; d.placeholder = "per day"; d.value = t.day || "";
+      const w = el("input"); w.type = "number"; w.min = "0"; w.step = "0.5"; w.placeholder = "per week"; w.value = t.week || "";
+      wrap.append(d, w); l.append(wrap); f.append(l); inputs.push([c, d, w]);
+    }
+    const row = el("div", "row"); const save = el("button", "primary", "Save targets"); save.type = "submit";
+    const cancel = el("button", null, "Cancel"); cancel.type = "button"; cancel.onclick = () => { box.hidden = true; };
+    row.append(save, cancel); f.append(row);
+    f.onsubmit = async (e) => {
+      e.preventDefault(); save.disabled = true;
+      const rows = inputs.map(([c, d, w]) => [c, d.value, w.value]).filter((r) => r[1] || r[2]);
+      try {
+        await api.sheetPutRaw(`${TRTAB}!G2:I60`, [...rows, ...Array(Math.max(0, 59 - rows.length)).fill(["", "", ""])]);
+        TR.targets = rows.map((r) => ({ cat: r[0], day: parseFloat(r[1]) || 0, week: parseFloat(r[2]) || 0 }));
+        box.hidden = true; renderTrackStats();
+      } catch (err) { trFail(err); save.disabled = false; }
+    };
+    box.replaceChildren(f); box.hidden = false;
+  }
+  function confetti() {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    for (let i = 0; i < 60; i++) {
+      const p = el("i", "confetti"); p.style.left = Math.random() * 100 + "vw"; p.style.background = PALETTE[i % PALETTE.length];
+      p.style.animationDelay = Math.random() * 0.6 + "s"; document.body.append(p); setTimeout(() => p.remove(), 3200);
+    }
+  }
+  $("trPrev").onclick = () => { TR.day -= 1; $("trEdit").hidden = true; renderTrackLine(); };
+  $("trNext").onclick = () => { if (TR.day < 0) { TR.day += 1; $("trEdit").hidden = true; renderTrackLine(); } };
+  $("trAdd").onclick = () => trEditor(null);
+
   // ---------- loading ----------
   function stamp(id) { $(id).textContent = "updated " + timeFmt(new Date()); }
   function dayBounds() { const d0 = new Date(); d0.setHours(0, 0, 0, 0); const d1 = new Date(d0); d1.setDate(d1.getDate() + 1); return [d0, d1]; }
@@ -1118,7 +1440,7 @@ Do not use any other tools.`;
       nav.append(a);
     }
   }
-  const refreshAll = () => Promise.all([loadTasks(), loadCalendar(), loadSheet()]);
+  const refreshAll = () => Promise.all([loadTasks(), loadCalendar().then(() => TR.rows && renderTrackLine()), loadSheet().then(loadTrack)]);
   let started = false;
   async function start() {
     $("gate").hidden = true; $("app").hidden = false; $("fab").hidden = false;
@@ -1140,7 +1462,7 @@ Do not use any other tools.`;
     document.addEventListener("visibilitychange", () => { if (auth && document.visibilityState === "visible") refreshAll(); });
   }
   function boot() {
-    setInterval(() => { renderClock(); renderBanner(); renderTimer(); updateCountdowns(); }, 1000);
+    setInterval(() => { renderClock(); renderBanner(); renderTimer(); updateCountdowns(); renderTrackNow(); }, 1000);
     setInterval(() => { renderNow(); renderTasks(); renderRate(); }, 30000);
     $("fab").hidden = true;
     if (new URLSearchParams(location.search).get("ticktick") === "connected") history.replaceState(null, "", location.pathname);
