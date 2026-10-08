@@ -224,6 +224,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .who { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .who button { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
 .connect { background: var(--flap); color: #10141c; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
+.sheetform{display:grid;gap:10px}.sheetform label{display:grid;gap:4px;font-size:13px}.sheetform input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line,#444);background:transparent;color:inherit}
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -249,7 +250,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="label" id="placeLbl">Next up</div>
       <div class="clock num" id="clock">--:--</div>
       <div class="date" id="date"></div>
-      <div class="who"><span id="whoTxt"></span><button id="signout" type="button">Sign out</button></div>
+      <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button></div>
     </div>
     <div class="dayleft">
       <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
@@ -566,6 +567,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     ticktickConnectUrl: () => http(W("/ticktick/start"), { method: "POST", body: "{}" }),
     claude: (body) => http(W("/claude"), { method: "POST", body: JSON.stringify(body) }),
     relayStatus: () => http(W("/relay/status")),
+    saveSettings: (body) => http(W("/settings"), { method: "POST", body: JSON.stringify(body) }),
     relayAsk: (prompt) => http(W("/relay/ask"), { method: "POST", body: JSON.stringify({ prompt }) }),
     relayAnswer: (id) => http(W("/relay/answer?id=" + encodeURIComponent(id))),
     events: (from, to) => http(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(from)}&timeMax=${encodeURIComponent(to)}&timeZone=${encodeURIComponent(tz)}`),
@@ -928,6 +930,7 @@ Do not use any other tools.`;
   $("form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("q").value; $("q").value = ""; ask(v); });
   $("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } });
   $("quick").querySelectorAll("button").forEach((b) => b.onclick = () => ask(b.textContent));
+  $("sheetsBtn").onclick = () => sheetForm();
   $("fab").onclick = () => { $("ask").scrollIntoView({ behavior: "smooth" }); setTimeout(() => $("q").focus(), 300); };
 
   // ---------- loading ----------
@@ -1066,7 +1069,7 @@ Do not use any other tools.`;
     }
   }
   async function loadSheet() {
-    if (!SHEET) { $("hTitle").textContent = "No Time Tracker sheet is set in the server config."; $("rateBody").replaceChildren(); return; }
+    if (!SHEET) { $("hTitle").textContent = "No Time Tracker sheet yet."; sheetForm(); $("rateBody").replaceChildren(); return; }
     try {
       const [dash, types, log] = await Promise.all([api.sheetGet("Dashboard!A1:J21"), api.sheetGet("Dashboard!D24:F40"), api.sheetGet("Log!A2:J600")]);
       const v = dash.values || [];
@@ -1077,7 +1080,29 @@ Do not use any other tools.`;
       $("rateBody").replaceChildren(el("div", "err", copyFor(e, GS)));
     }
   }
+  // Each person points the dashboard at their own Google Sheets (saved on the server per account).
+  const sheetIdOf = (v) => { v = String(v || "").trim(); const m = v.match(/\/d\/([\w-]{20,})/); return m ? m[1] : v; };
+  function sheetForm() {
+    const box = el("form", "sheetform");
+    const row = (label, id, val) => { const l = el("label", null, label); const i = el("input"); i.id = id; i.value = val ? `https://docs.google.com/spreadsheets/d/${val}` : ""; i.placeholder = "Paste the Google Sheet link"; l.append(i); return l; };
+    const msg = el("div", "note", "Paste links to your own sheets. The Time Tracker needs Dashboard and Log tabs; the Quest Log sheet needs Quests, Log and Settings tabs.");
+    const btn = el("button", "chip", "Save"); btn.type = "submit";
+    box.append(msg, row("Weekly Time Tracker", "sfTime", SHEET), row("Quest Log (XP) sheet", "sfXp", (XP.sheetUrl().match(/\/d\/([\w-]+)/) || [])[1] || ""), btn);
+    box.onsubmit = async (e) => {
+      e.preventDefault(); btn.disabled = true;
+      try {
+        const body = { sheetId: sheetIdOf($("sfTime").value), questSheetId: sheetIdOf($("sfXp").value) };
+        await api.saveSettings(body);
+        SHEET = body.sheetId; XP.rememberConfig({ questSheetId: body.questSheetId });
+        renderLinks(LINKS); $("hTitle").textContent = "Loading your Weekly Time Tracker…"; loadSheet();
+      } catch (err) { msg.textContent = copyFor(err, "the dashboard server"); btn.disabled = false; }
+    };
+    $("hBody").replaceChildren(box);
+    $("hBody").scrollIntoView({ behavior: "smooth" });
+  }
+  let LINKS = [];
   function renderLinks(links) {
+    LINKS = links || [];
     const nav = $("links"); nav.replaceChildren();
     const base = [
       { name: "TickTick", note: "main task list", url: "https://ticktick.com/webapp/" },
@@ -1100,6 +1125,8 @@ Do not use any other tools.`;
     renderAll(); renderTimer();
     try {
       const cfg = await api.config();
+      // A different account on this browser: drop the previous person's cached sheet id and XP queue.
+      try { if (localStorage.getItem("nextup.who") !== cfg.email) { localStorage.removeItem("xp.outbox"); localStorage.removeItem("nextup.cfg"); localStorage.setItem("nextup.who", cfg.email || ""); } } catch {}
       SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(cfg); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
       renderLinks(cfg.links);
     } catch (e) {

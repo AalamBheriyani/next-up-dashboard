@@ -32,7 +32,8 @@ export default {
     if (url.pathname === "/ticktick/callback") {
       const state = url.searchParams.get("state");
       const code = url.searchParams.get("code");
-      if (!state || !code || !(await store(env).get("tt_state:" + state))) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
+      const stateEmail = state && (await store(env).get("tt_state:" + state));
+      if (!code || !stateEmail) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
       await store(env).delete("tt_state:" + state);
       const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callbackUrl(url), scope: "tasks:read tasks:write" });
       const r = await fetch(TT_TOKEN, {
@@ -42,7 +43,7 @@ export default {
       });
       if (!r.ok) return new Response("TickTick didn't accept the sign-in: " + (await r.text()), { status: 502 });
       const tok = await r.json();
-      await store(env).put("tt_token", tok.access_token);
+      await store(env).put(ttKey(stateEmail), tok.access_token);
       return Response.redirect(env.SITE_URL + "?ticktick=connected", 302);
     }
 
@@ -53,33 +54,61 @@ export default {
       return withCors(await relay(env).fetch(req), cors);
     }
 
-    // Everything below needs a valid Google sign-in from the allowed account.
+    // Everything below needs a valid Google sign-in from one of the allowed accounts.
     const who = await checkGoogle(req, env);
     if (who.status) return fail(who.status, who.message);
 
     try {
+      // The owner (first allowed email) gets the values from Worker secrets; everyone else gets the
+      // sheet ids they saved from the dashboard. Each person's TickTick sign-in is stored separately.
       if (url.pathname === "/config" && req.method === "GET") {
-        let links = [];
-        try { links = JSON.parse(env.LINKS || "[]"); } catch {}
-        let profile = {};
-        try { profile = JSON.parse(env.PROFILE || "{}"); } catch {}
-        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, claudeApi: !!env.ANTHROPIC_API_KEY, relay: !!env.RELAY_TOKEN, ticktick: !!(await store(env).get("tt_token")) });
+        const mine = (await store(env).get("user:" + who.email)) || {};
+        let links = [], profile = {};
+        if (who.owner) {
+          try { links = JSON.parse(env.LINKS || "[]"); } catch {}
+          try { profile = JSON.parse(env.PROFILE || "{}"); } catch {}
+        }
+        return json({
+          email: who.email,
+          owner: who.owner,
+          sheetId: mine.sheetId || (who.owner ? env.SHEET_ID || "" : ""),
+          questSheetId: mine.questSheetId || (who.owner ? env.QUEST_SHEET_ID || "" : ""),
+          links, profile,
+          claudeApi: !!env.ANTHROPIC_API_KEY,
+          relay: who.owner && !!env.RELAY_TOKEN,
+          ticktick: !!(await store(env).get(ttKey(who.email))),
+        });
       }
 
-      // Questions for Claude Code on the laptop, and the answers coming back.
+      if (url.pathname === "/settings" && req.method === "POST") {
+        const body = await req.json();
+        const mine = (await store(env).get("user:" + who.email)) || {};
+        for (const k of ["sheetId", "questSheetId"]) {
+          if (!(k in body)) continue;
+          const v = String(body[k] || "").trim();
+          if (v && !/^[\w-]{20,100}$/.test(v)) return fail(400, "That doesn't look like a Google Sheet id");
+          mine[k] = v;
+        }
+        await store(env).put("user:" + who.email, mine);
+        return json({ ok: true });
+      }
+
+      // Questions for Claude Code on the owner's laptop, and the answers coming back. Owner only:
+      // it runs on the owner's Claude plan.
       if (url.pathname === "/relay/ask" || url.pathname === "/relay/answer" || url.pathname === "/relay/status") {
+        if (!who.owner) return fail(403, "The laptop relay is only for the dashboard owner");
         return withCors(await relay(env).fetch(req), cors);
       }
 
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
         const state = crypto.randomUUID();
-        await store(env).put("tt_state:" + state, "1", { expirationTtl: 600 });
+        await store(env).put("tt_state:" + state, who.email, { expirationTtl: 600 });
         const q = new URLSearchParams({ client_id: env.TICKTICK_CLIENT_ID, scope: "tasks:read tasks:write", state, redirect_uri: callbackUrl(url), response_type: "code" });
         return json({ url: `${TT_AUTH}?${q}` });
       }
 
       if (url.pathname === "/ticktick/tasks" && req.method === "GET") {
-        const token = await store(env).get("tt_token");
+        const token = await store(env).get(ttKey(who.email));
         if (!token) return fail(409, "TickTick isn't connected");
         const from = Date.parse(url.searchParams.get("from") || "") || 0;
         const to = Date.parse(url.searchParams.get("to") || "") || Infinity;
@@ -99,7 +128,7 @@ export default {
       }
 
       if (url.pathname === "/ticktick/complete" && req.method === "POST") {
-        const token = await store(env).get("tt_token");
+        const token = await store(env).get(ttKey(who.email));
         if (!token) return fail(409, "TickTick isn't connected");
         const { projectId, taskId } = await req.json();
         if (!/^[\w-]+$/.test(String(projectId)) || !/^[\w-]+$/.test(String(taskId))) return fail(400, "bad task id");
@@ -132,7 +161,7 @@ export default {
       if (e instanceof Anthropic.AuthenticationError) return fail(502, "The Claude API key on the server is invalid.");
       if (e instanceof Anthropic.APIError) return fail(502, "Claude API error: " + e.message);
       if (e && e.status === 401) {
-        await store(env).delete("tt_token");
+        await store(env).delete(ttKey(who.email));
         return fail(409, "TickTick sign-in expired");
       }
       return fail(502, (e && e.message) || "server error");
@@ -219,6 +248,8 @@ export class Relay {
   }
 }
 
+const ttKey = (email) => "tt_token:" + email;
+
 function callbackUrl(url) {
   return url.origin + "/ticktick/callback";
 }
@@ -239,8 +270,10 @@ async function checkGoogle(req, env) {
   if (!r.ok) return { status: 401, message: "sign-in expired" };
   const info = await r.json();
   if (info.aud !== env.GOOGLE_CLIENT_ID && info.azp !== env.GOOGLE_CLIENT_ID) return { status: 401, message: "token is for another app" };
-  if (String(info.email_verified) !== "true" || String(info.email).toLowerCase() !== String(env.ALLOWED_EMAIL).toLowerCase()) {
+  const allowed = String(env.ALLOWED_EMAIL || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+  const email = String(info.email || "").toLowerCase();
+  if (String(info.email_verified) !== "true" || !allowed.includes(email)) {
     return { status: 403, message: "this account isn't allowed" };
   }
-  return { email: info.email };
+  return { email, owner: email === allowed[0] };
 }

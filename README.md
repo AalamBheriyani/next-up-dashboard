@@ -61,7 +61,7 @@ Then open the Worker → **Settings → Variables and Secrets** and add:
 | Name | Type | Value |
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | Text | the OAuth client ID from step 2 |
-| `ALLOWED_EMAIL` | Secret | the Google account allowed to sign in |
+| `ALLOWED_EMAIL` | Secret | Google accounts allowed to sign in, comma-separated; the first is the owner |
 | `SHEET_ID` | Secret | Weekly Time Tracker spreadsheet id |
 | `QUEST_SHEET_ID` | Secret | XP Tracker (Quest Log) spreadsheet id |
 | `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET` | Secret | from step 3 |
@@ -78,6 +78,13 @@ Edit `docs/config.js` with the Google client ID and the Worker URL, commit, push
 
 ### 7. First run
 Open the site, **Sign in with Google**, then press **Connect TickTick** on the task board once.
+
+## More than one person
+Add each person's Gmail to `ALLOWED_EMAIL` and as a **test user** on the Google consent screen.
+Everyone sees their own data: their Google Calendar, their own TickTick (each presses Connect
+TickTick once), and the sheets they set under **My sheets**. The owner's sheet ids, profile and links
+come from the Worker secrets; the laptop relay answers only the owner, and other people's
+Ask Claude opens their own Claude app.
 
 ## What runs where
 
