@@ -8,6 +8,15 @@ compatibility_flags = ["nodejs_compat"]
 binding = "NEXTUP_KV"
 id = "REPLACE_WITH_KV_ID"
 
+# Queue between the dashboard and Claude Code on your laptop (free plan, SQLite-backed).
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "Relay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Relay"]
+
 [vars]
 # Public values. Private ones (email, sheet id, API keys) are set with `wrangler secret put`.
 SITE_URL = "https://aalambheriyani.github.io/next-up-dashboard/"

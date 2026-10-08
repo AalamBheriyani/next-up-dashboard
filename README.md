@@ -36,8 +36,16 @@ folder `/docs`. The site appears at https://aalambheriyani.github.io/next-up-das
 2. Redirect URL: `https://next-up-dashboard.<your-subdomain>.workers.dev/ticktick/callback`.
 3. Copy the client ID and client secret.
 
-### 4. Claude API key (optional, paid)
-Without a key, **Ask Claude** is free: it opens a new chat in the Claude app or claude.ai with your
+### 4. Ask Claude: laptop relay (free) or API key (paid)
+**Laptop relay (recommended).** Questions typed on the dashboard, from any device, are answered by
+Claude Code on your laptop, on your Claude plan. Claude can still mark tasks done and start the timer.
+1. Install Claude Code on the laptop and sign in once (`claude`).
+2. Set a long random `RELAY_TOKEN` Worker secret (step 5).
+3. Copy `relay/config.example.json` to `relay/config.json` and fill in the Worker URL and token.
+4. Run `node relay/laptop.mjs` and leave it running (Node 18+). To start it at login, add it to
+   macOS Login Items / launchd or Windows Task Scheduler.
+
+When the laptop is off, **Ask Claude** opens a new chat in the Claude app or claude.ai with your
 tasks and calendar filled in, running on your Claude plan and its TickTick/Calendar connectors.
 To chat inside the page instead, create a key at https://console.anthropic.com/settings/keys and
 set the `ANTHROPIC_API_KEY` secret; the page switches over by itself. API usage is billed
@@ -55,7 +63,8 @@ npx wrangler secret put SHEET_ID               # Weekly Time Tracker spreadsheet
 npx wrangler secret put QUEST_SHEET_ID         # XP Tracker (Quest Log) spreadsheet id
 npx wrangler secret put TICKTICK_CLIENT_ID
 npx wrangler secret put TICKTICK_CLIENT_SECRET
-npx wrangler secret put ANTHROPIC_API_KEY      # optional, enables the in-page chat
+npx wrangler secret put RELAY_TOKEN            # long random string, shared with relay/config.json
+npx wrangler secret put ANTHROPIC_API_KEY      # optional, paid; replaces the laptop relay
 npx wrangler secret put PROFILE                # optional, JSON: {"name":"...","place":"...","wake":"06:35","windDown":"21:55","sleep":"22:35","rules":"..."}
 npx wrangler secret put LINKS                  # optional, JSON: [{"name":"Quest Log","note":"log XP","url":"https://..."}]
 npx wrangler deploy
@@ -74,7 +83,7 @@ Open the site, **Sign in with Google**, then press **Connect TickTick** on the t
 | Deadlines board, Done button | TickTick | browser → Worker → TickTick Open API |
 | Now / next block | Google Calendar (primary) | browser → Google |
 | Hours this week, Rate your blocks | Weekly Time Tracker sheet | browser → Google Sheets |
-| Ask Claude | your Claude app / claude.ai (free), or the Claude API (`claude-opus-5-5`) if a key is set | new tab, or browser → Worker → Claude API |
+| Ask Claude | Claude Code on your laptop (free), else a new Claude tab; Claude API (`claude-opus-5-5`) if a key is set | browser → Worker → laptop relay, or → Claude API |
 | Focus timer | settings stored in the browser | browser only |
 | Quest Log (`quest.html`), pomodoro XP | XP Tracker sheet | browser → Google Sheets |
 

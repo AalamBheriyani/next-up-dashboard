@@ -46,6 +46,13 @@ export default {
       return Response.redirect(env.SITE_URL + "?ticktick=connected", 302);
     }
 
+    // The laptop relay script authenticates with the RELAY_TOKEN secret instead of Google.
+    if (url.pathname === "/relay/next" || url.pathname === "/relay/reply") {
+      const h = req.headers.get("Authorization") || "";
+      if (!env.RELAY_TOKEN || h !== "Bearer " + env.RELAY_TOKEN) return fail(401, "bad relay token");
+      return withCors(await relay(env).fetch(req), cors);
+    }
+
     // Everything below needs a valid Google sign-in from the allowed account.
     const who = await checkGoogle(req, env);
     if (who.status) return fail(who.status, who.message);
@@ -56,7 +63,12 @@ export default {
         try { links = JSON.parse(env.LINKS || "[]"); } catch {}
         let profile = {};
         try { profile = JSON.parse(env.PROFILE || "{}"); } catch {}
-        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, claudeApi: !!env.ANTHROPIC_API_KEY, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
+        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, claudeApi: !!env.ANTHROPIC_API_KEY, relay: !!env.RELAY_TOKEN, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
+      }
+
+      // Questions for Claude Code on the laptop, and the answers coming back.
+      if (url.pathname === "/relay/ask" || url.pathname === "/relay/answer" || url.pathname === "/relay/status") {
+        return withCors(await relay(env).fetch(req), cors);
       }
 
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
@@ -127,6 +139,65 @@ export default {
     }
   },
 };
+
+function withCors(res, cors) {
+  const r = new Response(res.body, res);
+  for (const [k, v] of Object.entries(cors)) r.headers.set(k, v);
+  return r;
+}
+
+const relay = (env) => env.RELAY.get(env.RELAY.idFromName("relay"));
+
+// One Durable Object holds the question queue, so the phone and the laptop always see the same state.
+// Questions expire after 3 minutes, answers after 10.
+export class Relay {
+  constructor(ctx) { this.ctx = ctx; }
+  async fetch(req) {
+    const url = new URL(req.url);
+    const st = this.ctx.storage;
+    const now = Date.now();
+    const json = (d, status = 200) => new Response(JSON.stringify(d), { status, headers: { "Content-Type": "application/json" } });
+    const queue = ((await st.get("queue")) || []).filter((q) => now - q.at < 180e3);
+
+    if (url.pathname === "/relay/status") return json({ online: now - ((await st.get("seen")) || 0) < 30e3 });
+
+    if (url.pathname === "/relay/ask" && req.method === "POST") {
+      const { prompt } = await req.json();
+      if (!prompt || String(prompt).length > 40000) return json({ error: { message: "bad prompt" } }, 400);
+      const id = crypto.randomUUID();
+      queue.push({ id, prompt: String(prompt), at: now });
+      await st.put("queue", queue.slice(-10));
+      return json({ id });
+    }
+
+    if (url.pathname === "/relay/answer") {
+      const id = url.searchParams.get("id") || "";
+      const a = await st.get("a:" + id);
+      if (a) return json({ state: "done", text: a.text, error: a.error || "" });
+      if (queue.some((q) => q.id === id)) return json({ state: "queued" });
+      if ((await st.get("taken")) === id) return json({ state: "working" });
+      return json({ state: "gone" });
+    }
+
+    if (url.pathname === "/relay/next") {
+      await st.put("seen", now);
+      const q = queue.shift();
+      await st.put("queue", queue);
+      if (q) await st.put("taken", q.id);
+      return json(q ? { id: q.id, prompt: q.prompt } : {});
+    }
+
+    if (url.pathname === "/relay/reply" && req.method === "POST") {
+      const { id, text, error } = await req.json();
+      await st.put("a:" + id, { text: String(text || ""), error: String(error || ""), at: now });
+      await st.delete("taken");
+      // Drop answers older than 10 minutes.
+      for (const [k, v] of await st.list({ prefix: "a:" })) if (now - v.at > 600e3) await st.delete(k);
+      return json({ ok: true });
+    }
+    return json({ error: { message: "not found" } }, 404);
+  }
+}
 
 function callbackUrl(env) {
   return env.WORKER_URL.replace(/\/$/, "") + "/ticktick/callback";

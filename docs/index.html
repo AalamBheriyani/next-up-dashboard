@@ -565,6 +565,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     completeTask: (projectId, taskId) => http(W("/ticktick/complete"), { method: "POST", body: JSON.stringify({ projectId, taskId }) }),
     ticktickConnectUrl: () => http(W("/ticktick/start"), { method: "POST", body: "{}" }),
     claude: (body) => http(W("/claude"), { method: "POST", body: JSON.stringify(body) }),
+    relayStatus: () => http(W("/relay/status")),
+    relayAsk: (prompt) => http(W("/relay/ask"), { method: "POST", body: JSON.stringify({ prompt }) }),
+    relayAnswer: (id) => http(W("/relay/answer?id=" + encodeURIComponent(id))),
     events: (from, to) => http(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(from)}&timeMax=${encodeURIComponent(to)}&timeZone=${encodeURIComponent(tz)}`),
     sheetGet: (range) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}`),
     sheetPut: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, { method: "PUT", body: JSON.stringify({ range, values }) }),
@@ -824,13 +827,14 @@ You can call tools: complete_task to mark a task done (only when the user clearl
       input_schema: { type: "object", properties: { minutes: { type: "number" }, label: { type: "string" } }, required: ["minutes"] },
       execute(input) { const r = startTimer(input.minutes, input.label ? String(input.label) : ""); addMsg("sys", `Timer started: ${r.minutes} min`); return r; } },
   ];
-  // Free mode (default): open a Claude chat (app or claude.ai) prefilled with the page snapshot, so it runs on the
-  // user's Claude plan and their TickTick/Calendar connectors. Built-in chat is used only when the server has an API key.
-  let chatMode = "app";
-  function setChatMode(apiOn) {
-    chatMode = apiOn ? "api" : "app";
-    $("send").textContent = apiOn ? "Send" : "Ask";
-    $("askIntro").textContent = apiOn ? "Ask anything about today. Claude can also mark tasks done or start your timer."
+  // Without an API key: send the question to Claude Code on the laptop (relay) when it's online,
+  // otherwise open a Claude chat (app or claude.ai) prefilled with the page snapshot. Both run on the user's plan.
+  let chatMode = "app", relayOn = false;
+  function setChatMode(cfg) {
+    chatMode = cfg.claudeApi ? "api" : cfg.relay ? "relay" : "app";
+    $("send").textContent = chatMode === "app" ? "Ask" : "Send";
+    $("askIntro").textContent = chatMode === "api" ? "Ask anything about today. Claude can also mark tasks done or start your timer."
+      : chatMode === "relay" ? "Ask anything about today. Your laptop answers; if it's off, this opens Claude in a new tab instead."
       : "Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.";
   }
   function askInApp(text) {
@@ -841,10 +845,53 @@ You can call tools: complete_task to mark a task done (only when the user clearl
     window.open("https://claude.ai/new?q=" + encodeURIComponent(prompt), "_blank", "noopener");
     addMsg("sys", "Opened in Claude. If the message box there is empty, paste: it's on your clipboard.");
   }
+  const RELAY_ACTIONS = `To act on the dashboard, put each action on its own last line, exactly like:
+ACTION complete_task <task_id>   (only when the user clearly says the task is done)
+ACTION start_timer <minutes> <optional label>   (when the user agrees to start)
+Do not use any other tools.`;
+  async function askLaptop(text, bubble) {
+    const hist = turns.slice(0, -1).map((t) => `${t.role === "user" ? "User" : "You"}: ${t.content}`).join("\n");
+    const prompt = `${rules().replace(/You can call tools:[^\n]*/, RELAY_ACTIONS)}\n\n${snapshot()}${hist ? `\n\nEarlier in this chat:\n${hist}` : ""}\n\nUser: ${text}`;
+    const { id } = await api.relayAsk(prompt);
+    const until = Date.now() + 170e3;
+    while (Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const a = await api.relayAnswer(id);
+      if (a.state === "working") bubble.textContent = "Thinking on your laptop…";
+      if (a.state === "gone") throw new Error("The laptop didn't pick up the question.");
+      if (a.state === "done") {
+        if (a.error) throw new Error("Claude on the laptop failed: " + a.error);
+        const lines = a.text.split("\n"); const keep = [];
+        for (const line of lines) {
+          const m = line.trim().match(/^ACTION\s+(complete_task|start_timer)\s+(\S+)\s*(.*)$/);
+          if (!m) { keep.push(line); continue; }
+          const tool = tools.find((t) => t.name === m[1]);
+          try { await tool.execute(m[1] === "complete_task" ? { task_id: m[2] } : { minutes: parseFloat(m[2]) || 25, label: m[3] }); }
+          catch (e) { addMsg("sys", String(e.message || e)); }
+        }
+        return keep.join("\n").trim();
+      }
+    }
+    throw new Error("The laptop is taking too long. Try again.");
+  }
   async function ask(text) {
     if (!text.trim()) return;
-    if (chatMode === "app") { addMsg("me", text); askInApp(text); return; }
     if (busy) return;
+    if (chatMode === "app") { addMsg("me", text); askInApp(text); return; }
+    if (chatMode === "relay") {
+      try { relayOn = (await api.relayStatus()).online; } catch { relayOn = false; }
+      if (!relayOn) { addMsg("me", text); addMsg("sys", "Your laptop relay is offline, so this opens in Claude instead."); askInApp(text); return; }
+      busy = true; $("send").disabled = true;
+      addMsg("me", text); turns.push({ role: "user", content: text });
+      while (turns.length > 12 || (turns.length && turns[0].role !== "user")) turns.shift();
+      const bubble = addMsg("cl", "Sending to your laptop…");
+      try {
+        const out = await askLaptop(text, bubble);
+        if (out) { bubble.textContent = out; turns.push({ role: "assistant", content: out }); } else bubble.remove();
+      } catch (e) { bubble.remove(); turns.pop(); addMsg("sys", e.status ? copyFor(e, "the relay") : String(e.message || e)); }
+      finally { busy = false; $("send").disabled = false; }
+      return;
+    }
     busy = true; $("send").disabled = true;
     addMsg("me", text);
     turns.push({ role: "user", content: text });
@@ -1053,7 +1100,7 @@ You can call tools: complete_task to mark a task done (only when the user clearl
     renderAll(); renderTimer();
     try {
       const cfg = await api.config();
-      SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(!!cfg.claudeApi); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
+      SHEET = cfg.sheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(cfg); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
       renderLinks(cfg.links);
     } catch (e) {
       if (e.status === 401) return;

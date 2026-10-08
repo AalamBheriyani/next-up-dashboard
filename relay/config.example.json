@@ -1,0 +1,4 @@
+{
+  "workerUrl": "https://next-up-dashboard.YOUR-SUBDOMAIN.workers.dev",
+  "relayToken": "the same value you set with: npx wrangler secret put RELAY_TOKEN"
+}
