@@ -371,6 +371,14 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 .dep.s-late .pill { background: var(--late); color: #fff; padding-left: 7px; }
 .dep.s-late .pill::before { display: none; }
 .connect, .gbtn { background: var(--ink); color: var(--bg); }
+
+.ratechat { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--chip); }
+.ratechat textarea { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 10px; resize: vertical; }
+.ratechat .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ratechat .send { padding: 8px 14px; }
+#rcOut { display: grid; gap: 6px; }
+.rcpick { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
+.rcpick b { min-width: 90px; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -539,6 +547,12 @@ header.top { grid-template-columns: minmax(0, 1fr); }
   <div id="rateView" class="stack" hidden>
     <section class="panel" aria-labelledby="rH">
       <div class="panel-h"><h2 id="rH">Rate your blocks</h2><span class="label">writes to Time Tracker</span></div>
+      <form class="ratechat" id="rcForm">
+        <label for="rcQ" class="label">Tell Claude how it went</label>
+        <textarea id="rcQ" rows="3" placeholder="e.g. Finished the MATH 117 assignment, only did half of the Japanese HW, skipped lunch and the commute was fine."></textarea>
+        <div class="row"><button class="send" id="rcGo" type="submit">Rate with Claude</button><span class="note" id="rcNote"></span></div>
+        <div id="rcOut"></div>
+      </form>
       <div id="rateBody" class="rate"><p class="note">Loading blocks that still need a status…</p></div>
     </section>
   </div>
@@ -1536,8 +1550,8 @@ Do not use any other tools.`;
     let h = +m[1] % 12; if (/pm/i.test(m[3])) h += 12;
     const d = new Date(dateStr + "T00:00:00"); if (isNaN(d)) return null; d.setHours(h, +m[2], 0, 0); return d;
   }
-  function renderRate() {
-    const host = $("rateBody"); if (!S.log) return;
+  // Blocks from the last two days that still have no status.
+  function rateRows() {
     const now = new Date(); const since = new Date(now); since.setDate(since.getDate() - 2); since.setHours(0, 0, 0, 0);
     const rows = [];
     S.log.forEach((r, i) => {
@@ -1550,6 +1564,11 @@ Do not use any other tools.`;
       rows.push({ row: i + 2, date, start, end, block, planned, st, en, live: en > now });
     });
     rows.sort((a, b) => b.st - a.st);
+    return rows;
+  }
+  function renderRate() {
+    const host = $("rateBody"); if (!S.log) return;
+    const rows = rateRows();
     host.replaceChildren();
     if (!rows.length) { host.append(el("p", "note", "All caught up. Every block from the last two days has a status.")); return; }
     for (const b of rows.slice(0, 8)) {
@@ -1579,6 +1598,71 @@ Do not use any other tools.`;
       node.querySelector(".m").textContent = copyFor(e, GS);
     }
   }
+  // Rate with Claude: describe the day in your own words; Claude proposes a status for each block it can
+  // match, you check the list, and Apply writes them to the Time Tracker like the buttons do.
+  async function claudeOnce(prompt) {
+    if (chatMode === "api") {
+      const r = await api.claude({ system: "You help fill in a personal time tracker. Answer only with the JSON asked for.", messages: [{ role: "user", content: prompt }] });
+      return (r.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+    }
+    let on = false; try { on = (await api.relayStatus()).online; } catch {}
+    if (!on) throw new Error("Rating with Claude needs your laptop relay running (or a Claude API key). The buttons below still work.");
+    const { id } = await api.relayAsk(prompt);
+    const until = Date.now() + 170e3;
+    while (Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const a = await api.relayAnswer(id);
+      if (a.state === "gone") throw new Error("The laptop didn't pick up the request.");
+      if (a.state === "done") { if (a.error) throw new Error("Claude on the laptop failed: " + a.error); return a.text; }
+    }
+    throw new Error("The laptop is taking too long. Try again.");
+  }
+  $("rcForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const text = $("rcQ").value.trim(); if (!text) return;
+    const rows = S.log ? rateRows() : [];
+    if (!rows.length) { $("rcNote").textContent = "Nothing to rate: every recent block already has a status."; return; }
+    $("rcGo").disabled = true; $("rcNote").textContent = "Asking Claude…"; $("rcOut").replaceChildren();
+    const list = rows.map((b) => `${b.row} | ${dayFmt(b.st)} ${b.start}-${b.end} | ${b.block} | ${b.planned}h planned`).join("\n");
+    const prompt = `Today is ${new Date().toString()}. These planned blocks from my time tracker have no status yet (row | when | block | planned hours):
+${list}
+
+What I did, in my own words:
+${text}
+
+Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (did some; give the hours actually done), MISSED (didn't do it), SKIP (block no longer applies). Only include blocks my words clearly cover; leave the rest out. Reply with only this JSON, no other text:
+{"reply": "<one short sentence summarising>", "ratings": [{"row": <row number>, "status": "DONE|PARTIAL|MISSED|SKIP", "hours": <number, only for PARTIAL>}]}`;
+    try {
+      const out = await claudeOnce(prompt);
+      const m = String(out).match(/\{[\s\S]*\}/); if (!m) throw new Error("Claude's answer wasn't in the expected format. Try again.");
+      const res = JSON.parse(m[0]);
+      const byRow = new Map(rows.map((b) => [b.row, b]));
+      const picks = (res.ratings || []).filter((r) => byRow.has(Number(r.row)) && /^(DONE|PARTIAL|MISSED|SKIP)$/.test(r.status));
+      $("rcNote").textContent = res.reply || "";
+      if (!picks.length) { $("rcNote").textContent = (res.reply ? res.reply + " " : "") + "No blocks matched."; return; }
+      const box = $("rcOut");
+      for (const r of picks) {
+        const b = byRow.get(Number(r.row));
+        const lab = el("label", "rcpick"); const cb = el("input"); cb.type = "checkbox"; cb.checked = true; cb.dataset.row = b.row; cb.dataset.status = r.status; cb.dataset.hours = r.hours || "";
+        lab.append(cb, el("b", null, r.status[0] + r.status.slice(1).toLowerCase() + (r.status === "PARTIAL" ? ` ${r.hours}h` : "")), el("span", null, ` ${b.block} · ${dayFmt(b.st)} ${b.start}`));
+        box.append(lab);
+      }
+      const apply = el("button", "send", "Apply to Time Tracker"); apply.type = "button";
+      apply.onclick = async () => {
+        apply.disabled = true;
+        try {
+          for (const cb of box.querySelectorAll("input:checked")) {
+            const st = cb.dataset.status, h = parseFloat(cb.dataset.hours);
+            await api.sheetPut(`Log!I${cb.dataset.row}:J${cb.dataset.row}`, [[st, st === "PARTIAL" && h > 0 ? h : ""]]);
+          }
+          box.replaceChildren(); $("rcQ").value = ""; $("rcNote").textContent = "Saved. Adherence updates in a moment.";
+          await loadSheet();
+        } catch (err) { apply.disabled = false; $("rcNote").textContent = copyFor(err, GS); }
+      };
+      box.append(apply);
+    } catch (err) { $("rcNote").textContent = err.status ? copyFor(err, "Claude") : String(err.message || err); }
+    finally { $("rcGo").disabled = false; }
+  };
   async function loadSheet() {
     if (!SHEET) { $("hTitle").textContent = "No Time Tracker sheet yet."; sheetForm(); $("rateBody").replaceChildren(); return; }
     try {
