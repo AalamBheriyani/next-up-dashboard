@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#18212f">
+<meta name="theme-color" content="#000000">
 <meta name="robots" content="noindex">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Next Up</title>
-<script>try { const t = localStorage.getItem("nu.theme"); if (t && t !== "system") document.documentElement.dataset.theme = t; } catch {}</script>
+<script>try { const a = localStorage.getItem("nu.accent"); if (/^#[0-9a-f]{6}$/i.test(a || "")) document.documentElement.style.setProperty("--flap", a); } catch {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
@@ -24,35 +24,14 @@
   --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme]) {
-  --face: #e9edf3; --face-ink: #141a26; --bg: #0c111a; --panel: #141b27; --ink: #e7ebf2; --muted: #8e98ab; --line: #253042;
-  --board: #0a0e15; --board-ink: #eef2f8; --board-muted: #8792a6; --board-line: #212b3a;
-  --flap: #f4bb4a; --link: #8fb0ff; color-scheme: dark; } }
-:root[data-theme="dark"] {
-  --face: #e9edf3; --face-ink: #141a26; --bg: #0c111a; --panel: #141b27; --ink: #e7ebf2; --muted: #8e98ab; --line: #253042;
-  --board: #0a0e15; --board-ink: #eef2f8; --board-muted: #8792a6; --board-line: #212b3a;
-  --flap: #f4bb4a; --link: #8fb0ff; color-scheme: dark; }
-/* Extra themes, picked with the selector in the header (saved per device). */
-:root[data-theme="paper"] {
-  --bg: #f4efe6; --panel: #fbf8f2; --ink: #2b241c; --muted: #75695a; --line: #e2d9ca;
-  --board: #3a2f25; --board-ink: #f7f0e4; --board-muted: #c2b29c; --board-line: #4c3f32;
-  --flap: #d9822b; --link: #9a4a12; --face: #fffdf8; --face-ink: #2b241c; color-scheme: light; }
-:root[data-theme="forest"] {
-  --bg: #0f1a15; --panel: #16241d; --ink: #e3efe7; --muted: #8fa89a; --line: #24382d;
-  --board: #0b140f; --board-ink: #e9f4ec; --board-muted: #86a091; --board-line: #1d2f25;
-  --flap: #9bd46a; --link: #9bd4b8; --face: #e6efe9; --face-ink: #15211b; color-scheme: dark; }
-:root[data-theme="ocean"] {
-  --bg: #0b1622; --panel: #112233; --ink: #e2eef8; --muted: #8aa3b9; --line: #1c3349;
-  --board: #081320; --board-ink: #e6f1fb; --board-muted: #7f9ab2; --board-line: #18304a;
-  --flap: #4fc3e8; --link: #8cc8ff; --face: #e4eef6; --face-ink: #0f1d2a; color-scheme: dark; }
-:root[data-theme="dusk"] {
-  --bg: #17121f; --panel: #211a2c; --ink: #efe8f6; --muted: #a497b5; --line: #33294a;
-  --board: #120d19; --board-ink: #f3edf9; --board-muted: #9a8cad; --board-line: #2b2140;
-  --flap: #f28aa5; --link: #c4a6ff; --face: #efe9f5; --face-ink: #1d1626; color-scheme: dark; }
-:root[data-theme="contrast"] {
-  --bg: #000000; --panel: #0d0d0d; --ink: #ffffff; --muted: #c8c8c8; --line: #5a5a5a;
-  --board: #000000; --board-ink: #ffffff; --board-muted: #d0d0d0; --board-line: #5a5a5a;
-  --flap: #ffd400; --link: #7fd4ff; --face: #ffffff; --face-ink: #000000; color-scheme: dark; }
+/* One theme: black, with white text, blue labels and links, red for urgency. The accent is
+   picked with the colour picker in the header (saved per device). */
+:root {
+  --bg: #000000; --panel: #0b0b0d; --ink: #ffffff; --muted: #7fa7ff; --line: #1c1f26;
+  --board: #000000; --board-ink: #ffffff; --board-muted: #7fa7ff; --board-line: #1c1f26;
+  --flap: #ff3b3b; --link: #4d8dff; --face: #ffffff; --face-ink: #000000;
+  --late: #ff3b3b; --final: #ff6a3d; --boarding: #4d8dff; --ok: #3ddc84; color-scheme: dark;
+}
 /* Fewer borders: surfaces separate by tint instead of outlines. */
 :root { --chip: color-mix(in srgb, var(--ink) 6%, transparent); --chip-hi: color-mix(in srgb, var(--ink) 12%, transparent); }
 
@@ -126,7 +105,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .dep .body { grid-column: 1 / -1; white-space: pre-wrap; font-size: 13px; color: var(--board-muted); background: color-mix(in srgb, var(--board-ink) 5%, transparent); padding: 8px 10px; border-radius: 6px; }
 .dep .tbtn { all: unset; cursor: pointer; display: grid; gap: 2px; min-width: 0; }
 .dep .tbtn:focus-visible { outline: 2px solid var(--flap); outline-offset: 2px; border-radius: 4px; }
-.pill { font: 600 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; padding: 5px 7px; border-radius: 4px; color: #10141c; display: inline-block; white-space: nowrap; }
+.pill { font: 600 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; padding: 5px 7px; border-radius: 4px; color: #ffffff; display: inline-block; white-space: nowrap; }
 .s-late .pill { background: var(--late); color: #fff; }
 .s-late .cd { color: var(--late); }
 .s-final .pill { background: var(--final); }
@@ -245,17 +224,17 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .links a:hover { background: var(--chip-hi); }
 .links a span { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
 
-.fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--flap); color: #10141c; border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+.fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--flap); color: #ffffff; border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
 @media (min-width: 901px) { .fab { display: none; } }
 /* Sign-in */
 .gate { min-height: 80vh; display: grid; place-items: center; padding: 24px 16px; }
 .gate .card { max-width: 420px; width: 100%; background: var(--board); color: var(--board-ink); border-radius: 14px; padding: 28px 22px; display: grid; gap: 14px; }
 .gate h1 { font: 800 44px/1 var(--f-display); letter-spacing: .02em; }
 .gate p { margin: 0; color: var(--board-muted); }
-.gbtn { background: var(--flap); color: #10141c; border: 0; border-radius: 8px; padding: 12px 16px; font-weight: 600; font-size: 15px; }
+.gbtn { background: var(--flap); color: #ffffff; border: 0; border-radius: 8px; padding: 12px 16px; font-weight: 600; font-size: 15px; }
 .who { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .who button { background: var(--chip); border: 0; color: var(--ink); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-.connect { background: var(--flap); color: #10141c; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
+.connect { background: var(--flap); color: #ffffff; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
 .sheetform{display:grid;gap:10px}.sheetform label{display:grid;gap:4px;font-size:13px}.sheetform input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line,#444);background:transparent;color:inherit}
 /* Track: one-tap category timers, day timeline (plan vs tracked), totals vs targets */
 .tr-now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 34px; }
@@ -320,6 +299,24 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .cal-day .ev.cur { background: color-mix(in srgb, var(--flap) 28%, var(--panel)); border-left-color: var(--flap); font-weight: 600; }
 .cal-day .nowln { position: absolute; left: -6px; right: 0; border-top: 2px solid var(--final); z-index: 2; }
 .cal-day .nowln::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--final); }
+
+/* Tabs and the top row */
+.tabsbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tabsbar a { flex: none; padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--ink); background: var(--panel); font-weight: 600; font-size: 14px; }
+.tabsbar a[aria-current="page"] { background: var(--flap); color: #fff; }
+.toprow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 900px) { .toprow { grid-template-columns: minmax(0, 1fr); } }
+.tablink { font-size: 13px; text-decoration: none; }
+.upq { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 8px 10px; }
+.uplist { display: grid; gap: 2px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
+.uprow { display: grid; grid-template-columns: 110px minmax(0, 1fr); column-gap: 10px; padding: 7px 8px; border-radius: 8px; text-decoration: none; color: var(--ink); }
+.uprow:hover { background: var(--chip); }
+.uprow .cd { font-weight: 700; color: var(--muted); grid-row: span 2; align-self: center; }
+.uprow.s-late .cd { color: var(--late); } .uprow.s-final .cd { color: var(--final); } .uprow.s-boarding .cd { color: var(--boarding); }
+.uprow .tt { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uprow .meta { font-size: 12px; color: var(--muted); }
+.who .accent { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.who .accent input { width: 28px; height: 22px; padding: 0; border: 0; background: transparent; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -342,10 +339,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="clock num" id="clock">--:--</div>
       <div class="date" id="date"></div>
       <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
-        <label><select id="themeSel" class="theme-sel" aria-label="Theme">
-          <option value="system">Theme: system</option><option value="light">Light</option><option value="dark">Dark</option>
-          <option value="paper">Paper</option><option value="forest">Forest</option><option value="ocean">Ocean</option>
-          <option value="dusk">Dusk</option><option value="contrast">High contrast</option></select></label></div>
+        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div>
     </div>
     <div class="dayleft">
       <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
@@ -353,24 +347,43 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
     </div>
   </header>
+  <nav class="tabsbar" aria-label="Pages">
+    <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a>
+  </nav>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
   <div id="mainView" class="stack">
-    <div class="deadlines">
-      <section class="banner" id="banner" aria-live="polite">
-        <div class="label">Next deadline</div>
-        <div class="t" id="bTitle">Loading your tasks…</div>
-        <div class="cd" id="bCd">––</div>
-        <div class="sub" id="bSub"></div>
-      </section>
-      <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
-        <div class="panel-h"><h2 id="depH">Departures</h2><span class="stale" id="taskStamp"></span></div>
-        <div id="taskErr" hidden class="err"></div>
-        <div class="board" role="list">
-          <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
-          <div id="deps"><div class="empty">Loading overdue and next 7 days from TickTick…</div></div>
+    <div class="toprow">
+      <div class="stack">
+        <section class="banner" id="banner" aria-live="polite">
+          <div class="label">Next deadline</div>
+          <div class="t" id="bTitle">Loading your tasks…</div>
+          <div class="cd" id="bCd">––</div>
+          <div class="sub" id="bSub"></div>
+        </section>
+        <section class="panel upcoming" aria-labelledby="upH">
+          <div class="panel-h"><h2 id="upH">Deadlines</h2><a href="#departures" class="tablink">Departures board →</a></div>
+          <div id="taskErr" hidden class="err"></div>
+          <input type="search" id="upQ" class="upq" placeholder="Search deadlines…" aria-label="Search deadlines">
+          <div class="uplist" id="upList" role="list"><div class="note">Loading…</div></div>
+        </section>
+      </div>
+      <section class="panel" id="ask" aria-labelledby="aH">
+        <div class="panel-h"><h2 id="aH">Ask Claude</h2><span class="label">sees your tasks + calendar</span></div>
+        <div class="chips" id="quick">
+          <button class="chip" type="button">What should I do right now?</button>
+          <button class="chip" type="button">Break my most urgent task into a 2-minute first step</button>
+          <button class="chip" type="button">I'm procrastinating. Help me start.</button>
+          <button class="chip" type="button">Plan the rest of today</button>
         </div>
-        <div class="note">Overdue plus the next 14 days. Countdowns run to your personal deadline; the real one shows underneath. Tap a task for details, tap Done twice to complete it in TickTick.</div>
+        <div class="chat-log" id="log" aria-live="polite">
+          <div class="msg sys" id="askIntro">Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.</div>
+        </div>
+        <form class="composer" id="form">
+          <textarea id="q" rows="2" placeholder="Type a question…" aria-label="Message to Claude"></textarea>
+          <button class="send" id="send" type="submit">Ask</button>
+        </form>
+        <div id="askNote" class="note" hidden></div>
       </section>
     </div>
     <section class="panel" id="trackPanel" aria-labelledby="trH">
@@ -450,34 +463,27 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         </details>
       </section>
     </div>
-    <div class="duo">
-      <section class="panel" aria-labelledby="hH">
-        <div class="panel-h"><h2 id="hH">Hours this week</h2><span class="stale" id="hStamp"></span></div>
-        <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
-        <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
-      </section>
-      <section class="panel" id="ask" aria-labelledby="aH">
-        <div class="panel-h"><h2 id="aH">Ask Claude</h2><span class="label">sees your tasks + calendar</span></div>
-        <div class="chips" id="quick">
-          <button class="chip" type="button">What should I do right now?</button>
-          <button class="chip" type="button">Break my most urgent task into a 2-minute first step</button>
-          <button class="chip" type="button">I'm procrastinating. Help me start.</button>
-          <button class="chip" type="button">Plan the rest of today</button>
-        </div>
-        <div class="chat-log" id="log" aria-live="polite">
-          <div class="msg sys" id="askIntro">Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.</div>
-        </div>
-        <form class="composer" id="form">
-          <textarea id="q" rows="2" placeholder="Type a question…" aria-label="Message to Claude"></textarea>
-          <button class="send" id="send" type="submit">Ask</button>
-        </form>
-        <div id="askNote" class="note" hidden></div>
-      </section>
-    </div>
+  </div>
+  <div id="depView" class="stack" hidden>
+    <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
+      <div class="panel-h"><h2 id="depH">Departures</h2><span class="stale" id="taskStamp"></span></div>
+      <div class="board" role="list">
+        <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
+        <div id="deps"><div class="empty">Loading overdue and next 7 days from TickTick…</div></div>
+      </div>
+      <div class="note">Overdue plus the next 14 days. Countdowns run to your personal deadline; the real one shows underneath. Tap a task for details, tap Done twice to complete it in TickTick.</div>
+    </section>
+  </div>
+  <div id="hoursView" class="stack" hidden>
+    <section class="panel" aria-labelledby="hH">
+      <div class="panel-h"><h2 id="hH">Adherence · hours this week</h2><span class="stale" id="hStamp"></span></div>
+      <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
+      <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
+    </section>
   </div>
   <div id="rateView" class="stack" hidden>
     <section class="panel" aria-labelledby="rH">
-      <div class="panel-h"><h2 id="rH">Rate your blocks</h2><a href="#" class="back">← Dashboard</a></div>
+      <div class="panel-h"><h2 id="rH">Rate your blocks</h2><span class="label">writes to Time Tracker</span></div>
       <div id="rateBody" class="rate"><p class="note">Loading blocks that still need a status…</p></div>
     </section>
   </div>
@@ -485,17 +491,14 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 <button class="fab" id="fab" type="button">Ask Claude</button>
 
 <script>
-// Theme selector: saved per device; "system" follows the OS light/dark setting.
+// Accent colour picker: saved per device; everything else stays black, white, blue and red.
 (() => {
-  const sel = document.getElementById("themeSel"), root = document.documentElement;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  const apply = (t) => {
-    if (!t || t === "system") delete root.dataset.theme; else root.dataset.theme = t;
-    meta.content = getComputedStyle(root).getPropertyValue("--board").trim() || "#18212f";
-  };
-  let t = "system"; try { t = localStorage.getItem("nu.theme") || "system"; } catch {}
-  sel.value = t; apply(t);
-  sel.onchange = () => { apply(sel.value); try { localStorage.setItem("nu.theme", sel.value); } catch {} };
+  const sel = document.getElementById("accentSel"), root = document.documentElement, DEF = "#ff3b3b";
+  const apply = (c) => root.style.setProperty("--flap", c);
+  let c = DEF; try { c = localStorage.getItem("nu.accent") || DEF; } catch {}
+  sel.value = c; apply(c);
+  sel.oninput = () => { apply(sel.value); try { localStorage.setItem("nu.accent", sel.value); } catch {} };
+  document.getElementById("accentReset").onclick = () => { sel.value = DEF; apply(DEF); try { localStorage.removeItem("nu.accent"); } catch {} };
 })();
 (() => {
   const TT = "TickTick", GC = "Google Calendar", GS = "Google Sheets";
@@ -660,7 +663,22 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     const d = el("details"); d.append(el("summary", null, "Block notes"), el("div", "desc", plain)); box.append(d);
   }
 
+  // Searchable, scrolling list of every open deadline under the big countdown.
+  function renderUpcoming() {
+    const host = $("upList"); if (!host || (S.overdue === null && S.week === null)) return;
+    const q = ($("upQ").value || "").trim().toLowerCase(); const now = Date.now();
+    const ts = allTasks().filter(({ t }) => !q || (t.title + " " + projName(pid(t))).toLowerCase().includes(q));
+    host.replaceChildren();
+    if (!ts.length) { host.append(el("div", "note", q ? "No deadlines match." : "Nothing due. Board is clear.")); return; }
+    for (const { t, due } of ts) {
+      const ms = due - now; const [cls] = status(ms);
+      const row = el("a", "uprow " + cls); row.href = "#departures"; row.setAttribute("role", "listitem");
+      row.append(el("span", "num cd", ms < 0 ? `${fmtLeft(-ms)} late` : fmtLeft(ms)), el("span", "tt", t.title), el("span", "meta", `${dayFmt(due)} · ${projName(pid(t))}`));
+      host.append(row);
+    }
+  }
   function renderTasks() {
+    renderUpcoming();
     const host = $("deps");
     if (S.overdue === null && S.week === null) return;
     const ts = allTasks(); const now = Date.now();
@@ -1513,6 +1531,7 @@ Do not use any other tools.`;
   // Each person points the dashboard at their own Google Sheets (saved on the server per account).
   const sheetIdOf = (v) => { v = String(v || "").trim(); const m = v.match(/\/d\/([\w-]{20,})/); return m ? m[1] : v; };
   function sheetForm() {
+    if (location.hash !== "#hours") location.hash = "#hours"; // the form shows on the Adherence tab
     const box = el("form", "sheetform");
     const row = (label, id, val) => { const l = el("label", null, label); const i = el("input"); i.id = id; i.value = val ? `https://docs.google.com/spreadsheets/d/${val}` : ""; i.placeholder = "Paste the Google Sheet link"; l.append(i); return l; };
     const msg = el("div", "note", "Paste links to your own sheets. The Time Tracker needs Dashboard and Log tabs; the Quest Log sheet needs Quests, Log and Settings tabs.");
@@ -1538,7 +1557,6 @@ Do not use any other tools.`;
       { name: "TickTick", note: "main task list", url: "https://ticktick.com/webapp/" },
       { name: "Calendar", note: "today's blocks", url: "https://calendar.google.com/calendar/r/day" },
       { name: "Quest Log", note: "XP and streaks", url: "quest.html", local: true },
-      { name: "Rate your blocks", note: "Time Tracker statuses", url: "#rate", local: true },
     ];
     if (SHEET) base.push({ name: "Time Tracker", note: "plan vs actual", url: `https://docs.google.com/spreadsheets/d/${SHEET}` });
     for (const l of [...base, ...(links || [])]) {
@@ -1549,14 +1567,18 @@ Do not use any other tools.`;
       nav.append(a);
     }
   }
-  // "#rate" shows Rate your blocks as its own page.
+  // Pages: the dashboard, plus Departures, Adherence and Rate your blocks as tabs (#departures, #hours, #rate).
   function route() {
-    const rate = location.hash === "#rate";
-    $("mainView").hidden = rate; $("rateView").hidden = !rate;
-    if (!$("app").hidden) $("fab").hidden = rate;
+    const v = location.hash.replace("#", "");
+    const views = { "": "mainView", departures: "depView", hours: "hoursView", rate: "rateView" };
+    const cur = views[v] ? v : "";
+    for (const [k, id] of Object.entries(views)) $(id).hidden = k !== cur;
+    document.querySelectorAll(".tabsbar a").forEach((a) => a.setAttribute("aria-current", a.dataset.v === cur ? "page" : "false"));
+    $("fab").hidden = true; // Ask Claude sits at the top of the dashboard now
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", route);
+  $("upQ").oninput = renderUpcoming;
   const refreshAll = () => Promise.all([loadTasks(), loadCalendar().then(() => TR.rows && renderTrackLine()), loadSheet().then(loadTrack)]);
   let started = false;
   async function start() {
