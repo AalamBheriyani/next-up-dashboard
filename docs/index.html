@@ -835,8 +835,11 @@ window.NU_THEME = (() => {
   const PCOL = ["#4d8dff", "#22c55e", "#f59e0b", "#a855f7", "#14b8a6", "#ec4899", "#84cc16", "#f97316", "#06b6d4", "#e11d48"];
   function listColor(id) {
     if (S.pcolors[id]) return S.pcolors[id];
-    const name = projName(id); let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return PCOL[h % PCOL.length];
+    // Lists without a TickTick colour get distinct palette colours, in name order.
+    const names = ["Inbox", ...Object.values(S.projects)].filter((n, i, a) => a.indexOf(n) === i).sort();
+    const used = new Set(Object.values(S.pcolors).map((c) => c.toLowerCase()));
+    const free = PCOL.filter((c) => !used.has(c)); const pool = free.length ? free : PCOL;
+    return pool[Math.max(0, names.indexOf(projName(id))) % pool.length];
   }
   // List filter: chips for every list with open tasks; none selected shows everything.
   try { S.filter = new Set(JSON.parse(localStorage.getItem("nu.listfilter") || "[]")); } catch {}
@@ -1620,7 +1623,7 @@ Do not use any other tools.`;
     const fwd = new Date(d0); fwd.setDate(fwd.getDate() + 14);
     try {
       const r = await api.tasks(back.toISOString(), fwd.toISOString());
-      for (const p of r.projects || []) { S.projects[p.id] = p.name; if (p.color) S.pcolors[p.id] = p.color; }
+      for (const p of r.projects || []) { S.projects[p.id] = p.name; if (/^#[0-9a-f]{6}$/i.test(p.color || "")) S.pcolors[p.id] = p.color; }
       const all = r.tasks || [];
       S.overdue = all.filter((t) => { const d = dueOf(t); return d && d < d0; });
       S.week = all.filter((t) => { const d = dueOf(t); return d && d >= d0; });
