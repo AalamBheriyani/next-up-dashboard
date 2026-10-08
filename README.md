@@ -23,7 +23,8 @@ Repo **Settings → Pages → Build and deployment**: Source *Deploy from a bran
 folder `/docs`. The site appears at https://aalambheriyani.github.io/next-up-dashboard/.
 
 ### 2. Google sign-in (Google Cloud Console)
-1. Create a project at https://console.cloud.google.com/.
+1. Create a project at https://console.cloud.google.com/. Google Cloud requires 2-step
+   verification on the account first; turn it on at https://myaccount.google.com/signinoptions/twosv.
 2. **APIs & Services → Library**: enable *Google Calendar API* and *Google Sheets API*.
 3. **OAuth consent screen**: External, app name "Next Up", add yourself as a **test user**.
    Leave it in *Testing*; only test users can sign in.
@@ -73,11 +74,20 @@ Then open the Worker → **Settings → Variables and Secrets** and add:
 (Or from a terminal: `cd worker && npm install && npx wrangler login && npx wrangler secret put NAME`
 for each, then `npx wrangler deploy`.)
 
+If **Settings** says *Variables cannot be added to a Worker that only has static assets*, the root
+directory is wrong (it deployed the repo root and found `docs/`). Set it to `worker`, then
+**Deployments → Retry build**: changing build settings doesn't rebuild by itself. The log should list
+`env.RELAY (Relay) Durable Object`. You can paste a `.env` file into the first *Key* box of
+**Add variable**; empty lines are skipped, so add any blank ones later. Keep that file out of the repo.
+
 ### 6. Point the site at it
 Edit `docs/config.js` with the Google client ID and the Worker URL, commit, push.
 
 ### 7. First run
 Open the site, **Sign in with Google**, then press **Connect TickTick** on the task board once.
+Google shows *"hasn't verified this app"*: press Continue (normal in Testing). *Error 403:
+access_denied* means the account isn't on the test-user list yet; check it under
+**Google Auth Platform → Audience → Test users** (the Save button there sometimes needs a second click).
 
 ## More than one person
 Add each person's Gmail to `ALLOWED_EMAIL` and as a **test user** on the Google consent screen.
@@ -85,6 +95,19 @@ Everyone sees their own data: their Google Calendar, their own TickTick (each pr
 TickTick once), and the sheets they set under **My sheets**. The owner's sheet ids, profile and links
 come from the Worker secrets; the laptop relay answers only the owner, and other people's
 Ask Claude opens their own Claude app.
+
+## Roadmap
+
+- **Track** (in the spirit of [Timelines](https://timelines.app/)): one-tap category timers, a day
+  timeline of planned vs actual, edit or add blocks afterwards, pie and trend stats, daily and weekly
+  targets with confetti. Blocks are stored as rows in a `Log` tab of the Time Tracker sheet, categories
+  and targets in a `Categories` tab, so plan-vs-actual comes from tracked time.
+- **Zen garden focus mode** and a **website blocker** for a chosen number of hours.
+- **Flutter app**, later. The Worker, sheets, TickTick and relay stay as they are; Flutter replaces
+  `docs/`. Needs iOS and Android OAuth clients (the Worker would accept several client ids), a Mac
+  or a cloud macOS runner for iOS builds, and an Apple Developer account for TestFlight. Native
+  extras worth it: home-screen widget, notifications, lock-screen timer. An Apple Watch app would
+  be separate SwiftUI. Flutter's web build could replace this site too.
 
 ## What runs where
 
