@@ -329,6 +329,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .uprow .meta { font-size: 12px; color: var(--muted); }
 .who .accent { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .who .accent input { width: 28px; height: 22px; padding: 0; border: 0; background: transparent; }
+.gear { position: relative; width: max-content; }
+.gear summary { list-style: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted); padding: 4px 6px; border-radius: 6px; }
+.gear summary::-webkit-details-marker { display: none; }
+.gear summary:hover, .gear[open] summary { color: var(--ink); background: var(--chip); }
+.gear .who { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 230px; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--panel); padding: 12px; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.45); }
 
 /* Calendar in the header, beside the clock; work time left beside the tabs. */
 .headcal { padding: 12px 14px; }
@@ -356,8 +361,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <div class="label" id="placeLbl">Next up</div>
       <div class="clock num" id="clock">--:--</div>
       <div class="date" id="date"></div>
-      <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
-        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div>
+      <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
+        <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
+        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div></details>
     </div>
     <section class="panel headcal" aria-labelledby="nowH">
       <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
@@ -508,6 +514,14 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 </div>
 <button class="fab" id="fab" type="button">Ask Claude</button>
 
+<script>
+// Settings menu: closes on an outside click or after choosing an action.
+(() => {
+  const g = document.getElementById("gear");
+  document.addEventListener("click", (e) => { if (g.open && !g.contains(e.target)) g.open = false; });
+  for (const id of ["sheetsBtn", "signout"]) document.getElementById(id).addEventListener("click", () => { g.open = false; });
+})();
+</script>
 <script>
 // Accent colour picker: saved per device; everything else stays black, white, blue and red.
 (() => {
