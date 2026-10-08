@@ -301,6 +301,25 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tr-row.hit .v { color: var(--ink); font-weight: 700; }
 .confetti { position: fixed; top: -12px; width: 8px; height: 14px; z-index: 80; pointer-events: none; animation: trfall 2.4s ease-in forwards; }
 @keyframes trfall { to { transform: translateY(105vh) rotate(720deg); opacity: .7; } }
+
+/* Page layout: deadlines, Track, then the calendar with the timer beside it. */
+.stack { display: grid; gap: 12px; min-width: 0; }
+.deadlines { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2.2fr); gap: 12px; align-items: start; }
+.duo { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 12px; align-items: start; }
+@media (max-width: 900px) { .deadlines, .duo { grid-template-columns: minmax(0, 1fr); } }
+.back { font-size: 14px; text-decoration: none; }
+/* Today: summary on the left, an hour-by-hour day column on the right. */
+.cal-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
+@media (max-width: 700px) { .cal-split { grid-template-columns: minmax(0, 1fr); } }
+.cal-day { position: relative; max-height: 560px; overflow-y: auto; border-radius: 10px; background: var(--chip); scrollbar-width: thin; }
+.cal-day .inner { position: relative; margin-left: 44px; }
+.cal-day .hr { position: absolute; left: -44px; right: 0; border-top: 1px solid var(--chip-hi); font: 10px/1 var(--f-mono); color: var(--muted); padding: 2px 0 0 6px; }
+.cal-day .ev { position: absolute; left: 4px; right: 6px; border-radius: 6px; padding: 3px 8px; overflow: hidden; font-size: 13px; line-height: 1.25; background: color-mix(in srgb, var(--link) 18%, var(--panel)); border-left: 3px solid var(--link); }
+.cal-day .ev small { display: block; font: 11px var(--f-mono); color: var(--muted); }
+.cal-day .ev.past { opacity: .5; }
+.cal-day .ev.cur { background: color-mix(in srgb, var(--flap) 28%, var(--panel)); border-left-color: var(--flap); font-weight: 600; }
+.cal-day .nowln { position: absolute; left: -6px; right: 0; border-top: 2px solid var(--final); z-index: 2; }
+.cal-day .nowln::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--final); }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -336,8 +355,25 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   </header>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
-  <div class="grid">
-    <section class="panel wide" id="trackPanel" aria-labelledby="trH">
+  <div id="mainView" class="stack">
+    <div class="deadlines">
+      <section class="banner" id="banner" aria-live="polite">
+        <div class="label">Next deadline</div>
+        <div class="t" id="bTitle">Loading your tasks…</div>
+        <div class="cd" id="bCd">––</div>
+        <div class="sub" id="bSub"></div>
+      </section>
+      <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
+        <div class="panel-h"><h2 id="depH">Departures</h2><span class="stale" id="taskStamp"></span></div>
+        <div id="taskErr" hidden class="err"></div>
+        <div class="board" role="list">
+          <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
+          <div id="deps"><div class="empty">Loading overdue and next 7 days from TickTick…</div></div>
+        </div>
+        <div class="note">Overdue plus the next 14 days. Countdowns run to your personal deadline; the real one shows underneath. Tap a task for details, tap Done twice to complete it in TickTick.</div>
+      </section>
+    </div>
+    <section class="panel" id="trackPanel" aria-labelledby="trH">
         <div class="panel-h"><h2 id="trH">Track</h2><span class="stale" id="trStamp"></span></div>
         <div class="tr-now" id="trNow"><span class="note">Tap what you're doing to start tracking.</span></div>
         <div class="tr-cats" id="trCats" role="group" aria-label="Start tracking"></div>
@@ -353,38 +389,14 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         <div id="trErr" class="err" hidden></div>
         <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
       </section>
-    <div class="col">
-      <section class="banner" id="banner" aria-live="polite">
-        <div class="label">Next deadline</div>
-        <div class="t" id="bTitle">Loading your tasks…</div>
-        <div class="cd" id="bCd">––</div>
-        <div class="sub" id="bSub"></div>
-      </section>
-
+    <div class="duo">
       <section class="panel" aria-labelledby="nowH">
-        <div class="panel-h"><h2 id="nowH">Now</h2><span class="stale" id="calStamp"></span></div>
-        <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
-      </section>
-
-      <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
-        <div class="panel-h"><h2 id="depH">Departures</h2><span class="stale" id="taskStamp"></span></div>
-        <div id="taskErr" hidden class="err"></div>
-        <div class="board" role="list">
-          <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
-          <div id="deps"><div class="empty">Loading overdue and next 7 days from TickTick…</div></div>
+        <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
+        <div class="cal-split">
+          <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
+          <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
         </div>
-        <div class="note">Overdue plus the next 14 days. Countdowns run to your personal deadline; the real one shows underneath. Tap a task for details, tap Done twice to complete it in TickTick.</div>
       </section>
-
-      <section class="panel" aria-labelledby="hH">
-        <div class="panel-h"><h2 id="hH">Hours this week</h2><span class="stale" id="hStamp"></span></div>
-        <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
-        <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
-      </section>
-
-    </div>
-
-    <div class="col">
       <section class="panel timer" id="timerPanel" aria-labelledby="tH">
         <div class="panel-h"><h2 id="tH">Focus timer</h2><span class="label" id="tMode">Ready</span></div>
         <div class="tabs" role="group" aria-label="Timer mode">
@@ -437,12 +449,13 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
           </div>
         </details>
       </section>
-
-      <section class="panel" aria-labelledby="rH">
-        <div class="panel-h"><h2 id="rH">Rate your blocks</h2><span class="label">writes to Time Tracker</span></div>
-        <div id="rateBody" class="rate"><p class="note">Loading blocks that still need a status…</p></div>
+    </div>
+    <div class="duo">
+      <section class="panel" aria-labelledby="hH">
+        <div class="panel-h"><h2 id="hH">Hours this week</h2><span class="stale" id="hStamp"></span></div>
+        <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
+        <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
       </section>
-
       <section class="panel" id="ask" aria-labelledby="aH">
         <div class="panel-h"><h2 id="aH">Ask Claude</h2><span class="label">sees your tasks + calendar</span></div>
         <div class="chips" id="quick">
@@ -460,8 +473,13 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         </form>
         <div id="askNote" class="note" hidden></div>
       </section>
-
     </div>
+  </div>
+  <div id="rateView" class="stack" hidden>
+    <section class="panel" aria-labelledby="rH">
+      <div class="panel-h"><h2 id="rH">Rate your blocks</h2><a href="#" class="back">← Dashboard</a></div>
+      <div id="rateBody" class="rate"><p class="note">Loading blocks that still need a status…</p></div>
+    </section>
   </div>
 </div>
 <button class="fab" id="fab" type="button">Ask Claude</button>
@@ -601,11 +619,35 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         const fs = el("div", "firststep"); fs.append(el("b", null, "Use it on"), el("span", null, ts[0].t.title)); box.append(fs);
       }
     }
+    renderDay(evs, now);
     if (nxt) {
       const n = el("div", "next");
       n.append(el("span", "label", "Next"), el("span", "num", `in ${fmtLeft(nxt.s - now)}`), el("span", null, `${timeFmt(nxt.s)} ${nxt.e.summary || ""}`));
       box.append(n);
     }
+  }
+  // Hour-by-hour column for today, scrolled so "now" is near the top.
+  function renderDay(evs, now) {
+    const host = $("calDay"); if (!host) return;
+    const PX = 52, d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+    let h0 = 6, h1 = 23;
+    for (const x of evs) { if (x.s >= d0) h0 = Math.min(h0, x.s.getHours()); h1 = Math.max(h1, Math.min(24, x.en.getHours() + 1)); }
+    const y = (t) => ((t - d0) / 36e5 - h0) * PX;
+    const inner = el("div", "inner"); inner.style.height = (h1 - h0) * PX + "px";
+    for (let h = h0; h < h1; h++) { const m = el("div", "hr", h === 12 ? "12 PM" : h === 0 ? "12 AM" : h > 12 ? `${h - 12} PM` : `${h} AM`); m.style.top = (h - h0) * PX + "px"; inner.append(m); }
+    for (const x of evs) {
+      const top = Math.max(0, y(x.s)), hgt = Math.max(18, y(x.en) - top - 2);
+      const b = el("div", "ev" + (x.en <= now ? " past" : x.s <= now ? " cur" : ""));
+      b.style.top = top + "px"; b.style.height = hgt + "px";
+      b.append(document.createTextNode(x.e.summary || "(untitled)"));
+      if (hgt >= 32) b.append(el("small", null, `${timeFmt(x.s)}–${timeFmt(x.en)}`));
+      b.title = `${timeFmt(x.s)}–${timeFmt(x.en)} ${x.e.summary || ""}`;
+      inner.append(b);
+    }
+    const ln = el("div", "nowln"); ln.style.top = y(now) + "px"; inner.append(ln);
+    const first = !host.firstChild;
+    host.replaceChildren(inner);
+    if (first) host.scrollTop = Math.max(0, y(now) - PX);
   }
   function addDesc(box, desc) {
     if (!desc) return;
@@ -1495,6 +1537,7 @@ Do not use any other tools.`;
       { name: "TickTick", note: "main task list", url: "https://ticktick.com/webapp/" },
       { name: "Calendar", note: "today's blocks", url: "https://calendar.google.com/calendar/r/day" },
       { name: "Quest Log", note: "XP and streaks", url: "quest.html", local: true },
+      { name: "Rate your blocks", note: "Time Tracker statuses", url: "#rate", local: true },
     ];
     if (SHEET) base.push({ name: "Time Tracker", note: "plan vs actual", url: `https://docs.google.com/spreadsheets/d/${SHEET}` });
     for (const l of [...base, ...(links || [])]) {
@@ -1505,11 +1548,19 @@ Do not use any other tools.`;
       nav.append(a);
     }
   }
+  // "#rate" shows Rate your blocks as its own page.
+  function route() {
+    const rate = location.hash === "#rate";
+    $("mainView").hidden = rate; $("rateView").hidden = !rate;
+    if (!$("app").hidden) $("fab").hidden = rate;
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
   const refreshAll = () => Promise.all([loadTasks(), loadCalendar().then(() => TR.rows && renderTrackLine()), loadSheet().then(loadTrack)]);
   let started = false;
   async function start() {
     $("gate").hidden = true; $("app").hidden = false; $("fab").hidden = false;
-    renderAll(); renderTimer();
+    route(); renderAll(); renderTimer();
     try {
       const cfg = await api.config();
       // A different account on this browser: drop the previous person's cached sheet id and XP queue.
