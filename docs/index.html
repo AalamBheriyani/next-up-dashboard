@@ -1707,6 +1707,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
       { name: "TickTick", note: "main task list", url: "https://ticktick.com/webapp/" },
       { name: "Calendar", note: "today's blocks", url: "https://calendar.google.com/calendar/r/day" },
       { name: "Quest Log", note: "XP and streaks", url: "quest.html", local: true },
+      { name: "GitHub", note: "your repos", url: "https://github.com/AalamBheriyani" },
     ];
     if (SHEET) base.push({ name: "Time Tracker", note: "plan vs actual", url: `https://docs.google.com/spreadsheets/d/${SHEET}` });
     for (const l of [...base, ...(links || [])]) {
