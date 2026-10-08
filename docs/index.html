@@ -645,9 +645,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       inner.append(b);
     }
     const ln = el("div", "nowln"); ln.style.top = y(now) + "px"; inner.append(ln);
-    const first = !host.firstChild;
     host.replaceChildren(inner);
-    if (first) host.scrollTop = Math.max(0, y(now) - PX);
+    // Keep "now" in view until the user scrolls the column themselves.
+    if (!host.dataset.touched) requestAnimationFrame(() => { host.scrollTop = Math.max(0, y(now) - PX); });
+    host.onwheel = host.ontouchstart = () => { host.dataset.touched = "1"; };
   }
   function addDesc(box, desc) {
     if (!desc) return;
