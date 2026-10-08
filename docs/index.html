@@ -341,15 +341,16 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tabrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
 .tabrow .tabsbar { flex: none; }
 
-/* Clock, date and the settings gear sit under the current/next event in the Today panel, so the
-   calendar gets the whole header. */
+/* Clock, date and the settings gear form the Today panel's title line, so the calendar gets the
+   whole header. */
 header.top { grid-template-columns: minmax(0, 1fr); }
 .cal-left { display: flex; flex-direction: column; gap: 12px; align-self: stretch; min-width: 0; }
-.cal-left .headline-left { margin-top: auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; padding-top: 10px; border-top: 1px solid var(--chip); }
-.cal-left .headline-left .label { display: none; }
-.cal-left .clock { font-size: 44px; }
-.cal-left .gear { margin-left: auto; }
-.cal-left .gear .who { left: auto; right: 0; }
+.headcal .headline-left { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; justify-content: flex-start; }
+.headcal .headline-left .label { display: none; }
+.headcal .clock { font-size: 40px; }
+.headcal .headline-left .stale { margin-left: auto; }
+.headcal .gear .who { left: auto; right: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* One accent, used sparingly: the big countdown and the "now" lines. Everything else is white and
    blue; urgency shows as a small dot instead of coloured text. */
@@ -398,18 +399,19 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 <div class="wrap" id="app" hidden>
   <header class="top">
     <section class="panel headcal" aria-labelledby="nowH">
-      <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
+      <div class="panel-h headline-left">
+        <h2 id="nowH" class="sr-only">Today</h2>
+        <div class="label" id="placeLbl">Next up</div>
+        <div class="clock num" id="clock">--:--</div>
+        <div class="date" id="date"></div>
+        <span class="stale" id="calStamp"></span>
+        <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
+        <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
+        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div></details>
+      </div>
       <div class="cal-split">
         <div class="cal-left">
           <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
-          <div class="headline-left">
-            <div class="label" id="placeLbl">Next up</div>
-            <div class="clock num" id="clock">--:--</div>
-            <div class="date" id="date"></div>
-            <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
-            <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
-            <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button></div></details>
-          </div>
         </div>
         <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
       </div>
