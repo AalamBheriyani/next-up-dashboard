@@ -309,9 +309,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tablink { font-size: 13px; text-decoration: none; }
 .upq { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 8px 10px; }
 .uplist { display: grid; gap: 2px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
-.uprow { display: grid; grid-template-columns: 110px minmax(0, 1fr); column-gap: 10px; padding: 7px 8px; border-radius: 8px; text-decoration: none; color: var(--ink); }
+.uprow { display: grid; grid-template-columns: 150px minmax(0, 1fr); column-gap: 10px; padding: 7px 8px; border-radius: 8px; text-decoration: none; color: var(--ink); }
 .uprow:hover { background: var(--chip); }
-.uprow .cd { font-weight: 700; color: var(--muted); grid-row: span 2; align-self: center; }
+.uprow .cd { font-weight: 700; color: var(--muted); grid-row: span 2; align-self: center; white-space: nowrap; }
 .uprow.s-late .cd { color: var(--late); } .uprow.s-final .cd { color: var(--final); } .uprow.s-boarding .cd { color: var(--boarding); }
 .uprow .tt { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .uprow .meta { font-size: 12px; color: var(--muted); }
