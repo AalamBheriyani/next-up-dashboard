@@ -269,7 +269,9 @@ async function checkGoogle(req, env) {
   const r = await fetch("https://oauth2.googleapis.com/tokeninfo?access_token=" + encodeURIComponent(token));
   if (!r.ok) return { status: 401, message: "sign-in expired" };
   const info = await r.json();
-  if (info.aud !== env.GOOGLE_CLIENT_ID && info.azp !== env.GOOGLE_CLIENT_ID) return { status: 401, message: "token is for another app" };
+  // GOOGLE_CLIENT_ID may list several clients (web, Android, iOS), comma-separated.
+  const clients = String(env.GOOGLE_CLIENT_ID || "").split(/[\s,]+/).filter(Boolean);
+  if (!clients.includes(info.aud) && !clients.includes(info.azp)) return { status: 401, message: "token is for another app" };
   const allowed = String(env.ALLOWED_EMAIL || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
   const email = String(info.email || "").toLowerCase();
   if (String(info.email_verified) !== "true" || !allowed.includes(email)) {

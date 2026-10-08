@@ -698,12 +698,25 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     });
     return true;
   }
+  // Inside the Android/iOS app (app/ folder), Google sign-in and notifications are native: the app injects
+  // a NextUpNative channel, answers sign-in with window.nextUpNativeAuth, and opens other sites in the browser.
+  const NATIVE = window.NextUpNative && typeof window.NextUpNative.postMessage === "function";
+  const native = (msg) => { if (NATIVE) try { window.NextUpNative.postMessage(JSON.stringify(msg)); } catch {} };
+  window.nextUpNativeAuth = (token, expiresIn, error) => {
+    if (!token) { $("gateMsg").textContent = error || "Sign-in didn't finish. Try again."; return; }
+    auth = { token, exp: Date.now() + (Number(expiresIn) || 3300) * 1000 };
+    try { localStorage.setItem(AKEY, JSON.stringify(auth)); } catch {}
+    start();
+  };
+  if (NATIVE) window.open = (url) => { native({ type: "open", url: String(url) }); return null; };
   $("signin").onclick = () => {
+    if (NATIVE) { $("gateMsg").textContent = "Signing in…"; native({ type: "signin" }); return; }
     if (!CFG.googleClientId || !CFG.workerUrl) { $("gateMsg").textContent = "This site isn't configured yet: fill in config.js (see README)."; return; }
     if (!initGoogle()) { $("gateMsg").textContent = "Google sign-in is still loading. Try again in a second."; return; }
     tokenClient.requestAccessToken({ prompt: auth ? "" : "consent" });
   };
   $("signout").onclick = () => {
+    native({ type: "signout" });
     try { if (auth && window.google) google.accounts.oauth2.revoke(auth.token, () => {}); } catch {}
     signedOut("Signed out.");
   };
@@ -737,7 +750,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   let timer = null; // {mode, dur, left, end, running, label, done}
   try { timer = JSON.parse(localStorage.getItem(TKEY) || "null"); } catch {}
   const LABEL = { focus: "Pomodoro", short: "Short break", long: "Long break" };
-  const save = () => { try { localStorage.setItem(TKEY, JSON.stringify(timer)); localStorage.setItem(SKEY, JSON.stringify(set)); } catch {} };
+  const save = () => {
+    try { localStorage.setItem(TKEY, JSON.stringify(timer)); localStorage.setItem(SKEY, JSON.stringify(set)); } catch {}
+    // In the app, a native notification fires when the running session ends, even with the app closed.
+    native({ type: "timer", end: timer.running ? timer.end : 0, title: timer.mode === "focus" ? "Pomodoro done" : "Break over", body: timer.mode === "focus" ? "Time for a break." : "Back to focus." });
+  };
   const minsFor = (mode) => Math.max(1, Math.min(60, Number(set[mode]) || DEF[mode]));
   function fresh(mode, done) { return { mode, dur: minsFor(mode) * 6e4, left: minsFor(mode) * 6e4, end: 0, running: false, label: "", done: done || 0 }; }
   if (!timer || !timer.mode) timer = fresh("focus", 0);
