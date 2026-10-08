@@ -38,7 +38,7 @@ export default {
       const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callbackUrl(url), scope: "tasks:read tasks:write" });
       const r = await fetch(TT_TOKEN, {
         method: "POST",
-        headers: { Authorization: "Basic " + btoa(env.TICKTICK_CLIENT_ID + ":" + env.TICKTICK_CLIENT_SECRET), "Content-Type": "application/x-www-form-urlencoded" },
+        headers: { Authorization: "Basic " + btoa(String(env.TICKTICK_CLIENT_ID || "").trim() + ":" + String(env.TICKTICK_CLIENT_SECRET || "").trim()), "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
       if (!r.ok) return new Response("TickTick didn't accept the sign-in: " + (await r.text()), { status: 502 });
@@ -103,7 +103,7 @@ export default {
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
         const state = crypto.randomUUID();
         await store(env).put("tt_state:" + state, who.email, { expirationTtl: 600 });
-        const q = new URLSearchParams({ client_id: env.TICKTICK_CLIENT_ID, scope: "tasks:read tasks:write", state, redirect_uri: callbackUrl(url), response_type: "code" });
+        const q = new URLSearchParams({ client_id: String(env.TICKTICK_CLIENT_ID || "").trim(), scope: "tasks:read tasks:write", state, redirect_uri: callbackUrl(url), response_type: "code" });
         return json({ url: `${TT_AUTH}?${q}` });
       }
 
