@@ -52,23 +52,26 @@ set the `ANTHROPIC_API_KEY` secret; the page switches over by itself. API usage 
 separately from a Claude.ai subscription.
 
 ### 5. Deploy the Worker (Cloudflare)
-```sh
-cd worker
-npm install
-npx wrangler login
-npx wrangler kv namespace create NEXTUP_KV     # paste the id into wrangler.toml
-# edit wrangler.toml: WORKER_URL (your workers.dev subdomain), GOOGLE_CLIENT_ID
-npx wrangler secret put ALLOWED_EMAIL          # the Google account allowed to sign in
-npx wrangler secret put SHEET_ID               # Weekly Time Tracker spreadsheet id
-npx wrangler secret put QUEST_SHEET_ID         # XP Tracker (Quest Log) spreadsheet id
-npx wrangler secret put TICKTICK_CLIENT_ID
-npx wrangler secret put TICKTICK_CLIENT_SECRET
-npx wrangler secret put RELAY_TOKEN            # long random string, shared with relay/config.json
-npx wrangler secret put ANTHROPIC_API_KEY      # optional, paid; replaces the laptop relay
-npx wrangler secret put PROFILE                # optional, JSON: {"name":"...","place":"...","wake":"06:35","windDown":"21:55","sleep":"22:35","rules":"..."}
-npx wrangler secret put LINKS                  # optional, JSON: [{"name":"Quest Log","note":"log XP","url":"https://..."}]
-npx wrangler deploy
-```
+No terminal needed. In the Cloudflare dashboard: **Workers & Pages → Create → Import a repository**,
+pick this repo, then set root directory `worker`, build command empty, deploy command
+`npx wrangler deploy`, and turn off non-production builds. Every push to `main` redeploys it.
+
+Then open the Worker → **Settings → Variables and Secrets** and add:
+
+| Name | Type | Value |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | Text | the OAuth client ID from step 2 |
+| `ALLOWED_EMAIL` | Secret | the Google account allowed to sign in |
+| `SHEET_ID` | Secret | Weekly Time Tracker spreadsheet id |
+| `QUEST_SHEET_ID` | Secret | XP Tracker (Quest Log) spreadsheet id |
+| `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET` | Secret | from step 3 |
+| `RELAY_TOKEN` | Secret | a long random string, also put in `relay/config.json` |
+| `ANTHROPIC_API_KEY` | Secret | optional, paid; replaces the laptop relay |
+| `PROFILE` | Secret | optional JSON: `{"name":"...","place":"...","wake":"06:35","windDown":"21:55","sleep":"22:35","rules":"..."}` |
+| `LINKS` | Secret | optional JSON: `[{"name":"Quest Log","note":"log XP","url":"https://..."}]` |
+
+(Or from a terminal: `cd worker && npm install && npx wrangler login && npx wrangler secret put NAME`
+for each, then `npx wrangler deploy`.)
 
 ### 6. Point the site at it
 Edit `docs/config.js` with the Google client ID and the Worker URL, commit, push.

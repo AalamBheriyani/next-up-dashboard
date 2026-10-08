@@ -32,9 +32,9 @@ export default {
     if (url.pathname === "/ticktick/callback") {
       const state = url.searchParams.get("state");
       const code = url.searchParams.get("code");
-      if (!state || !code || !(await env.NEXTUP_KV.get("tt_state:" + state))) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
-      await env.NEXTUP_KV.delete("tt_state:" + state);
-      const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callbackUrl(env), scope: "tasks:read tasks:write" });
+      if (!state || !code || !(await store(env).get("tt_state:" + state))) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
+      await store(env).delete("tt_state:" + state);
+      const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callbackUrl(url), scope: "tasks:read tasks:write" });
       const r = await fetch(TT_TOKEN, {
         method: "POST",
         headers: { Authorization: "Basic " + btoa(env.TICKTICK_CLIENT_ID + ":" + env.TICKTICK_CLIENT_SECRET), "Content-Type": "application/x-www-form-urlencoded" },
@@ -42,7 +42,7 @@ export default {
       });
       if (!r.ok) return new Response("TickTick didn't accept the sign-in: " + (await r.text()), { status: 502 });
       const tok = await r.json();
-      await env.NEXTUP_KV.put("tt_token", tok.access_token);
+      await store(env).put("tt_token", tok.access_token);
       return Response.redirect(env.SITE_URL + "?ticktick=connected", 302);
     }
 
@@ -63,7 +63,7 @@ export default {
         try { links = JSON.parse(env.LINKS || "[]"); } catch {}
         let profile = {};
         try { profile = JSON.parse(env.PROFILE || "{}"); } catch {}
-        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, claudeApi: !!env.ANTHROPIC_API_KEY, relay: !!env.RELAY_TOKEN, ticktick: !!(await env.NEXTUP_KV.get("tt_token")) });
+        return json({ email: who.email, sheetId: env.SHEET_ID || "", questSheetId: env.QUEST_SHEET_ID || "", links, profile, claudeApi: !!env.ANTHROPIC_API_KEY, relay: !!env.RELAY_TOKEN, ticktick: !!(await store(env).get("tt_token")) });
       }
 
       // Questions for Claude Code on the laptop, and the answers coming back.
@@ -73,13 +73,13 @@ export default {
 
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
         const state = crypto.randomUUID();
-        await env.NEXTUP_KV.put("tt_state:" + state, "1", { expirationTtl: 600 });
-        const q = new URLSearchParams({ client_id: env.TICKTICK_CLIENT_ID, scope: "tasks:read tasks:write", state, redirect_uri: callbackUrl(env), response_type: "code" });
+        await store(env).put("tt_state:" + state, "1", { expirationTtl: 600 });
+        const q = new URLSearchParams({ client_id: env.TICKTICK_CLIENT_ID, scope: "tasks:read tasks:write", state, redirect_uri: callbackUrl(url), response_type: "code" });
         return json({ url: `${TT_AUTH}?${q}` });
       }
 
       if (url.pathname === "/ticktick/tasks" && req.method === "GET") {
-        const token = await env.NEXTUP_KV.get("tt_token");
+        const token = await store(env).get("tt_token");
         if (!token) return fail(409, "TickTick isn't connected");
         const from = Date.parse(url.searchParams.get("from") || "") || 0;
         const to = Date.parse(url.searchParams.get("to") || "") || Infinity;
@@ -99,7 +99,7 @@ export default {
       }
 
       if (url.pathname === "/ticktick/complete" && req.method === "POST") {
-        const token = await env.NEXTUP_KV.get("tt_token");
+        const token = await store(env).get("tt_token");
         if (!token) return fail(409, "TickTick isn't connected");
         const { projectId, taskId } = await req.json();
         if (!/^[\w-]+$/.test(String(projectId)) || !/^[\w-]+$/.test(String(taskId))) return fail(400, "bad task id");
@@ -132,7 +132,7 @@ export default {
       if (e instanceof Anthropic.AuthenticationError) return fail(502, "The Claude API key on the server is invalid.");
       if (e instanceof Anthropic.APIError) return fail(502, "Claude API error: " + e.message);
       if (e && e.status === 401) {
-        await env.NEXTUP_KV.delete("tt_token");
+        await store(env).delete("tt_token");
         return fail(409, "TickTick sign-in expired");
       }
       return fail(502, (e && e.message) || "server error");
@@ -148,6 +148,16 @@ function withCors(res, cors) {
 
 const relay = (env) => env.RELAY.get(env.RELAY.idFromName("relay"));
 
+// Small key-value store (TickTick token, sign-in state) kept in the same Durable Object.
+function store(env) {
+  const op = async (body) => (await (await relay(env).fetch("https://internal/_kv", { method: "POST", body: JSON.stringify(body) })).json()).value;
+  return {
+    get: (key) => op({ op: "get", key }),
+    put: (key, value, opts = {}) => op({ op: "put", key, value, ttl: opts.expirationTtl }),
+    delete: (key) => op({ op: "delete", key }),
+  };
+}
+
 // One Durable Object holds the question queue, so the phone and the laptop always see the same state.
 // Questions expire after 3 minutes, answers after 10.
 export class Relay {
@@ -158,6 +168,16 @@ export class Relay {
     const now = Date.now();
     const json = (d, status = 200) => new Response(JSON.stringify(d), { status, headers: { "Content-Type": "application/json" } });
     const queue = ((await st.get("queue")) || []).filter((q) => now - q.at < 180e3);
+
+    if (url.pathname === "/_kv") {
+      const { op, key, value, ttl } = await req.json();
+      const k = "kv:" + key;
+      if (op === "put") { await st.put(k, { v: value, exp: ttl ? now + ttl * 1000 : 0 }); return json({}); }
+      if (op === "delete") { await st.delete(k); return json({}); }
+      const e = await st.get(k);
+      if (e && e.exp && e.exp < now) { await st.delete(k); return json({ value: null }); }
+      return json({ value: e ? e.v : null });
+    }
 
     if (url.pathname === "/relay/status") return json({ online: now - ((await st.get("seen")) || 0) < 30e3 });
 
@@ -199,8 +219,8 @@ export class Relay {
   }
 }
 
-function callbackUrl(env) {
-  return env.WORKER_URL.replace(/\/$/, "") + "/ticktick/callback";
+function callbackUrl(url) {
+  return url.origin + "/ticktick/callback";
 }
 
 async function ticktick(token, path, opts = {}) {

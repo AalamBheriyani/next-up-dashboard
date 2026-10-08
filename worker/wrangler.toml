@@ -2,13 +2,11 @@ name = "next-up-dashboard"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
+# Keep variables set in the Cloudflare dashboard (GOOGLE_CLIENT_ID) when deploying.
+keep_vars = true
 
-# Create with: npx wrangler kv namespace create NEXTUP_KV  (then paste the id here)
-[[kv_namespaces]]
-binding = "NEXTUP_KV"
-id = "REPLACE_WITH_KV_ID"
-
-# Queue between the dashboard and Claude Code on your laptop (free plan, SQLite-backed).
+# Holds the TickTick token and the queue between the dashboard and Claude Code on your laptop
+# (free plan, SQLite-backed).
 [[durable_objects.bindings]]
 name = "RELAY"
 class_name = "Relay"
@@ -18,7 +16,6 @@ tag = "v1"
 new_sqlite_classes = ["Relay"]
 
 [vars]
-# Public values. Private ones (email, sheet id, API keys) are set with `wrangler secret put`.
 SITE_URL = "https://aalambheriyani.github.io/next-up-dashboard/"
-WORKER_URL = "https://next-up-dashboard.REPLACE.workers.dev"
-GOOGLE_CLIENT_ID = "REPLACE.apps.googleusercontent.com"
+# Set GOOGLE_CLIENT_ID in the dashboard: Worker > Settings > Variables and Secrets (type: Text).
+# Private values (email, sheet ids, keys) go there too, as type Secret.
