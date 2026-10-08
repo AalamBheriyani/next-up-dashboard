@@ -390,6 +390,23 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 .ver { font-size: 12px; text-decoration: none; }
 .oldver { background: var(--dl); color: #fff; text-align: center; padding: 8px 12px; font-size: 14px; }
 .oldver a { color: #fff; font-weight: 700; }
+
+/* Departures: list or week view */
+.depmode { display: flex; gap: 4px; margin-left: auto; margin-right: 10px; }
+.depmode button { border: 0; background: var(--chip); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; }
+.depmode button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.wkbar { display: flex; align-items: center; gap: 8px; }
+.week { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.wkcol { background: var(--chip); border-radius: 10px; padding: 8px; display: grid; gap: 6px; align-content: start; min-height: 120px; min-width: 0; }
+.wkcol.today { box-shadow: inset 0 0 0 1px var(--accent); }
+.wkh { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.wkh span { font: 12px var(--f-mono); color: var(--muted); }
+.wkcol.late .wkh b { color: var(--dl); }
+.wkit { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--panel); text-decoration: none; color: var(--ink); font-size: 13px; border-left: 3px solid var(--accent); }
+.wkit.s-late { border-left-color: var(--dl); }
+.wkit .tt { font-weight: 600; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.wkit .meta { font-size: 11px; color: var(--muted); }
+.wkempty { color: var(--muted); font-size: 13px; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -543,8 +560,12 @@ header.top { grid-template-columns: minmax(0, 1fr); }
   </div>
   <div id="depView" class="stack" hidden>
     <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
-      <div class="panel-h"><h2 id="depH">Departures</h2><span class="stale" id="taskStamp"></span></div>
-      <div class="board" role="list">
+      <div class="panel-h"><h2 id="depH">Departures</h2>
+        <div class="depmode" role="group" aria-label="View"><button type="button" data-dv="list" aria-pressed="true">List</button><button type="button" data-dv="week" aria-pressed="false">Week</button></div>
+        <span class="stale" id="taskStamp"></span></div>
+      <div class="wkbar" id="wkBar" hidden><button type="button" class="tr-nav" id="wkPrev" aria-label="This week">‹</button><strong id="wkLbl">Next 7 days</strong><button type="button" class="tr-nav" id="wkNext" aria-label="Following week">›</button></div>
+      <div class="week" id="wkView" hidden></div>
+      <div class="board" role="list" id="depList">
         <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
         <div id="deps"><div class="empty">Loading overdue and next 7 days from TickTick…</div></div>
       </div>
@@ -789,8 +810,46 @@ window.NU_THEME = (() => {
       host.append(row);
     }
   }
+  // Week view of the Departures tab: an Overdue column, then one column per day.
+  const DV = { mode: "list", off: 0 };
+  function renderWeek() {
+    const host = $("wkView"); if (!host || DV.mode !== "week" || (S.overdue === null && S.week === null)) return;
+    const now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0); d0.setDate(d0.getDate() + DV.off * 7);
+    const ts = allTasks(); host.replaceChildren();
+    const col = (title, sub, items, cls) => {
+      const c = el("div", "wkcol" + (cls ? " " + cls : "")); const h = el("div", "wkh"); h.append(el("b", null, title), el("span", null, sub)); c.append(h);
+      if (!items.length) c.append(el("div", "wkempty", "—"));
+      for (const { t, due } of items) {
+        const ms = due - now; const [st] = status(ms);
+        const it = el("a", "wkit " + st); it.href = "#departures"; it.title = t.title;
+        it.onclick = (e) => { e.preventDefault(); DV.mode = "list"; S.openId = t.id; applyDv(); renderTasks(); };
+        it.append(el("span", "tt", t.title), el("span", "meta", `${allDay(t) ? "all day" : timeFmt(due)} · ${projName(pid(t))}`));
+        c.append(it);
+      }
+      host.append(c);
+    };
+    if (DV.off === 0) col("Overdue", `${ts.filter((x) => x.due < d0).length}`, ts.filter((x) => x.due < d0), "late");
+    for (let i = 0; i < 7; i++) {
+      const a = new Date(d0); a.setDate(a.getDate() + i); const b = new Date(a); b.setDate(b.getDate() + 1);
+      const items = ts.filter((x) => x.due >= a && x.due < b);
+      col(i === 0 && DV.off === 0 ? "Today" : a.toLocaleDateString([], { weekday: "short" }), a.toLocaleDateString([], { month: "short", day: "numeric" }), items, i === 0 && DV.off === 0 ? "today" : "");
+    }
+    $("wkLbl").textContent = DV.off === 0 ? "Next 7 days" : "The 7 days after";
+    $("wkPrev").disabled = DV.off === 0; $("wkNext").disabled = DV.off >= 1; // TickTick data covers 14 days ahead
+  }
+  function applyDv() {
+    const wk = DV.mode === "week";
+    $("depList").hidden = wk; $("wkView").hidden = !wk; $("wkBar").hidden = !wk;
+    document.querySelectorAll("[data-dv]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dv === DV.mode)));
+    try { localStorage.setItem("nu.depview", DV.mode); } catch {}
+    renderWeek();
+  }
+  try { if (localStorage.getItem("nu.depview") === "week") DV.mode = "week"; } catch {}
+  document.querySelectorAll("[data-dv]").forEach((b) => b.onclick = () => { DV.mode = b.dataset.dv; applyDv(); });
+  $("wkPrev").onclick = () => { DV.off = 0; renderWeek(); };
+  $("wkNext").onclick = () => { DV.off = 1; renderWeek(); };
   function renderTasks() {
-    renderUpcoming();
+    renderUpcoming(); renderWeek();
     const host = $("deps");
     if (S.overdue === null && S.week === null) return;
     const ts = allTasks(); const now = Date.now();
@@ -1766,7 +1825,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   let started = false;
   async function start() {
     $("gate").hidden = true; $("app").hidden = false; $("fab").hidden = false;
-    route(); renderAll(); renderTimer();
+    route(); applyDv(); renderAll(); renderTimer();
     try {
       const cfg = await api.config();
       // A different account on this browser: drop the previous person's cached sheet id and XP queue.
