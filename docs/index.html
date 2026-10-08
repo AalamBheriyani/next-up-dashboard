@@ -590,7 +590,7 @@ fetch("version.json", { cache: "no-store" }).then((r) => r.ok ? r.json() : null)
   const link = document.getElementById("verLink"); link.textContent = `${v.version} · all versions`;
   if (/\/v\/v[\d.]+\//.test(location.pathname)) {
     const b = document.createElement("div"); b.className = "oldver";
-    b.innerHTML = `You're viewing an old version (${v.version}, ${v.date}). <a href="/next-up-dashboard/">Back to the latest</a>`;
+    b.innerHTML = `You're viewing saved version ${v.version} (${v.date}). <a href="/next-up-dashboard/">Back to the latest</a> · <a href="/next-up-dashboard/v/">All versions</a>`;
     document.body.prepend(b);
   }
 }).catch(() => {});
