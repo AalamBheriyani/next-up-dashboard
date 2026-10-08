@@ -779,7 +779,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   const api = {
     config: () => http(W("/config")),
     tasks: (from, to) => http(W(`/ticktick/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)),
-    completeTask: (projectId, taskId) => http(W("/ticktick/complete"), { method: "POST", body: JSON.stringify({ projectId, taskId }) }),
+    completeTask: (projectId, taskId, info = {}) => http(W("/ticktick/complete"), { method: "POST", body: JSON.stringify({ projectId, taskId, ...info }) }),
     ticktickConnectUrl: () => http(W("/ticktick/start"), { method: "POST", body: "{}" }),
     claude: (body) => http(W("/claude"), { method: "POST", body: JSON.stringify(body) }),
     relayStatus: () => http(W("/relay/status")),
@@ -839,7 +839,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
   // ---------- actions ----------
   async function completeTask(t) {
-    await api.completeTask(pid(t), t.id);
+    await api.completeTask(pid(t), t.id, { title: t.title, list: projName(pid(t)), tags: t.tags || [] });
     S.removed.add(t.id);
     renderAll();
   }

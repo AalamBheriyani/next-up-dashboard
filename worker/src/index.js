@@ -48,7 +48,7 @@ export default {
     }
 
     // The laptop relay script authenticates with the RELAY_TOKEN secret instead of Google.
-    if (url.pathname === "/relay/next" || url.pathname === "/relay/reply") {
+    if (url.pathname === "/relay/next" || url.pathname === "/relay/reply" || url.pathname === "/relay/done") {
       const h = req.headers.get("Authorization") || "";
       if (!env.RELAY_TOKEN || h !== "Bearer " + env.RELAY_TOKEN) return fail(401, "bad relay token");
       return withCors(await relay(env).fetch(req), cors);
@@ -130,9 +130,14 @@ export default {
       if (url.pathname === "/ticktick/complete" && req.method === "POST") {
         const token = await store(env).get(ttKey(who.email));
         if (!token) return fail(409, "TickTick isn't connected");
-        const { projectId, taskId } = await req.json();
+        const { projectId, taskId, title, list, tags } = await req.json();
         if (!/^[\w-]+$/.test(String(projectId)) || !/^[\w-]+$/.test(String(taskId))) return fail(400, "bad task id");
         await ticktick(token, `/project/${projectId}/task/${taskId}/complete`, { method: "POST" });
+        // The owner's completions are queued for the laptop relay, which marks the matching TODO
+        // DONE in the org files.
+        if (who.owner && title) {
+          await relay(env).fetch("https://internal/relay/done-add", { method: "POST", body: JSON.stringify({ taskId, title: String(title).slice(0, 500), list: String(list || ""), tags: Array.isArray(tags) ? tags.map(String) : [] }) });
+        }
         return json({ ok: true });
       }
 
@@ -226,6 +231,25 @@ export class Relay {
       if (queue.some((q) => q.id === id)) return json({ state: "queued" });
       if ((await st.get("taken")) === id) return json({ state: "working" });
       return json({ state: "gone" });
+    }
+
+    // Tasks completed on the dashboard, waiting for the laptop to mark them DONE in the org files.
+    if (url.pathname === "/relay/done-add" && req.method === "POST") {
+      const d = await req.json();
+      const done = (await st.get("done")) || [];
+      done.push({ ...d, at: now });
+      await st.put("done", done.slice(-200));
+      return json({ ok: true });
+    }
+    if (url.pathname === "/relay/done") {
+      const done = (await st.get("done")) || [];
+      if (req.method === "POST") {
+        // The laptop confirms which ones it handled.
+        const { ids } = await req.json();
+        await st.put("done", done.filter((d) => !(ids || []).includes(d.taskId)));
+        return json({ ok: true });
+      }
+      return json({ done });
     }
 
     if (url.pathname === "/relay/next") {

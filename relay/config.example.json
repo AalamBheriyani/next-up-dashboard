@@ -1,4 +1,8 @@
 {
   "workerUrl": "https://next-up-dashboard.YOUR-SUBDOMAIN.workers.dev",
-  "relayToken": "the same value you set with: npx wrangler secret put RELAY_TOKEN"
+  "relayToken": "the same value you set with: npx wrangler secret put RELAY_TOKEN",
+  "claudeBin": "claude",
+  "orgFiles": [
+    "~/org/todo.org"
+  ]
 }

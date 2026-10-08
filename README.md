@@ -43,7 +43,10 @@ Claude Code on your laptop, on your Claude plan. Claude can still mark tasks don
 1. Install Claude Code on the laptop and sign in once (`claude`).
 2. Set a long random `RELAY_TOKEN` Worker secret (step 5).
 3. Copy `relay/config.example.json` to `relay/config.json` and fill in the Worker URL and token.
-4. Run `node relay/laptop.mjs` and leave it running (Node 18+). To start it at login, add it to
+4. Optional: list your org files under `"orgFiles"` in `relay/config.json`. Tasks you tick off
+   with the dashboard's **Done** button are then marked DONE (with a CLOSED timestamp) in the org
+   heading with the same title, once a minute. If `claude` isn't on your PATH, set `"claudeBin"`.
+5. Run `node relay/laptop.mjs` and leave it running (Node 18+). To start it at login, add it to
    macOS Login Items / launchd or Windows Task Scheduler.
 
 When the laptop is off, **Ask Claude** opens a new chat in the Claude app or claude.ai with your
