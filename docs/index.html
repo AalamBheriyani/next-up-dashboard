@@ -61,7 +61,7 @@
 [hidden] { display: none !important; }
 img { max-width: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 96px; display: grid; gap: 16px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 14px max(6px, env(safe-area-inset-right, 0px)) 96px max(6px, env(safe-area-inset-left, 0px)); display: grid; gap: 12px; }
 h1, h2, h3 { margin: 0; text-wrap: balance; }
 .label { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 button { font: inherit; cursor: pointer; }
@@ -87,6 +87,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 
 .panel { background: var(--panel); border: 0; border-radius: 14px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+@media (max-width: 600px) { .panel { padding: 12px 10px; } }
 .panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .panel-h h2 { font: 800 24px/1 var(--f-display); letter-spacing: .02em; text-transform: uppercase; }
 .stale { font: 12px var(--f-mono); color: var(--muted); }
