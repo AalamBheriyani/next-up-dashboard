@@ -357,6 +357,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .s-late .pill, .s-final .pill, .s-boarding .pill { background: transparent; color: var(--muted); border: 0; padding-left: 0; }
 .uprow.s-late .cd::before, .s-late .pill::before, .s-final .pill::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--late); margin-right: 6px; vertical-align: middle; }
 .s-final .pill::before { background: var(--muted); }
+/* Departures board: overdue rows stay red (countdown and pill). */
+.dep.s-late .cd { color: var(--late); }
+.dep.s-late .pill { background: var(--late); color: #fff; padding-left: 7px; }
+.dep.s-late .pill::before { display: none; }
 .connect, .gbtn { background: var(--ink); color: var(--bg); }
 </style>
 <script src="config.js"></script>
