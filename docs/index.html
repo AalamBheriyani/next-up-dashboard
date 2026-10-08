@@ -838,9 +838,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   function fresh(mode, done) { return { mode, dur: minsFor(mode) * 6e4, left: minsFor(mode) * 6e4, end: 0, running: false, label: "", done: done || 0 }; }
   if (!timer || !timer.mode) timer = fresh("focus", 0);
   const leftNow = () => timer.running ? timer.end - Date.now() : timer.left;
-  function setMode(mode) { timer = fresh(mode, timer.done); save(); renderTimer(); }
+  function setMode(mode) { timer = fresh(mode, timer.done); save(); renderTimer(); trackAuto(false); }
   function play() { if (timer.running) return; timer.end = Date.now() + timer.left; timer.running = true; save(); renderTimer(); if (timer.mode === "focus") trackAuto(true); }
-  function pause() { if (!timer.running) return; timer.left = Math.max(0, timer.end - Date.now()); timer.running = false; save(); renderTimer(); }
+  function pause() { if (!timer.running) return; timer.left = Math.max(0, timer.end - Date.now()); timer.running = false; save(); renderTimer(); if (timer.mode === "focus") trackAuto(false); }
   function startTimer(min, label) {
     min = Math.max(1, Math.min(60, Math.round(Number(min) || set.focus)));
     timer = { ...fresh("focus", timer.done), dur: min * 6e4, left: min * 6e4, label: label || "" };
