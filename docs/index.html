@@ -304,8 +304,18 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tabsbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .tabsbar a { flex: none; padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--ink); background: var(--panel); font-weight: 600; font-size: 14px; }
 .tabsbar a[aria-current="page"] { background: var(--flap); color: #fff; }
-.toprow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
-@media (max-width: 900px) { .toprow { grid-template-columns: minmax(0, 1fr); } }
+.toprow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.toprow > * { min-height: 100%; }
+@media (max-width: 1100px) { .toprow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .toprow { grid-template-columns: minmax(0, 1fr); } }
+/* Smaller next-deadline card so the three columns match. */
+.toprow .banner { padding: 12px 14px; gap: 4px; }
+.toprow .banner .t { font-size: 15px; }
+.toprow .banner .cd { font-size: clamp(28px, 3.2vw, 40px); }
+.toprow .banner .sub { font-size: 12px; }
+.toprow .uplist { max-height: 240px; }
+.toprow #ask .chat-log { max-height: 260px; }
+.toprow .timer .dial { width: min(100%, 170px); }
 .tablink { font-size: 13px; text-decoration: none; }
 .upq { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 8px 10px; }
 .uplist { display: grid; gap: 2px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
@@ -385,31 +395,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         </form>
         <div id="askNote" class="note" hidden></div>
       </section>
-    </div>
-    <section class="panel" id="trackPanel" aria-labelledby="trH">
-        <div class="panel-h"><h2 id="trH">Track</h2><span class="stale" id="trStamp"></span></div>
-        <div class="tr-now" id="trNow"><span class="note">Tap what you're doing to start tracking.</span></div>
-        <div class="tr-cats" id="trCats" role="group" aria-label="Start tracking"></div>
-        <div class="tr-dayh">
-          <button type="button" class="tr-nav" id="trPrev" aria-label="Previous day">‹</button>
-          <strong id="trDay">Today</strong>
-          <button type="button" class="tr-nav" id="trNext" aria-label="Next day">›</button>
-          <button type="button" class="tr-add" id="trAdd">+ Add block</button>
-        </div>
-        <div class="tr-line" id="trLine" aria-label="Day timeline: plan above, tracked below"></div>
-        <div id="trEdit" hidden></div>
-        <div class="tr-stats" id="trStats"></div>
-        <div id="trErr" class="err" hidden></div>
-        <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
-      </section>
-    <div class="duo">
-      <section class="panel" aria-labelledby="nowH">
-        <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
-        <div class="cal-split">
-          <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
-          <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
-        </div>
-      </section>
       <section class="panel timer" id="timerPanel" aria-labelledby="tH">
         <div class="panel-h"><h2 id="tH">Focus timer</h2><span class="label" id="tMode">Ready</span></div>
         <div class="tabs" role="group" aria-label="Timer mode">
@@ -463,6 +448,29 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
         </details>
       </section>
     </div>
+    <section class="panel" id="trackPanel" aria-labelledby="trH">
+        <div class="panel-h"><h2 id="trH">Track</h2><span class="stale" id="trStamp"></span></div>
+        <div class="tr-now" id="trNow"><span class="note">Tap what you're doing to start tracking.</span></div>
+        <div class="tr-cats" id="trCats" role="group" aria-label="Start tracking"></div>
+        <div class="tr-dayh">
+          <button type="button" class="tr-nav" id="trPrev" aria-label="Previous day">‹</button>
+          <strong id="trDay">Today</strong>
+          <button type="button" class="tr-nav" id="trNext" aria-label="Next day">›</button>
+          <button type="button" class="tr-add" id="trAdd">+ Add block</button>
+        </div>
+        <div class="tr-line" id="trLine" aria-label="Day timeline: plan above, tracked below"></div>
+        <div id="trEdit" hidden></div>
+        <div class="tr-stats" id="trStats"></div>
+        <div id="trErr" class="err" hidden></div>
+        <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
+      </section>
+    <section class="panel" aria-labelledby="nowH">
+      <div class="panel-h"><h2 id="nowH">Today</h2><span class="stale" id="calStamp"></span></div>
+      <div class="cal-split">
+        <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
+        <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
+      </div>
+    </section>
   </div>
   <div id="depView" class="stack" hidden>
     <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
