@@ -386,6 +386,10 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 /* Deadline colour: red by default; with "Red deadlines" off they use the accent. */
 :root[data-red-dl="0"] { --dl: var(--accent); }
 .gear .who .tog { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+.ver { font-size: 12px; text-decoration: none; }
+.oldver { background: var(--dl); color: #fff; text-align: center; padding: 8px 12px; font-size: 14px; }
+.oldver a { color: #fff; font-weight: 700; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -412,7 +416,7 @@ header.top { grid-template-columns: minmax(0, 1fr); }
         <span class="stale" id="calStamp"></span>
         <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
         <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
-        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button><label class="tog"><input type="checkbox" id="redDl" checked> Red deadlines</label></div></details>
+        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button><label class="tog"><input type="checkbox" id="redDl" checked> Red deadlines</label><a id="verLink" class="ver" href="/next-up-dashboard/v/">Versions</a></div></details>
       </div>
       <div class="cal-split">
         <div class="cal-left">
@@ -580,6 +584,16 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 <script>
 // Theme: accent colour (labels, links, highlights) and red deadlines on or off. Saved to your account
 // on the server, so it follows you to every device; the last one used here paints first.
+// Version: shown under the gear, linking to every published version. An old version says so on top.
+fetch("version.json", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((v) => {
+  if (!v) return;
+  const link = document.getElementById("verLink"); link.textContent = `${v.version} · all versions`;
+  if (/\/v\/v[\d.]+\//.test(location.pathname)) {
+    const b = document.createElement("div"); b.className = "oldver";
+    b.innerHTML = `You're viewing an old version (${v.version}, ${v.date}). <a href="/next-up-dashboard/">Back to the latest</a>`;
+    document.body.prepend(b);
+  }
+}).catch(() => {});
 window.NU_THEME = (() => {
   const root = document.documentElement, DEF = { accent: "#4d8dff", redDeadlines: true };
   const sel = document.getElementById("accentSel"), red = document.getElementById("redDl");

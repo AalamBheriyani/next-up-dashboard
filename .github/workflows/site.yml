@@ -1,0 +1,60 @@
+# Every push to main gets a version number (a git tag like v1.4.2 and a GitHub Release with the
+# changes), then publishes the website to GitHub Pages: the newest version at the root, and every
+# earlier version at /v/<version>/ so any of them can be opened again later.
+#
+# Version bumps: patch by default. Put [minor] or [major] in a commit message (or run this workflow
+# by hand and pick) to bump that part instead.
+name: Site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version part to bump"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: site
+  cancel-in-progress: false
+jobs:
+  release-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Version and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP_INPUT: ${{ inputs.bump }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          git fetch --tags --force
+          if git tag --points-at HEAD | grep -q '^v[0-9]'; then echo "HEAD already has a version"; exit 0; fi
+          last=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)
+          msgs=$(git log --format=%B "${BEFORE:-HEAD~1}..HEAD" 2>/dev/null || git log -1 --format=%B)
+          bump=${BUMP_INPUT:-patch}
+          grep -qi '\[minor\]' <<<"$msgs" && bump=minor
+          grep -qi '\[major\]' <<<"$msgs" && bump=major
+          if [ -z "$last" ]; then next=v1.0.0; else
+            IFS=. read -r ma mi pa <<<"${last#v}"
+            case $bump in major) next="v$((ma+1)).0.0";; minor) next="v$ma.$((mi+1)).0";; *) next="v$ma.$mi.$((pa+1))";; esac
+          fi
+          git tag "$next" && git push origin "$next"
+          if [ -n "$last" ]; then notes=$(git log --format='- %s' "$last..HEAD"); else notes=$(git log -20 --format='- %s'); fi
+          printf '%s\n\nOpen this version: https://aalambheriyani.github.io/next-up-dashboard/v/%s/\n' "$notes" "$next" > notes.md
+          gh release create "$next" --title "$next" --notes-file notes.md --latest
+      - name: Build site with every version
+        run: bash scripts/build-site.sh _site
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deploy
+        uses: actions/deploy-pages@v4
