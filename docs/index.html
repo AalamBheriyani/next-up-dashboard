@@ -495,10 +495,10 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 .headcal .now { gap: 12px; align-content: start; }
 .headcal .now > .label { margin-bottom: -6px; }
 .headcal .now .title { font-size: 20px; line-height: 1.25; }
-.headcal .now .bar { height: 8px; border-radius: 4px; background: var(--chip-hi); }
+.headcal .now .bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 16%, transparent); }
 .now .dayleft { flex: none; max-width: none; margin: 0; padding: 10px 12px; border: 0; border-radius: 10px; background: var(--chip); gap: 6px; }
 .now .dayleft .row { font-size: 13px; align-items: baseline; }
-.now .dayleft .daybar { height: 8px; border-radius: 4px; background: var(--chip-hi); }
+.now .dayleft .daybar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 16%, transparent); }
 .now .dayleft .row.note:not(:has(span:not(:empty))) { display: none; }
 .headcal .now .firststep { margin: 0; padding: 10px 12px; border-radius: 10px; }
 .headcal .now .next { padding-top: 10px; margin-top: 0; gap: 8px; }
