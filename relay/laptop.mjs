@@ -65,7 +65,7 @@ async function syncDone() {
 // Anki: when Anki desktop is open with the AnkiConnect add-on, send due counts and review history
 // to the dashboard every 5 minutes. Skipped quietly when Anki isn't running.
 const ANKI = process.env.NEXTUP_ANKI_URL || file.ankiUrl || "http://127.0.0.1:8765";
-let lastAnki = 0;
+let lastAnki = 0, lastPull = 0;
 async function anki(action, params = {}) {
   const r = await fetch(ANKI, { method: "POST", body: JSON.stringify({ action, version: 6, params }) });
   const j = await r.json();
@@ -77,6 +77,11 @@ async function syncAnki() {
   lastAnki = Date.now();
   let names;
   try { names = await anki("deckNames"); } catch { return; } // Anki closed
+  // Pull reviews done on your phone first: Anki syncs with AnkiWeb at most every 30 minutes.
+  if (Date.now() - lastPull > 1800e3) {
+    lastPull = Date.now();
+    try { await anki("sync"); } catch (e) { console.error(new Date().toLocaleTimeString(), "Anki sync skipped:", e.message); }
+  }
   const stats = await anki("getDeckStats", { decks: names });
   const decks = Object.values(stats)
     .filter((d) => !String(d.name).includes("::")) // top-level decks already include their subdecks
