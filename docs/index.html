@@ -419,8 +419,11 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 .wkit { border-left-color: var(--pc, var(--accent)); }
 .wkit.s-late { border-left-color: var(--pc, var(--dl)); }
 
+/* Dropdowns: the open list needs a solid background, or translucent chips show white text on white. */
+select option { background: var(--panel); color: var(--ink); }
+
 /* Habit heatmap */
-.hbsel { font: inherit; font-size: 13px; color: var(--ink); background: var(--chip); border: 0; border-radius: 6px; padding: 4px 8px; }
+.hbsel { font: inherit; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, var(--panel)); border: 0; border-radius: 6px; padding: 4px 8px; }
 .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 3px; overflow-x: auto; justify-content: start; padding-bottom: 4px; scrollbar-width: thin; }
 .heat i { width: 13px; height: 13px; border-radius: 3px; background: var(--chip); }
 .heat i.l1 { background: color-mix(in srgb, var(--accent) 30%, transparent); }
