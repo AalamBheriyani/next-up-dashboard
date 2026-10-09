@@ -14,8 +14,21 @@
 
   function token() { const a = get(AKEY, null); return a && a.exp > Date.now() + 30e3 ? a.token : ""; }
   class HttpError extends Error { constructor(s, m) { super(m); this.status = s; } }
+  // With permanent sign-in the dashboard keeps a session token; swap it for a fresh Google token when ours ran out.
+  async function renew() {
+    let ses = ""; try { ses = localStorage.getItem("nextup.session") || ""; } catch {}
+    if (!ses) return "";
+    try {
+      const cfg = window.NEXTUP_CONFIG || {};
+      const r = await fetch(String(cfg.workerUrl || "").replace(/\/$/, "") + "/auth/token", { method: "POST", headers: { Authorization: "Bearer " + ses } });
+      if (!r.ok) return "";
+      const d = await r.json();
+      put(AKEY, { token: d.access_token, exp: Date.now() + (Number(d.expires_in) || 3600) * 1000 });
+      return d.access_token;
+    } catch { return ""; }
+  }
   async function http(url, opts = {}) {
-    const t = token(); if (!t) throw new HttpError(401, "signed out");
+    const t = token() || (await renew()); if (!t) throw new HttpError(401, "signed out");
     const r = await fetch(url, { ...opts, headers: { Authorization: "Bearer " + t, ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
     const text = await r.text(); let data = null; try { data = JSON.parse(text); } catch { data = text; }
     if (!r.ok) throw new HttpError(r.status, (data && data.error && (data.error.message || data.error)) || r.statusText);

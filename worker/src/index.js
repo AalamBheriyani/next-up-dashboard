@@ -54,6 +54,59 @@ export default {
       return withCors(await relay(env).fetch(req), cors);
     }
 
+    // Permanent sign-in: the Worker keeps a Google refresh token (needs the GOOGLE_CLIENT_SECRET secret) and hands the
+    // page a fresh one-hour Google access token whenever it presents its long-lived session token.
+    if (url.pathname === "/auth/info") return json({ permanent: !!env.GOOGLE_CLIENT_SECRET });
+    if (url.pathname === "/auth/start") {
+      if (!env.GOOGLE_CLIENT_SECRET) return new Response("Permanent sign-in isn't set up yet (GOOGLE_CLIENT_SECRET).", { status: 501 });
+      const state = crypto.randomUUID();
+      const client = webClientId(env, url.searchParams.get("client"));
+      await store(env).put("au_state:" + state, client, { expirationTtl: 600 });
+      const q = new URLSearchParams({
+        client_id: client, redirect_uri: url.origin + "/auth/callback", response_type: "code",
+        scope: GOOGLE_SCOPES, access_type: "offline", prompt: "consent", include_granted_scopes: "true", state,
+      });
+      return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + q, 302);
+    }
+    if (url.pathname === "/auth/callback") {
+      const state = url.searchParams.get("state"), code = url.searchParams.get("code");
+      const client = state && (await store(env).get("au_state:" + state));
+      if (!code || !client) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
+      await store(env).delete("au_state:" + state);
+      const r = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ code, client_id: client, client_secret: String(env.GOOGLE_CLIENT_SECRET || "").trim(), redirect_uri: url.origin + "/auth/callback", grant_type: "authorization_code" }),
+      });
+      if (!r.ok) return new Response("Google didn't accept the sign-in: " + (await r.text()), { status: 502 });
+      const tok = await r.json();
+      const idp = JSON.parse(atob(String(tok.id_token || "..").split(".")[1].replace(/-/g, "+").replace(/_/g, "/")) || "{}");
+      const email = String(idp.email || "").toLowerCase();
+      const allowed = String(env.ALLOWED_EMAIL || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+      if (String(idp.email_verified) !== "true" || !allowed.includes(email)) return new Response("This Google account isn't allowed on this dashboard.", { status: 403 });
+      if (tok.refresh_token) await store(env).put("rt:" + email, { token: tok.refresh_token, client });
+      else if (!(await store(env).get("rt:" + email))) return new Response("Google didn't return a refresh token. Remove Next Up at myaccount.google.com/permissions and sign in again.", { status: 502 });
+      const session = "nu_" + [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      await store(env).put("sess:" + (await sha256(session)), { email, at: Date.now() }, { expirationTtl: SESSION_DAYS * 86400 });
+      return Response.redirect(env.SITE_URL + "#nu_session=" + session, 302);
+    }
+    if (url.pathname === "/auth/token" || url.pathname === "/auth/logout") {
+      const h = req.headers.get("Authorization") || "";
+      const session = h.startsWith("Bearer nu_") ? h.slice(7) : "";
+      const key = session && "sess:" + (await sha256(session));
+      const sess = key && (await store(env).get(key));
+      if (!sess) return fail(401, "session expired");
+      if (url.pathname === "/auth/logout") { await store(env).delete(key); return json({ ok: true }); }
+      const rt = await store(env).get("rt:" + sess.email);
+      const r = rt && (await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ client_id: rt.client, client_secret: String(env.GOOGLE_CLIENT_SECRET || "").trim(), refresh_token: rt.token, grant_type: "refresh_token" }),
+      }));
+      if (!r || !r.ok) { await store(env).delete(key); return fail(401, "Google sign-in expired. Sign in again."); }
+      const tok = await r.json();
+      await store(env).put(key, { ...sess, at: Date.now() }, { expirationTtl: SESSION_DAYS * 86400 }); // sliding: stays alive while used
+      return json({ access_token: tok.access_token, expires_in: tok.expires_in, email: sess.email });
+    }
+
     // Everything below needs a valid Google sign-in from one of the allowed accounts.
     const who = await checkGoogle(req, env);
     if (who.status) return fail(who.status, who.message);
@@ -299,6 +352,17 @@ export class Relay {
     }
     return json({ error: { message: "not found" } }, 404);
   }
+}
+
+const GOOGLE_SCOPES = "openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets";
+const SESSION_DAYS = 180;
+// The web client for the code flow: the one the page asks for if it is allowed, else GOOGLE_WEB_CLIENT_ID or the first allowed client.
+const webClientId = (env, wanted) => {
+  const list = String(env.GOOGLE_CLIENT_ID || "").split(/[\s,]+/).filter(Boolean);
+  return list.includes(wanted) ? wanted : String(env.GOOGLE_WEB_CLIENT_ID || list[0] || "").trim();
+};
+async function sha256(text) {
+  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const ttKey = (email) => "tt_token:" + email;
