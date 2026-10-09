@@ -48,7 +48,7 @@ export default {
     }
 
     // The laptop relay script authenticates with the RELAY_TOKEN secret instead of Google.
-    if (url.pathname === "/relay/next" || url.pathname === "/relay/reply" || url.pathname === "/relay/done") {
+    if (url.pathname === "/relay/next" || url.pathname === "/relay/reply" || url.pathname === "/relay/done" || url.pathname === "/relay/anki") {
       const h = req.headers.get("Authorization") || "";
       if (!env.RELAY_TOKEN || h !== "Bearer " + env.RELAY_TOKEN) return fail(401, "bad relay token");
       return withCors(await relay(env).fetch(req), cors);
@@ -105,6 +105,12 @@ export default {
       if (url.pathname === "/relay/ask" || url.pathname === "/relay/answer" || url.pathname === "/relay/status") {
         if (!who.owner) return fail(403, "The laptop relay is only for the dashboard owner");
         return withCors(await relay(env).fetch(req), cors);
+      }
+
+      // Anki due counts and review history, last sent by the owner's laptop.
+      if (url.pathname === "/anki" && req.method === "GET") {
+        if (!who.owner) return json({});
+        return withCors(await relay(env).fetch("https://internal/relay/anki"), cors);
       }
 
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
@@ -257,6 +263,12 @@ export class Relay {
         return json({ ok: true });
       }
       return json({ done });
+    }
+
+    // Anki snapshot from the laptop (due counts per deck and reviews per day).
+    if (url.pathname === "/relay/anki") {
+      if (req.method === "POST") { await st.put("anki", { ...(await req.json()), at: now }); return json({ ok: true }); }
+      return json((await st.get("anki")) || {});
     }
 
     if (url.pathname === "/relay/next") {

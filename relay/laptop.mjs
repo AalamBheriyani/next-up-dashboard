@@ -62,10 +62,35 @@ async function syncDone() {
   await call("/relay/done", { ids });
 }
 
+// Anki: when Anki desktop is open with the AnkiConnect add-on, send due counts and review history
+// to the dashboard every 5 minutes. Skipped quietly when Anki isn't running.
+const ANKI = process.env.NEXTUP_ANKI_URL || file.ankiUrl || "http://127.0.0.1:8765";
+let lastAnki = 0;
+async function anki(action, params = {}) {
+  const r = await fetch(ANKI, { method: "POST", body: JSON.stringify({ action, version: 6, params }) });
+  const j = await r.json();
+  if (j.error) throw new Error("AnkiConnect: " + j.error);
+  return j.result;
+}
+async function syncAnki() {
+  if (Date.now() - lastAnki < 300e3) return;
+  lastAnki = Date.now();
+  let names;
+  try { names = await anki("deckNames"); } catch { return; } // Anki closed
+  const stats = await anki("getDeckStats", { decks: names });
+  const decks = Object.values(stats)
+    .filter((d) => !String(d.name).includes("::")) // top-level decks already include their subdecks
+    .map((d) => ({ name: d.name, new: d.new_count, learn: d.learn_count, review: d.review_count }));
+  const days = (await anki("getNumCardsReviewedByDay")).slice(0, 400); // [["2026-10-08", 37], ...]
+  await call("/relay/anki", { decks, days });
+  console.log(new Date().toLocaleTimeString(), `Anki: ${decks.length} decks sent`);
+}
+
 console.log(`Next Up relay running. Waiting for questions from ${WORKER}`);
 for (;;) {
   try {
     await syncDone();
+    await syncAnki().catch((e) => console.error(new Date().toLocaleTimeString(), e.message));
     const q = await call("/relay/next");
     if (q.id) {
       console.log(new Date().toLocaleTimeString(), "question received");
