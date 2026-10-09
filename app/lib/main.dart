@@ -30,7 +30,7 @@ const iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
 const scopes = <String>[
   'openid',
   'email',
-  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/spreadsheets',
 ];
 

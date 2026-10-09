@@ -407,6 +407,16 @@ header.top { grid-template-columns: minmax(0, 1fr); }
 .wkit .tt { font-weight: 600; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .wkit .meta { font-size: 11px; color: var(--muted); }
 .wkempty { color: var(--muted); font-size: 13px; }
+/* Calendar mode: each day shows its to-dos on top and that day's Google Calendar events below. */
+.wktog { margin-left: auto; border: 0; background: var(--chip); color: var(--ink); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.wktog[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.wksep { font: 600 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-top: 4px; border-top: 1px solid var(--chip-hi); }
+.wkev { display: grid; gap: 1px; padding: 5px 8px; border-radius: 8px; font-size: 13px; color: var(--ink); text-decoration: none; background: color-mix(in srgb, var(--accent) 16%, var(--panel)); }
+.wkev .meta { font: 11px var(--f-mono); color: var(--muted); }
+.wkev.past { opacity: .5; }
+.wkadd { justify-self: start; border: 0; background: transparent; color: var(--accent); font-size: 11px; padding: 0; cursor: pointer; }
+.wkadd:disabled { color: var(--muted); cursor: default; }
+.wkhid { font-size: 12px; color: var(--muted); }
 
 /* List colours and filter chips */
 .lfilter { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -598,10 +608,10 @@ select option { background: var(--panel); color: var(--ink); }
   <div id="depView" class="stack" hidden>
     <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
       <div class="panel-h"><h2 id="depH">Departures</h2>
-        <div class="depmode" role="group" aria-label="View"><button type="button" data-dv="list" aria-pressed="true">List</button><button type="button" data-dv="week" aria-pressed="false">Week</button></div>
+        <div class="depmode" role="group" aria-label="View"><button type="button" data-dv="list" aria-pressed="true">List</button><button type="button" data-dv="week" aria-pressed="false">Week</button><button type="button" data-dv="cal" aria-pressed="false">Calendar</button></div>
         <span class="stale" id="taskStamp"></span></div>
       <div class="lfilter" role="group" aria-label="Filter by list"></div>
-      <div class="wkbar" id="wkBar" hidden><button type="button" class="tr-nav" id="wkPrev" aria-label="This week">‹</button><strong id="wkLbl">Next 7 days</strong><button type="button" class="tr-nav" id="wkNext" aria-label="Following week">›</button></div>
+      <div class="wkbar" id="wkBar" hidden><button type="button" class="tr-nav" id="wkPrev" aria-label="This week">‹</button><strong id="wkLbl">Next 7 days</strong><button type="button" class="tr-nav" id="wkNext" aria-label="Following week">›</button><button type="button" class="wktog" id="wkTodos" aria-pressed="false" hidden>Hide to-dos</button></div>
       <div class="week" id="wkView" hidden></div>
       <div class="board" role="list" id="depList">
         <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
@@ -876,40 +886,99 @@ window.NU_THEME = (() => {
     }
   }
   // Week view of the Departures tab: an Overdue column, then one column per day.
-  const DV = { mode: "list", off: 0 };
+  const DV = { mode: "list", off: 0, hideTodos: false, ev: {}, added: new Set() };
   function renderWeek() {
-    const host = $("wkView"); if (!host || DV.mode !== "week" || (S.overdue === null && S.week === null)) return;
+    const host = $("wkView"); if (!host || DV.mode === "list" || (S.overdue === null && S.week === null)) return;
+    const cal = DV.mode === "cal"; if (cal) loadWeekEvents(DV.off);
     const now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0); d0.setDate(d0.getDate() + DV.off * 7);
     const ts = shownTasks(); host.replaceChildren();
-    const col = (title, sub, items, cls) => {
+    const col = (title, sub, items, cls, evs) => {
       const c = el("div", "wkcol" + (cls ? " " + cls : "")); const h = el("div", "wkh"); h.append(el("b", null, title), el("span", null, sub)); c.append(h);
-      if (!items.length) c.append(el("div", "wkempty", "—"));
+      if (!items.length && !evs) c.append(el("div", "wkempty", "—"));
+      if (cal && DV.hideTodos && items.length) { c.append(el("div", "wkhid", `${items.length} to-do${items.length === 1 ? "" : "s"} hidden`)); items = []; }
       for (const { t, due } of items) {
         const ms = due - now; const [st] = status(ms);
         const it = el("a", "wkit " + st); it.href = "#departures"; it.title = t.title; it.style.setProperty("--pc", listColor(pid(t)));
         it.onclick = (e) => { e.preventDefault(); DV.mode = "list"; S.openId = t.id; applyDv(); renderTasks(); };
         it.append(el("span", "tt", t.title), el("span", "meta", `${allDay(t) ? "all day" : timeFmt(due)} · ${projName(pid(t))}`));
+        if (cal) {
+          const add = el("button", "wkadd", DV.added.has(t.id) ? "✓ In calendar" : "+ Add to Calendar"); add.type = "button"; add.disabled = DV.added.has(t.id);
+          add.onclick = (e) => { e.preventDefault(); e.stopPropagation(); addToCalendar(t, due, add); };
+          it.append(add);
+        }
         c.append(it);
+      }
+      if (evs) {
+        c.append(el("div", "wksep", "Calendar"));
+        if (evs === "loading") c.append(el("div", "wkempty", "Loading…"));
+        else if (!evs.length) c.append(el("div", "wkempty", "No events"));
+        else for (const ev of evs) {
+          const a = el("a", "wkev" + (ev.end < now ? " past" : "")); a.href = ev.link || "#departures"; a.target = "_blank"; a.rel = "noopener";
+          a.append(el("span", null, ev.title), el("span", "meta", ev.allDay ? "all day" : `${timeFmt(ev.start)}–${timeFmt(ev.end)}`));
+          c.append(a);
+        }
       }
       host.append(c);
     };
-    if (DV.off === 0) col("Overdue", `${ts.filter((x) => x.due < d0).length}`, ts.filter((x) => x.due < d0), "late");
+    if (DV.off === 0 && !(cal && DV.hideTodos)) col("Overdue", `${ts.filter((x) => x.due < d0).length}`, ts.filter((x) => x.due < d0), "late");
     for (let i = 0; i < 7; i++) {
       const a = new Date(d0); a.setDate(a.getDate() + i); const b = new Date(a); b.setDate(b.getDate() + 1);
       const items = ts.filter((x) => x.due >= a && x.due < b);
-      col(i === 0 && DV.off === 0 ? "Today" : a.toLocaleDateString([], { weekday: "short" }), a.toLocaleDateString([], { month: "short", day: "numeric" }), items, i === 0 && DV.off === 0 ? "today" : "");
+      const evs = !cal ? null : DV.ev[DV.off] === undefined || DV.ev[DV.off] === "loading" ? "loading" : DV.ev[DV.off].filter((e) => e.start < b && e.end > a && !(e.allDay && e.end <= a));
+      col(i === 0 && DV.off === 0 ? "Today" : a.toLocaleDateString([], { weekday: "short" }), a.toLocaleDateString([], { month: "short", day: "numeric" }), items, i === 0 && DV.off === 0 ? "today" : "", evs);
     }
     $("wkLbl").textContent = DV.off === 0 ? "Next 7 days" : "The 7 days after";
     $("wkPrev").disabled = DV.off === 0; $("wkNext").disabled = DV.off >= 1; // TickTick data covers 14 days ahead
   }
+  // Google Calendar events for the 7 days shown, fetched once per week offset.
+  async function loadWeekEvents(off, force) {
+    if (!force && DV.ev[off] !== undefined) return;
+    DV.ev[off] = "loading";
+    const a = new Date(); a.setHours(0, 0, 0, 0); a.setDate(a.getDate() + off * 7); const b = new Date(a); b.setDate(b.getDate() + 7);
+    try {
+      const r = await api.events(isoLocal(a), isoLocal(b));
+      DV.ev[off] = (r.items || []).filter((e) => e.status !== "cancelled").map((e) => {
+        const allDay = !!(e.start && e.start.date);
+        const st = allDay ? new Date(e.start.date + "T00:00") : new Date(e.start.dateTime);
+        const en = allDay ? new Date(e.end.date + "T00:00") : new Date(e.end.dateTime);
+        return { title: e.summary || "(no title)", start: st, end: en, allDay, link: e.htmlLink };
+      });
+    } catch { DV.ev[off] = []; }
+    renderWeek();
+  }
+  // "+ Add to Calendar": puts the to-do into Google Calendar so it can be scheduled. A timed to-do becomes
+  // a 1-hour block ending at its deadline; an all-day one becomes an all-day event on its date.
+  async function addToCalendar(t, due, btn) {
+    btn.disabled = true; btn.textContent = "Adding…";
+    const note = [t.content || t.desc || "", "From Next Up (TickTick: " + projName(pid(t)) + ")"].filter(Boolean).join("\n\n");
+    let ev;
+    if (allDay(t)) {
+      const d = `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`;
+      const n = new Date(due); n.setDate(n.getDate() + 1);
+      ev = { summary: t.title, description: note, start: { date: d }, end: { date: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}` } };
+    } else {
+      ev = { summary: t.title, description: note, start: { dateTime: isoLocal(new Date(due - 3600e3)), timeZone: tz }, end: { dateTime: isoLocal(due), timeZone: tz } };
+    }
+    try {
+      await api.addEvent(ev);
+      DV.added.add(t.id); btn.textContent = "✓ Added";
+      loadWeekEvents(DV.off, true); loadCalendar();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "+ Add to Calendar";
+      if (e.status === 403) signedOut("Sign in again and allow calendar access to add events.");
+      else alert("Couldn't add it to Google Calendar: " + (e.message || e));
+    }
+  }
   function applyDv() {
-    const wk = DV.mode === "week";
-    $("depList").hidden = wk; $("wkView").hidden = !wk; $("wkBar").hidden = !wk;
+    const wk = DV.mode !== "list";
+    $("depList").hidden = wk; $("wkView").hidden = !wk; $("wkBar").hidden = !wk; $("wkTodos").hidden = DV.mode !== "cal";
     document.querySelectorAll("[data-dv]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dv === DV.mode)));
     try { localStorage.setItem("nu.depview", DV.mode); } catch {}
     renderWeek();
   }
-  try { if (localStorage.getItem("nu.depview") === "week") DV.mode = "week"; } catch {}
+  try { const v = localStorage.getItem("nu.depview"); if (v === "week" || v === "cal") DV.mode = v; DV.hideTodos = localStorage.getItem("nu.hidetodos") === "1"; } catch {}
+  $("wkTodos").setAttribute("aria-pressed", String(DV.hideTodos)); $("wkTodos").textContent = DV.hideTodos ? "Show to-dos" : "Hide to-dos";
+  $("wkTodos").onclick = () => { DV.hideTodos = !DV.hideTodos; $("wkTodos").setAttribute("aria-pressed", String(DV.hideTodos)); $("wkTodos").textContent = DV.hideTodos ? "Show to-dos" : "Hide to-dos"; try { localStorage.setItem("nu.hidetodos", DV.hideTodos ? "1" : "0"); } catch {} renderWeek(); };
   document.querySelectorAll("[data-dv]").forEach((b) => b.onclick = () => { DV.mode = b.dataset.dv; applyDv(); });
   $("wkPrev").onclick = () => { DV.off = 0; renderWeek(); };
   $("wkNext").onclick = () => { DV.off = 1; renderWeek(); };
@@ -947,7 +1016,7 @@ window.NU_THEME = (() => {
   function renderAll() { renderClock(); renderBanner(); renderNow(); renderTasks(); }
 
   // ---------- sign-in (Google) and data access ----------
-  const SCOPES = "openid email https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets";
+  const SCOPES = "openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets";
   const AKEY = "nextup.auth";
   let auth = null, tokenClient = null;
   try { auth = JSON.parse(localStorage.getItem(AKEY) || "null"); } catch {}
@@ -977,6 +1046,7 @@ window.NU_THEME = (() => {
     relayAsk: (prompt) => http(W("/relay/ask"), { method: "POST", body: JSON.stringify({ prompt }) }),
     relayAnswer: (id) => http(W("/relay/answer?id=" + encodeURIComponent(id))),
     events: (from, to) => http(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(from)}&timeMax=${encodeURIComponent(to)}&timeZone=${encodeURIComponent(tz)}`),
+    addEvent: (ev) => http("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", body: JSON.stringify(ev) }),
     sheetGet: (range) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}`),
     sheetPut: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, { method: "PUT", body: JSON.stringify({ range, values }) }),
   };
