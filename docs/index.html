@@ -491,9 +491,18 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 /* Keep clock, bar, stamp and gear on one line on wider screens. */
 @media (min-width: 701px) { .headcal .headline-left { flex-wrap: nowrap; } .headline-left .dayleft { flex: 1 1 380px; max-width: 420px; min-width: 0; } .headcal .headline-left .gear, .headcal .headline-left .stale { flex: none; } .headline-left .dayleft .row { gap: 8px; } }
 
-/* Work time left: directly under the current block's progress bar in Today. */
-.now .dayleft { flex: none; max-width: none; margin: 2px 0 4px; padding: 0; border: 0; gap: 4px; }
-.now .dayleft .row { font-size: 13px; }
+/* Today, left column: even spacing between Now, the progress bars, "Use it on" and Next. */
+.headcal .now { gap: 12px; align-content: start; }
+.headcal .now > .label { margin-bottom: -6px; }
+.headcal .now .title { font-size: 20px; line-height: 1.25; }
+.headcal .now .bar { height: 8px; border-radius: 4px; background: var(--chip-hi); }
+.now .dayleft { flex: none; max-width: none; margin: 0; padding: 10px 12px; border: 0; border-radius: 10px; background: var(--chip); gap: 6px; }
+.now .dayleft .row { font-size: 13px; align-items: baseline; }
+.now .dayleft .daybar { height: 8px; border-radius: 4px; background: var(--chip-hi); }
+.now .dayleft .row.note:not(:has(span:not(:empty))) { display: none; }
+.headcal .now .firststep { margin: 0; padding: 10px 12px; border-radius: 10px; }
+.headcal .now .next { padding-top: 10px; margin-top: 0; gap: 8px; }
+.headcal .now details { margin: 0; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
