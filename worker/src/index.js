@@ -75,6 +75,7 @@ export default {
           questSheetId: mine.questSheetId || (who.owner ? env.QUEST_SHEET_ID || "" : ""),
           links, profile,
           theme: mine.theme || null,
+          layout: mine.layout || null,
           claudeApi: !!env.ANTHROPIC_API_KEY,
           relay: who.owner && !!env.RELAY_TOKEN,
           ticktick: !!(await store(env).get(ttKey(who.email))),
@@ -95,6 +96,13 @@ export default {
           const a = String(body.theme.accent || "");
           if (a && !/^#[0-9a-f]{6}$/i.test(a)) return fail(400, "bad colour");
           mine.theme = { accent: a, redDeadlines: body.theme.redDeadlines !== false };
+        }
+        // Dashboard widget layout: order, widths and hidden panels.
+        if (body.layout && typeof body.layout === "object") {
+          const ids = (a) => (Array.isArray(a) ? a : []).map(String).filter((x) => /^[\w-]{1,30}$/.test(x)).slice(0, 30);
+          const span = {};
+          for (const [k, v] of Object.entries(body.layout.span || {})) if (/^[\w-]{1,30}$/.test(k) && [4, 6, 8, 12].includes(+v)) span[k] = +v;
+          mine.layout = { order: ids(body.layout.order), span, hidden: ids(body.layout.hidden) };
         }
         await store(env).put("user:" + who.email, mine);
         return json({ ok: true });

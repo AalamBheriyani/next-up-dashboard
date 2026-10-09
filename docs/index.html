@@ -306,19 +306,20 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tabsbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .tabsbar a { flex: none; padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--ink); background: var(--panel); font-weight: 600; font-size: 14px; }
 .tabsbar a[aria-current="page"] { background: var(--flap); color: #fff; }
-.toprow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
-.toprow > * { min-height: 100%; align-content: start; }
-.toprow #ask { grid-template-rows: auto auto 1fr auto; }
-@media (max-width: 1100px) { .toprow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .toprow { grid-template-columns: minmax(0, 1fr); } }
+.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.widgets > [data-w] { grid-column: span var(--span, 12); min-width: 0; }
+.widgets > [data-w] { align-content: start; }
+.widgets #ask { grid-template-rows: auto auto 1fr auto; }
+@media (max-width: 1100px) { .widgets > [data-w] { grid-column: span max(var(--span, 12), 6); } }
+@media (max-width: 700px) { .widgets > [data-w] { grid-column: span 12; } }
 /* Smaller next-deadline card so the three columns match. */
-.toprow .banner { padding: 12px 14px; gap: 4px; }
-.toprow .banner .t { font-size: 15px; }
-.toprow .banner .cd { font-size: clamp(28px, 3.2vw, 40px); }
-.toprow .banner .sub { font-size: 12px; }
-.toprow .uplist { max-height: 240px; }
-.toprow #ask .chat-log { max-height: 260px; }
-.toprow .timer .dial { width: min(100%, 170px); }
+.widgets .banner { padding: 12px 14px; gap: 4px; }
+.widgets .banner .t { font-size: 15px; }
+.widgets .banner .cd { font-size: clamp(28px, 3.2vw, 40px); }
+.widgets .banner .sub { font-size: 12px; }
+.widgets .uplist { max-height: 240px; }
+.widgets #ask .chat-log { max-height: 260px; }
+.widgets .timer .dial { width: min(100%, 170px); }
 .tablink { font-size: 13px; text-decoration: none; }
 .upq { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 8px 10px; }
 .uplist { display: grid; gap: 2px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
@@ -452,6 +453,18 @@ select option { background: var(--panel); color: var(--ink); }
 .heatkey .scale i:nth-child(3) { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 .heatkey .scale i:nth-child(4) { background: color-mix(in srgb, var(--accent) 78%, transparent); }
 .heatkey .scale i:nth-child(5) { background: var(--accent); }
+
+/* Widgets: Customise mode lets each person reorder, resize and hide dashboard panels. */
+.custbtn { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; padding: 8px 10px; cursor: pointer; }
+.custbtn[aria-pressed="true"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.wbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--chip); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.wbar button { border: 0; background: var(--panel); color: var(--ink); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.wbar .done { background: var(--accent); color: #fff; margin-left: auto; }
+.editing [data-w] { position: relative; outline: 2px dashed var(--accent); outline-offset: 2px; cursor: grab; }
+.editing [data-w].dragover { outline-style: solid; }
+.wtools { position: absolute; top: 6px; right: 6px; z-index: 30; display: flex; gap: 4px; background: var(--bg); border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+.wtools button, .wtools select { border: 0; background: var(--chip); color: var(--ink); border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+.wtools select option { background: #111; color: #fff; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -490,7 +503,7 @@ select option { background: var(--panel); color: var(--ink); }
   </header>
   <div class="tabrow">
     <nav class="tabsbar" aria-label="Pages">
-    <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a>
+    <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
     </nav>
     <div class="dayleft">
       <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
@@ -500,9 +513,9 @@ select option { background: var(--panel); color: var(--ink); }
   </div>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
-  <div id="mainView" class="stack">
-    <div class="toprow">
-      <div class="stack">
+  <div id="mainView" class="widgets">
+    <div class="wbar" id="wBar" hidden></div>
+      <div class="stack" id="wDeadlines" data-w="deadlines" data-name="Deadlines">
         <section class="banner" id="banner" aria-live="polite">
           <div class="label">Next deadline</div>
           <div class="t" id="bTitle">Loading your tasks…</div>
@@ -517,7 +530,7 @@ select option { background: var(--panel); color: var(--ink); }
           <div class="uplist" id="upList" role="list"><div class="note">Loading…</div></div>
         </section>
       </div>
-      <section class="panel" id="ask" aria-labelledby="aH">
+      <section class="panel" id="ask" aria-labelledby="aH" data-w="ask" data-name="Ask Claude">
         <div class="panel-h"><h2 id="aH">Ask Claude</h2><span class="label">sees your tasks + calendar</span></div>
         <div class="chips" id="quick">
           <button class="chip" type="button">What should I do right now?</button>
@@ -534,7 +547,7 @@ select option { background: var(--panel); color: var(--ink); }
         </form>
         <div id="askNote" class="note" hidden></div>
       </section>
-      <section class="panel timer" id="timerPanel" aria-labelledby="tH">
+      <section class="panel timer" id="timerPanel" aria-labelledby="tH" data-w="timer" data-name="Focus timer">
         <div class="panel-h"><h2 id="tH">Focus timer</h2><span class="label" id="tMode">Ready</span></div>
         <div class="tabs" role="group" aria-label="Timer mode">
           <button type="button" data-mode="focus" aria-pressed="true">Pomodoro</button>
@@ -586,8 +599,7 @@ select option { background: var(--panel); color: var(--ink); }
           </div>
         </details>
       </section>
-    </div>
-    <section class="panel" id="trackPanel" aria-labelledby="trH">
+    <section class="panel" id="trackPanel" aria-labelledby="trH" data-w="track" data-name="Track">
         <div class="panel-h"><h2 id="trH">Track</h2><span class="stale" id="trStamp"></span></div>
         <div class="tr-now" id="trNow"><span class="note">Tap what you're doing to start tracking.</span></div>
         <div class="tr-cats" id="trCats" role="group" aria-label="Start tracking"></div>
@@ -603,7 +615,7 @@ select option { background: var(--panel); color: var(--ink); }
         <div id="trErr" class="err" hidden></div>
         <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
       </section>
-    <section class="panel" id="habitPanel" aria-labelledby="hbH">
+    <section class="panel" id="habitPanel" aria-labelledby="hbH" data-w="habits" data-name="Habits">
       <div class="panel-h"><h2 id="hbH">Habits</h2>
         <select id="hbSel" class="hbsel" aria-label="Habit"><option value="">All habits</option></select></div>
       <div class="heat" id="heat" role="img" aria-label="Habit heatmap"></div>
@@ -2036,6 +2048,62 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   }
   $("hbSel").onchange = renderHeat;
   window.addEventListener("resize", () => { clearTimeout(renderHeat.t); renderHeat.t = setTimeout(renderHeat, 200); });
+  // ---------- widgets ----------
+  // Dashboard panels are widgets: in Customise mode each can be moved, resized (third, half, two
+  // thirds, full width) or hidden. The layout is saved to your account, like the theme.
+  const WDEF = { order: ["deadlines", "ask", "timer", "track", "habits"], span: { deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12 }, hidden: [] };
+  let WL = JSON.parse(JSON.stringify(WDEF)), saveLayout = null;
+  const wEls = () => [...$("mainView").querySelectorAll(":scope > [data-w]")];
+  function applyLayout(l) {
+    const known = wEls().map((e) => e.dataset.w);
+    if (l && Array.isArray(l.order)) WL = { order: [...l.order.filter((x) => known.includes(x)), ...known.filter((x) => !l.order.includes(x))], span: { ...WDEF.span, ...(l.span || {}) }, hidden: (l.hidden || []).filter((x) => known.includes(x)) };
+    const box = $("mainView");
+    for (const id of WL.order) {
+      const e = box.querySelector(`:scope > [data-w="${id}"]`); if (!e) continue;
+      box.append(e); e.style.setProperty("--span", WL.span[id] || 12);
+      e.hidden = WL.hidden.includes(id) && !document.body.classList.contains("editing");
+    }
+    try { localStorage.setItem("nu.layout.last", JSON.stringify(WL)); } catch {}
+    if (document.body.classList.contains("editing")) renderWBar();
+    if (typeof renderHeat === "function") renderHeat();
+  }
+  function layoutChanged() { applyLayout(WL); clearTimeout(layoutChanged.t); layoutChanged.t = setTimeout(() => saveLayout && saveLayout(WL), 600); }
+  function renderWBar() {
+    const bar = $("wBar"); bar.replaceChildren(el("b", null, "Customising:"), el("span", null, "drag panels or use ◀ ▶ to move, pick a width, or hide them."));
+    const hid = WL.hidden.map((id) => wEls().find((e) => e.dataset.w === id)).filter(Boolean);
+    if (hid.length) bar.append(el("span", null, "Hidden:"));
+    for (const e of hid) { const b = el("button", null, "+ " + e.dataset.name); b.type = "button"; b.onclick = () => { WL.hidden = WL.hidden.filter((x) => x !== e.dataset.w); layoutChanged(); }; bar.append(b); }
+    const r = el("button", null, "Reset layout"); r.type = "button"; r.onclick = () => { WL = JSON.parse(JSON.stringify(WDEF)); layoutChanged(); };
+    const d = el("button", "done", "Done"); d.type = "button"; d.onclick = () => setEditing(false);
+    bar.append(r, d);
+    for (const e of wEls()) {
+      e.querySelector(":scope > .wtools")?.remove();
+      const id = e.dataset.w, t = el("div", "wtools");
+      const mv = (dir) => { const i = WL.order.indexOf(id), j = i + dir; if (j < 0 || j >= WL.order.length) return; [WL.order[i], WL.order[j]] = [WL.order[j], WL.order[i]]; layoutChanged(); };
+      const l = el("button", null, "◀"); l.type = "button"; l.title = "Move earlier"; l.onclick = () => mv(-1);
+      const rr = el("button", null, "▶"); rr.type = "button"; rr.title = "Move later"; rr.onclick = () => mv(1);
+      const sz = el("select"); sz.setAttribute("aria-label", "Width");
+      for (const [v, n] of [[4, "⅓ width"], [6, "½ width"], [8, "⅔ width"], [12, "Full width"]]) { const o = el("option", null, n); o.value = v; sz.append(o); }
+      sz.value = WL.span[id] || 12; sz.onchange = () => { WL.span[id] = +sz.value; layoutChanged(); };
+      const h = el("button", null, WL.hidden.includes(id) ? "Show" : "Hide"); h.type = "button";
+      h.onclick = () => { WL.hidden.includes(id) ? (WL.hidden = WL.hidden.filter((x) => x !== id)) : WL.hidden.push(id); layoutChanged(); };
+      t.append(l, rr, sz, h); e.prepend(t);
+      e.style.opacity = WL.hidden.includes(id) ? ".4" : "";
+      e.draggable = true;
+      e.ondragstart = (ev) => { ev.dataTransfer.setData("text/plain", id); };
+      e.ondragover = (ev) => { ev.preventDefault(); e.classList.add("dragover"); };
+      e.ondragleave = () => e.classList.remove("dragover");
+      e.ondrop = (ev) => { ev.preventDefault(); e.classList.remove("dragover"); const from = ev.dataTransfer.getData("text/plain"); if (!from || from === id) return; WL.order = WL.order.filter((x) => x !== from); WL.order.splice(WL.order.indexOf(id), 0, from); layoutChanged(); };
+    }
+  }
+  function setEditing(on) {
+    document.body.classList.toggle("editing", on); $("wBar").hidden = !on; $("custBtn").setAttribute("aria-pressed", String(on));
+    if (on) { if (location.hash && location.hash !== "#") location.hash = ""; renderWBar(); }
+    else for (const e of wEls()) { e.querySelector(":scope > .wtools")?.remove(); e.draggable = false; e.style.opacity = ""; e.ondragstart = e.ondragover = e.ondragleave = e.ondrop = null; }
+    applyLayout(WL);
+  }
+  $("custBtn").onclick = () => setEditing(!document.body.classList.contains("editing"));
+  try { applyLayout(JSON.parse(localStorage.getItem("nu.layout.last") || "null")); } catch { applyLayout(null); }
   let started = false;
   async function start() {
     $("gate").hidden = true; $("app").hidden = false; $("fab").hidden = false;
@@ -2045,6 +2113,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
       // A different account on this browser: drop the previous person's cached sheet id and XP queue.
       try { if (localStorage.getItem("nextup.who") !== cfg.email) { localStorage.removeItem("xp.outbox"); localStorage.removeItem("nextup.cfg"); localStorage.setItem("nextup.who", cfg.email || ""); } } catch {}
       NU_THEME.apply(cfg.theme); NU_THEME.onSave((t) => api.saveSettings({ theme: t }).catch(() => {}));
+      if (cfg.layout) applyLayout(cfg.layout); saveLayout = (l) => api.saveSettings({ layout: l }).catch(() => {});
       SHEET = cfg.sheetId || ""; QSHEET = cfg.questSheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(cfg); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
       renderLinks(cfg.links);
     } catch (e) {
