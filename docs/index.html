@@ -517,6 +517,12 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 @media (max-width: 1000px) { .headcal .cal-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .cal-mid { grid-column: 1 / -1; order: 3; } }
 @media (max-width: 700px) { .headcal .cal-split { grid-template-columns: minmax(0, 1fr); } }
 #navHome .cal-mid { justify-items: start; text-align: left; }
+
+/* Next deadline sits at the top of the Today panel's centre column, above the page tabs. */
+.cal-mid .banner { width: 100%; padding: 12px 16px; gap: 4px; background: var(--chip); text-align: center; justify-items: center; }
+.cal-mid .banner .t { font-size: 15px; }
+.cal-mid .banner .cd { font-size: clamp(30px, 3.4vw, 44px); }
+.cal-mid .banner .sub { font-size: 12px; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -555,6 +561,12 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
           </div>
         </div>
         <div class="cal-mid" id="navBlock">
+          <section class="banner" id="banner" aria-live="polite">
+          <div class="label">Next deadline</div>
+          <div class="t" id="bTitle">Loading your tasks…</div>
+          <div class="cd" id="bCd">––</div>
+          <div class="sub" id="bSub"></div>
+          </section>
       <div class="tabrow">
         <nav class="tabsbar" aria-label="Pages">
         <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
@@ -571,12 +583,6 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
   <div class="wbar" id="wBar" hidden></div>
   <div id="mainView" class="widgets">
       <div class="stack" id="wDeadlines" data-w="deadlines" data-name="Deadlines">
-        <section class="banner" id="banner" aria-live="polite">
-          <div class="label">Next deadline</div>
-          <div class="t" id="bTitle">Loading your tasks…</div>
-          <div class="cd" id="bCd">––</div>
-          <div class="sub" id="bSub"></div>
-        </section>
         <section class="panel upcoming" aria-labelledby="upH">
           <div class="panel-h"><h2 id="upH">Deadlines</h2><a href="#departures" class="tablink">Departures board →</a></div>
           <div id="taskErr" hidden class="err"></div>
