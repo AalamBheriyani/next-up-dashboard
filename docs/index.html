@@ -55,7 +55,11 @@ header.top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-it
 .clock { font: 800 clamp(44px, 9vw, 72px)/.9 var(--f-display); letter-spacing: .01em; }
 .date { color: var(--muted); }
 .dayleft { flex: 1 1 320px; display: grid; gap: 6px; }
-.cal-left .dayleft { flex: none; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+.headline-left .dayleft { flex: 0 1 380px; margin-left: auto; align-self: center; }
+.headline-left .dayleft .num { font-size: 13px; }
+.headcal .headline-left .dayleft + .stale { margin-left: 0; }
+.headcal .headline-left .dayleft .label { display: block; }
+@media (max-width: 700px) { .headline-left .dayleft { flex: 1 1 100%; order: 5; } }
 .dayleft .row { display: flex; justify-content: space-between; gap: 12px; }
 .daybar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
 .daybar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); border-radius: 5px; }
@@ -507,6 +511,11 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
         <div class="label" id="placeLbl">Next up</div>
         <div class="clock num" id="clock">--:--</div>
         <div class="date" id="date"></div>
+    <div class="dayleft">
+      <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
+      <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
+      <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
+    </div>
         <span class="stale" id="calStamp"></span>
         <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
         <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
@@ -515,11 +524,6 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
       <div class="cal-split">
         <div class="cal-left">
           <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
-          <div class="dayleft">
-            <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
-            <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
-            <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
-          </div>
         </div>
         <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
       </div>
