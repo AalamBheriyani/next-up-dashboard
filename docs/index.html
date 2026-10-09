@@ -441,6 +441,8 @@ select option { background: var(--panel); color: var(--ink); }
 .heat i.l2 { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 .heat i.l3 { background: color-mix(in srgb, var(--accent) 78%, transparent); }
 .heat i.l4 { background: var(--accent); }
+body:not(.editing) .widgets > .nodata { display: none; }
+.akhint { display: none; } .nodata .akhint { display: block; }
 .akdue { display: flex; align-items: baseline; gap: 8px; }
 .akdue .num { font-size: 28px; font-weight: 700; }
 .akdecks { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -621,8 +623,9 @@ select option { background: var(--panel); color: var(--ink); }
       <div class="heat" id="heat" role="img" aria-label="Habit heatmap"></div>
       <div class="heatkey"><span id="hbSum" class="note"></span><span class="scale">Less <i></i><i></i><i></i><i></i><i></i> More</span></div>
     </section>
-    <section class="panel" id="ankiPanel" aria-labelledby="akH" hidden>
+    <section class="panel nodata" id="ankiPanel" aria-labelledby="akH" data-w="anki" data-name="Anki">
       <div class="panel-h"><h2 id="akH">Anki</h2><span class="stale" id="akStamp"></span><a class="tablink" href="https://ankiweb.net/decks" target="_blank" rel="noopener">Review on AnkiWeb →</a></div>
+      <div class="note akhint">Shows up once your laptop sends Anki data (Anki open with AnkiConnect).</div>
       <div class="akdue"><span class="num" id="akTotal">–</span><span class="note">cards due today</span></div>
       <div class="akdecks" id="akDecks" role="list"></div>
       <div class="heat" id="akHeat" role="img" aria-label="Anki review heatmap"></div>
@@ -1984,7 +1987,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   async function loadAnki() {
     let a; try { a = await http(W("/anki")); } catch { return; }
     if (!a || !a.decks) return;
-    $("ankiPanel").hidden = false;
+    $("ankiPanel").classList.remove("nodata");
     const due = (d) => (d.new || 0) + (d.learn || 0) + (d.review || 0);
     $("akTotal").textContent = a.decks.reduce((n, d) => n + due(d), 0);
     $("akDecks").replaceChildren(...a.decks.filter(due).sort((x, y) => due(y) - due(x)).map((d) => {
@@ -2051,7 +2054,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   // ---------- widgets ----------
   // Dashboard panels are widgets: in Customise mode each can be moved, resized (third, half, two
   // thirds, full width) or hidden. The layout is saved to your account, like the theme.
-  const WDEF = { order: ["deadlines", "ask", "timer", "track", "habits"], span: { deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12 }, hidden: [] };
+  const WDEF = { order: ["deadlines", "ask", "timer", "track", "habits", "anki"], span: { deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12 }, hidden: [] };
   let WL = JSON.parse(JSON.stringify(WDEF)), saveLayout = null;
   const wEls = () => [...$("mainView").querySelectorAll(":scope > [data-w]")];
   function applyLayout(l) {
