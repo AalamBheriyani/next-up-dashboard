@@ -101,11 +101,11 @@ Ask Claude opens their own Claude app.
 
 ## Versions
 
-Every push to `main` is published as a new version: a git tag (`v1.0.0`, `v1.0.1`, …) with a
+Every push to `main` is published as a new version: a git tag (`v0.1.0`, `v0.1.1`, …, marked as pre-releases while the major number is 0) with a
 GitHub Release listing the changes. Patch bumps by default; put `[minor]` or `[major]` in a commit
 message to bump that part. The site keeps every version: open
 <https://aalambheriyani.github.io/next-up-dashboard/v/> and pick one, or go straight to
-`/next-up-dashboard/v/v1.2.3/`. Old versions use today's Worker and sheets, so very old ones may not
+`/next-up-dashboard/v/v0.2.3/`. Old versions use today's Worker and sheets, so very old ones may not
 match newer data. The current version shows under the ⚙ menu.
 
 Pages is deployed by `.github/workflows/site.yml` (repo Settings → Pages → Source: GitHub Actions).

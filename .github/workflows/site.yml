@@ -31,19 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Renumber old 1.x versions as 0.x pre-releases (one-time; no-op once done)
+      - name: Mark the early 1.x builds as pre-releases (one-time; no-op once done)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git fetch --tags --force
-          for t in $(git tag -l 'v1.*' --sort=v:refname); do
-            IFS=. read -r ma mi pa <<<"${t#v}"
-            n="v0.$((mi+1)).$pa"
-            if ! git rev-parse -q --verify "refs/tags/$n" >/dev/null; then git tag "$n" "$t^{commit}"; git push origin "$n"; fi
-            notes=$(gh release view "$t" --json body -q .body 2>/dev/null | sed "s#/v/$t/#/v/$n/#g" || true)
-            gh release view "$n" >/dev/null 2>&1 || gh release create "$n" --title "$n" --verify-tag --prerelease --notes "${notes:-Renumbered from $t.}"
-            gh release delete "$t" --yes --cleanup-tag 2>/dev/null || git push origin ":refs/tags/$t" || true
-            git tag -d "$t"
+          for t in $(git tag -l 'v1.*'); do
+            gh release view "$t" --json isPrerelease -q .isPrerelease 2>/dev/null | grep -q true \
+              || gh release edit "$t" --prerelease --latest=false --title "$t (early build, before 0.1)" || true
           done
       - name: Version and release
         env:
@@ -53,7 +48,8 @@ jobs:
         run: |
           git fetch --tags --force
           if git tag --points-at HEAD | grep -q '^v[0-9]'; then echo "HEAD already has a version"; exit 0; fi
-          last=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)
+          # Numbering starts at 0.1.0; the early v1.x builds are kept but don't count.
+          last=$(git tag -l 'v0.*' 'v[2-9]*' --sort=-v:refname | head -1)
           msgs=$(git log --format=%B "${BEFORE:-HEAD~1}..HEAD" 2>/dev/null || git log -1 --format=%B)
           bump=${BUMP_INPUT:-patch}
           grep -qi '\[minor\]' <<<"$msgs" && bump=minor

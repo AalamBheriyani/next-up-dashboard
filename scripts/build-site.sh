@@ -4,16 +4,17 @@
 set -euo pipefail
 out=${1:-_site}
 rm -rf "$out"; mkdir -p "$out/v"
-cur=$(git tag --points-at HEAD -l 'v[0-9]*' --sort=-v:refname | head -1)
+cur=$(git tag --points-at HEAD -l 'v0.*' 'v[2-9]*' --sort=-v:refname | head -1)
 cp -r docs/. "$out/"
 printf '{"version":"%s","date":"%s"}\n' "${cur:-dev}" "$(git log -1 --format=%cs)" > "$out/version.json"
 rows=""
-for t in $(git tag -l 'v[0-9]*' --sort=-v:refname); do
+for t in $(git tag -l 'v0.*' 'v[2-9]*' --sort=-v:refname) $(git tag -l 'v1.*' --sort=-v:refname); do
   d=$(git log -1 --format=%cs "$t")
   mkdir -p "$out/v/$t"
   git archive "$t" docs | tar -x --strip-components=1 -C "$out/v/$t"
   printf '{"version":"%s","date":"%s"}\n' "$t" "$d" > "$out/v/$t/version.json"
-  rows+="<li><a href=\"$t/\">$t</a> <span>$d</span> <a class=\"rel\" href=\"https://github.com/AalamBheriyani/next-up-dashboard/releases/tag/$t\">changes</a></li>"
+  label=$t; [[ $t == v1.* ]] && label="$t (early build)"
+  rows+="<li><a href=\"$t/\">$label</a> <span>$d</span> <a class=\"rel\" href=\"https://github.com/AalamBheriyani/next-up-dashboard/releases/tag/$t\">changes</a></li>"
 done
 cat > "$out/v/index.html" <<HTML
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
