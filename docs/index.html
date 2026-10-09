@@ -467,6 +467,9 @@ body:not(.editing) .widgets > .nodata { display: none; }
 .wtools { position: absolute; top: 6px; right: 6px; z-index: 30; display: flex; gap: 4px; background: var(--bg); border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
 .wtools button, .wtools select { border: 0; background: var(--chip); color: var(--ink); border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 12px; cursor: pointer; }
 .wtools select option { background: #111; color: #fff; }
+
+header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.wbar { margin-bottom: 0; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -483,8 +486,8 @@ body:not(.editing) .widgets > .nodata { display: none; }
 </div>
 
 <div class="wrap" id="app" hidden>
-  <header class="top">
-    <section class="panel headcal" aria-labelledby="nowH">
+  <header class="top widgets">
+    <section class="panel headcal" aria-labelledby="nowH" data-w="today" data-name="Today calendar">
       <div class="panel-h headline-left">
         <h2 id="nowH" class="sr-only">Today</h2>
         <div class="label" id="placeLbl">Next up</div>
@@ -515,8 +518,8 @@ body:not(.editing) .widgets > .nodata { display: none; }
   </div>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
+  <div class="wbar" id="wBar" hidden></div>
   <div id="mainView" class="widgets">
-    <div class="wbar" id="wBar" hidden></div>
       <div class="stack" id="wDeadlines" data-w="deadlines" data-name="Deadlines">
         <section class="banner" id="banner" aria-live="polite">
           <div class="label">Next deadline</div>
@@ -632,8 +635,8 @@ body:not(.editing) .widgets > .nodata { display: none; }
       <div class="heatkey"><span id="akSum" class="note"></span><span class="scale">Less <i></i><i></i><i></i><i></i><i></i> More</span></div>
     </section>
   </div>
-  <div id="depView" class="stack" hidden>
-    <section class="panel" aria-labelledby="depH" style="padding-bottom:16px">
+  <div id="depView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="depH" style="padding-bottom:16px" data-w="departures" data-name="Departures">
       <div class="panel-h"><h2 id="depH">Departures</h2>
         <div class="depmode" role="group" aria-label="View"><button type="button" data-dv="list" aria-pressed="true">List</button><button type="button" data-dv="week" aria-pressed="false">Week</button><button type="button" data-dv="cal" aria-pressed="false">Calendar</button></div>
         <span class="stale" id="taskStamp"></span></div>
@@ -647,15 +650,15 @@ body:not(.editing) .widgets > .nodata { display: none; }
       <div class="note">Overdue plus the next 14 days. Countdowns run to your personal deadline; the real one shows underneath. Tap a task for details, tap Done twice to complete it in TickTick.</div>
     </section>
   </div>
-  <div id="hoursView" class="stack" hidden>
-    <section class="panel" aria-labelledby="hH">
+  <div id="hoursView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="hH" data-w="hours" data-name="Adherence">
       <div class="panel-h"><h2 id="hH">Adherence · hours this week</h2><span class="stale" id="hStamp"></span></div>
       <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
       <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
     </section>
   </div>
-  <div id="rateView" class="stack" hidden>
-    <section class="panel" aria-labelledby="rH">
+  <div id="rateView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="rH" data-w="rate" data-name="Rate your blocks">
       <div class="panel-h"><h2 id="rH">Rate your blocks</h2><span class="label">writes to Time Tracker</span></div>
       <form class="ratechat" id="rcForm">
         <label for="rcQ" class="label">Tell Claude how it went</label>
@@ -2054,16 +2057,17 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   // ---------- widgets ----------
   // Dashboard panels are widgets: in Customise mode each can be moved, resized (third, half, two
   // thirds, full width) or hidden. The layout is saved to your account, like the theme.
-  const WDEF = { order: ["deadlines", "ask", "timer", "track", "habits", "anki"], span: { deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12 }, hidden: [] };
+  // Panels on every page are widgets (the Today calendar, the Dashboard panels and each tab's panel);
+  // ids are unique across pages, and each widget stays on its own page.
+  const WDEF = { order: ["today", "deadlines", "ask", "timer", "track", "habits", "anki", "departures", "hours", "rate"], span: { today: 12, deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12, departures: 12, hours: 12, rate: 12 }, hidden: [] };
   let WL = JSON.parse(JSON.stringify(WDEF)), saveLayout = null;
-  const wEls = () => [...$("mainView").querySelectorAll(":scope > [data-w]")];
+  const wEls = () => [...document.querySelectorAll(".widgets > [data-w]")];
   function applyLayout(l) {
     const known = wEls().map((e) => e.dataset.w);
     if (l && Array.isArray(l.order)) WL = { order: [...l.order.filter((x) => known.includes(x)), ...known.filter((x) => !l.order.includes(x))], span: { ...WDEF.span, ...(l.span || {}) }, hidden: (l.hidden || []).filter((x) => known.includes(x)) };
-    const box = $("mainView");
     for (const id of WL.order) {
-      const e = box.querySelector(`:scope > [data-w="${id}"]`); if (!e) continue;
-      box.append(e); e.style.setProperty("--span", WL.span[id] || 12);
+      const e = document.querySelector(`.widgets > [data-w="${id}"]`); if (!e) continue;
+      e.parentElement.append(e); e.style.setProperty("--span", WL.span[id] || 12);
       e.hidden = WL.hidden.includes(id) && !document.body.classList.contains("editing");
     }
     try { localStorage.setItem("nu.layout.last", JSON.stringify(WL)); } catch {}
@@ -2072,7 +2076,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   }
   function layoutChanged() { applyLayout(WL); clearTimeout(layoutChanged.t); layoutChanged.t = setTimeout(() => saveLayout && saveLayout(WL), 600); }
   function renderWBar() {
-    const bar = $("wBar"); bar.replaceChildren(el("b", null, "Customising:"), el("span", null, "drag panels or use ◀ ▶ to move, pick a width, or hide them."));
+    const bar = $("wBar"); bar.replaceChildren(el("b", null, "Customising:"), el("span", null, "drag panels or use ◀ ▶ to move, pick a width, or hide them. Works on every tab."));
     const hid = WL.hidden.map((id) => wEls().find((e) => e.dataset.w === id)).filter(Boolean);
     if (hid.length) bar.append(el("span", null, "Hidden:"));
     for (const e of hid) { const b = el("button", null, "+ " + e.dataset.name); b.type = "button"; b.onclick = () => { WL.hidden = WL.hidden.filter((x) => x !== e.dataset.w); layoutChanged(); }; bar.append(b); }
@@ -2082,7 +2086,12 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
     for (const e of wEls()) {
       e.querySelector(":scope > .wtools")?.remove();
       const id = e.dataset.w, t = el("div", "wtools");
-      const mv = (dir) => { const i = WL.order.indexOf(id), j = i + dir; if (j < 0 || j >= WL.order.length) return; [WL.order[i], WL.order[j]] = [WL.order[j], WL.order[i]]; layoutChanged(); };
+      // Move among the widgets on the same page only.
+      const mv = (dir) => {
+        const sib = [...e.parentElement.querySelectorAll(":scope > [data-w]")].map((x) => x.dataset.w);
+        const k = sib.indexOf(id) + dir; if (k < 0 || k >= sib.length) return;
+        const i = WL.order.indexOf(id), j = WL.order.indexOf(sib[k]); [WL.order[i], WL.order[j]] = [WL.order[j], WL.order[i]]; layoutChanged();
+      };
       const l = el("button", null, "◀"); l.type = "button"; l.title = "Move earlier"; l.onclick = () => mv(-1);
       const rr = el("button", null, "▶"); rr.type = "button"; rr.title = "Move later"; rr.onclick = () => mv(1);
       const sz = el("select"); sz.setAttribute("aria-label", "Width");
@@ -2096,12 +2105,12 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
       e.ondragstart = (ev) => { ev.dataTransfer.setData("text/plain", id); };
       e.ondragover = (ev) => { ev.preventDefault(); e.classList.add("dragover"); };
       e.ondragleave = () => e.classList.remove("dragover");
-      e.ondrop = (ev) => { ev.preventDefault(); e.classList.remove("dragover"); const from = ev.dataTransfer.getData("text/plain"); if (!from || from === id) return; WL.order = WL.order.filter((x) => x !== from); WL.order.splice(WL.order.indexOf(id), 0, from); layoutChanged(); };
+      e.ondrop = (ev) => { ev.preventDefault(); e.classList.remove("dragover"); const from = ev.dataTransfer.getData("text/plain"); if (!from || from === id || !e.parentElement.querySelector(`:scope > [data-w="${from}"]`)) return; WL.order = WL.order.filter((x) => x !== from); WL.order.splice(WL.order.indexOf(id), 0, from); layoutChanged(); };
     }
   }
   function setEditing(on) {
     document.body.classList.toggle("editing", on); $("wBar").hidden = !on; $("custBtn").setAttribute("aria-pressed", String(on));
-    if (on) { if (location.hash && location.hash !== "#") location.hash = ""; renderWBar(); }
+    if (on) renderWBar();
     else for (const e of wEls()) { e.querySelector(":scope > .wtools")?.remove(); e.draggable = false; e.style.opacity = ""; e.ondragstart = e.ondragover = e.ondragleave = e.ondrop = null; }
     applyLayout(WL);
   }
