@@ -504,6 +504,19 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 .headcal .now .firststep { margin: 0; padding: 10px 12px; border-radius: 10px; }
 .headcal .now .next { padding-top: 10px; margin-top: 0; gap: 8px; }
 .headcal .now details { margin: 0; }
+
+/* Today panel: info | page tabs and Jump to links | a narrower day calendar. */
+.headcal { padding: 16px 20px; }
+.headcal .cal-split { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .8fr); gap: 20px; }
+.headcal .cal-day { max-height: 200px; }
+.cal-mid { display: grid; gap: 14px; align-content: start; justify-items: center; text-align: center; min-width: 0; padding-top: 4px; }
+.cal-mid .tabrow { justify-content: center; }
+.cal-mid .tabsbar { flex-wrap: wrap; justify-content: center; overflow: visible; }
+.cal-mid .jump { flex-wrap: wrap; justify-content: center; overflow: visible; }
+.cal-mid .jump .links { flex-wrap: wrap; justify-content: center; }
+@media (max-width: 1000px) { .headcal .cal-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .cal-mid { grid-column: 1 / -1; order: 3; } }
+@media (max-width: 700px) { .headcal .cal-split { grid-template-columns: minmax(0, 1fr); } }
+#navHome .cal-mid { justify-items: start; text-align: left; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -541,16 +554,19 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
           <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
           </div>
         </div>
+        <div class="cal-mid" id="navBlock">
+      <div class="tabrow">
+        <nav class="tabsbar" aria-label="Pages">
+        <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
+        </nav>
+      </div>
+      <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
+        </div>
         <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
       </div>
     </section>
   </header>
-  <div class="tabrow">
-    <nav class="tabsbar" aria-label="Pages">
-    <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
-    </nav>
-  </div>
-  <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
+  <div id="navHome"></div>
 
   <div class="wbar" id="wBar" hidden></div>
   <div id="mainView" class="widgets">
@@ -2111,6 +2127,10 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
       e.parentElement.append(e); e.style.setProperty("--span", WL.span[id] || 12); e.dataset.wh = WL.h[id] || "auto";
       e.hidden = WL.hidden.includes(id) && !document.body.classList.contains("editing");
     }
+    // The page tabs live inside the Today panel; if that panel is hidden, show them on their own.
+    const nb = $("navBlock"), todayHidden = WL.hidden.includes("today") && !document.body.classList.contains("editing");
+    if (nb) (todayHidden ? $("navHome") : document.querySelector(".headcal .cal-split")).append(nb);
+    if (nb && !todayHidden) document.querySelector(".headcal .cal-split").insertBefore(nb, $("calDay"));
     try { localStorage.setItem("nu.layout.last", JSON.stringify(WL)); } catch {}
     if (document.body.classList.contains("editing")) renderWBar();
     if (typeof renderHeat === "function") renderHeat();
