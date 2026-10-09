@@ -470,6 +470,19 @@ body:not(.editing) .widgets > .nodata { display: none; }
 
 header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .wbar { margin-bottom: 0; }
+
+/* Widget drag/resize */
+.editing [data-w] { cursor: default; }
+.wtools .grip { cursor: grab; font-size: 14px; touch-action: none; }
+.wph { grid-column: span var(--span, 12); border: 2px dashed var(--accent); border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, transparent); min-height: 80px; }
+[data-w].dragging { position: fixed !important; z-index: 100; opacity: .85; pointer-events: none; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
+.wres { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 31;
+  background: linear-gradient(135deg, transparent 50%, var(--accent) 50%, var(--accent) 60%, transparent 60%, transparent 70%, var(--accent) 70%, var(--accent) 80%, transparent 80%); border-radius: 0 0 12px 0; }
+.wbadge { position: absolute; right: 24px; bottom: 6px; z-index: 32; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; pointer-events: none; }
+[data-w][data-wh="s"] { height: 280px; overflow: auto; }
+[data-w][data-wh="m"] { height: 440px; overflow: auto; }
+[data-w][data-wh="l"] { height: 680px; overflow: auto; }
+@media (max-width: 1100px) { .widgets > [data-w] { grid-column: span max(var(--span, 12), 6); } }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -2060,14 +2073,18 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   // Panels on every page are widgets (the Today calendar, the Dashboard panels and each tab's panel);
   // ids are unique across pages, and each widget stays on its own page.
   const WDEF = { order: ["today", "deadlines", "ask", "timer", "track", "habits", "anki", "departures", "hours", "rate"], span: { today: 12, deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12, departures: 12, hours: 12, rate: 12 }, hidden: [] };
+  WDEF.h = {};
+  const WSPANS = [[3, "¼ width"], [4, "⅓ width"], [6, "½ width"], [8, "⅔ width"], [9, "¾ width"], [12, "Full width"]];
+  const WHEIGHTS = [["auto", "Auto height"], ["s", "Compact"], ["m", "Medium"], ["l", "Tall"]];
+  const WHPX = { s: 280, m: 440, l: 680 };
   let WL = JSON.parse(JSON.stringify(WDEF)), saveLayout = null;
   const wEls = () => [...document.querySelectorAll(".widgets > [data-w]")];
   function applyLayout(l) {
     const known = wEls().map((e) => e.dataset.w);
-    if (l && Array.isArray(l.order)) WL = { order: [...l.order.filter((x) => known.includes(x)), ...known.filter((x) => !l.order.includes(x))], span: { ...WDEF.span, ...(l.span || {}) }, hidden: (l.hidden || []).filter((x) => known.includes(x)) };
+    if (l && Array.isArray(l.order)) WL = { order: [...l.order.filter((x) => known.includes(x)), ...known.filter((x) => !l.order.includes(x))], span: { ...WDEF.span, ...(l.span || {}) }, h: { ...(l.h || {}) }, hidden: (l.hidden || []).filter((x) => known.includes(x)) };
     for (const id of WL.order) {
       const e = document.querySelector(`.widgets > [data-w="${id}"]`); if (!e) continue;
-      e.parentElement.append(e); e.style.setProperty("--span", WL.span[id] || 12);
+      e.parentElement.append(e); e.style.setProperty("--span", WL.span[id] || 12); e.dataset.wh = WL.h[id] || "auto";
       e.hidden = WL.hidden.includes(id) && !document.body.classList.contains("editing");
     }
     try { localStorage.setItem("nu.layout.last", JSON.stringify(WL)); } catch {}
@@ -2076,7 +2093,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   }
   function layoutChanged() { applyLayout(WL); clearTimeout(layoutChanged.t); layoutChanged.t = setTimeout(() => saveLayout && saveLayout(WL), 600); }
   function renderWBar() {
-    const bar = $("wBar"); bar.replaceChildren(el("b", null, "Customising:"), el("span", null, "drag panels or use ◀ ▶ to move, pick a width, or hide them. Works on every tab."));
+    const bar = $("wBar"); bar.replaceChildren(el("b", null, "Customising:"), el("span", null, "drag a panel by ⠿ (a dashed box shows where it lands), drag its corner to resize, or use the menus. Works on every tab."));
     const hid = WL.hidden.map((id) => wEls().find((e) => e.dataset.w === id)).filter(Boolean);
     if (hid.length) bar.append(el("span", null, "Hidden:"));
     for (const e of hid) { const b = el("button", null, "+ " + e.dataset.name); b.type = "button"; b.onclick = () => { WL.hidden = WL.hidden.filter((x) => x !== e.dataset.w); layoutChanged(); }; bar.append(b); }
@@ -2084,34 +2101,81 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
     const d = el("button", "done", "Done"); d.type = "button"; d.onclick = () => setEditing(false);
     bar.append(r, d);
     for (const e of wEls()) {
-      e.querySelector(":scope > .wtools")?.remove();
+      e.querySelector(":scope > .wtools")?.remove(); e.querySelector(":scope > .wres")?.remove();
       const id = e.dataset.w, t = el("div", "wtools");
-      // Move among the widgets on the same page only.
+      // Move among the widgets on the same page only (keyboard-friendly alternative to dragging).
       const mv = (dir) => {
         const sib = [...e.parentElement.querySelectorAll(":scope > [data-w]")].map((x) => x.dataset.w);
         const k = sib.indexOf(id) + dir; if (k < 0 || k >= sib.length) return;
         const i = WL.order.indexOf(id), j = WL.order.indexOf(sib[k]); [WL.order[i], WL.order[j]] = [WL.order[j], WL.order[i]]; layoutChanged();
       };
+      const grip = el("button", "grip", "⠿"); grip.type = "button"; grip.title = "Drag to move"; grip.onpointerdown = (ev) => startDrag(ev, e);
       const l = el("button", null, "◀"); l.type = "button"; l.title = "Move earlier"; l.onclick = () => mv(-1);
       const rr = el("button", null, "▶"); rr.type = "button"; rr.title = "Move later"; rr.onclick = () => mv(1);
       const sz = el("select"); sz.setAttribute("aria-label", "Width");
-      for (const [v, n] of [[4, "⅓ width"], [6, "½ width"], [8, "⅔ width"], [12, "Full width"]]) { const o = el("option", null, n); o.value = v; sz.append(o); }
+      for (const [v, n] of WSPANS) { const o = el("option", null, n); o.value = v; sz.append(o); }
       sz.value = WL.span[id] || 12; sz.onchange = () => { WL.span[id] = +sz.value; layoutChanged(); };
+      const hs = el("select"); hs.setAttribute("aria-label", "Height");
+      for (const [v, n] of WHEIGHTS) { const o = el("option", null, n); o.value = v; hs.append(o); }
+      hs.value = WL.h[id] || "auto"; hs.onchange = () => { if (hs.value === "auto") delete WL.h[id]; else WL.h[id] = hs.value; layoutChanged(); };
       const h = el("button", null, WL.hidden.includes(id) ? "Show" : "Hide"); h.type = "button";
       h.onclick = () => { WL.hidden.includes(id) ? (WL.hidden = WL.hidden.filter((x) => x !== id)) : WL.hidden.push(id); layoutChanged(); };
-      t.append(l, rr, sz, h); e.prepend(t);
+      t.append(grip, l, rr, sz, hs, h); e.prepend(t);
+      const res = el("div", "wres"); res.title = "Drag to resize (snaps to sizes)"; res.onpointerdown = (ev) => startResize(ev, e); e.append(res);
       e.style.opacity = WL.hidden.includes(id) ? ".4" : "";
-      e.draggable = true;
-      e.ondragstart = (ev) => { ev.dataTransfer.setData("text/plain", id); };
-      e.ondragover = (ev) => { ev.preventDefault(); e.classList.add("dragover"); };
-      e.ondragleave = () => e.classList.remove("dragover");
-      e.ondrop = (ev) => { ev.preventDefault(); e.classList.remove("dragover"); const from = ev.dataTransfer.getData("text/plain"); if (!from || from === id || !e.parentElement.querySelector(`:scope > [data-w="${from}"]`)) return; WL.order = WL.order.filter((x) => x !== from); WL.order.splice(WL.order.indexOf(id), 0, from); layoutChanged(); };
     }
+  }
+  // Drag by the ⠿ handle: a placeholder shows exactly where the panel will land; it snaps before or
+  // after the panel under the pointer (left/right half, or top/bottom half for full-width panels).
+  function startDrag(ev, w) {
+    ev.preventDefault();
+    const box = w.parentElement, r = w.getBoundingClientRect();
+    const ph = el("div", "wph"); ph.style.setProperty("--span", WL.span[w.dataset.w] || 12); ph.style.height = r.height + "px";
+    box.insertBefore(ph, w);
+    w.classList.add("dragging"); Object.assign(w.style, { width: r.width + "px", left: r.left + "px", top: r.top + "px" });
+    const dx = ev.clientX - r.left, dy = ev.clientY - r.top;
+    const move = (e) => {
+      w.style.left = e.clientX - dx + "px"; w.style.top = e.clientY - dy + "px";
+      w.style.pointerEvents = "none"; const under = document.elementFromPoint(e.clientX, e.clientY); w.style.pointerEvents = "";
+      const tgt = under && under.closest(".widgets > [data-w]");
+      if (!tgt || tgt === w || tgt.parentElement !== box) return;
+      const b = tgt.getBoundingClientRect();
+      const after = (WL.span[tgt.dataset.w] || 12) >= 12 ? e.clientY > b.top + b.height / 2 : e.clientX > b.left + b.width / 2;
+      box.insertBefore(ph, after ? tgt.nextSibling : tgt);
+      if (e.clientY < 60) scrollBy(0, -12); else if (e.clientY > innerHeight - 60) scrollBy(0, 12);
+    };
+    const up = () => {
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up);
+      box.insertBefore(w, ph); ph.remove(); w.classList.remove("dragging"); w.style.width = w.style.left = w.style.top = "";
+      const mine = [...box.querySelectorAll(":scope > [data-w]")].map((x) => x.dataset.w);
+      let k = 0; WL.order = WL.order.map((x) => (mine.includes(x) ? mine[k++] : x));
+      layoutChanged();
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", up);
+  }
+  // Resize from the bottom-right corner: width snaps to ¼ ⅓ ½ ⅔ ¾ or full, height to compact /
+  // medium / tall (drag back up past compact for automatic height). A badge shows the size.
+  function startResize(ev, w) {
+    ev.preventDefault(); ev.stopPropagation();
+    const id = w.dataset.w, box = w.parentElement, gap = 12;
+    const colW = (box.clientWidth + gap) / 12, r = w.getBoundingClientRect();
+    const badge = el("div", "wbadge"); w.append(badge);
+    const label = () => { badge.textContent = `${(WSPANS.find(([v]) => v === (WL.span[id] || 12)) || [, ""])[1]} · ${(WHEIGHTS.find(([v]) => v === (WL.h[id] || "auto")) || [, ""])[1]}`; };
+    const move = (e) => {
+      const cols = (r.width + (e.clientX - ev.clientX) + gap) / colW;
+      const span = WSPANS.map(([v]) => v).reduce((a, b) => (Math.abs(b - cols) < Math.abs(a - cols) ? b : a));
+      const hgt = r.height + (e.clientY - ev.clientY);
+      const hk = hgt < WHPX.s - 60 ? "auto" : Object.entries(WHPX).reduce((a, b) => (Math.abs(b[1] - hgt) < Math.abs(a[1] - hgt) ? b : a))[0];
+      if (Math.abs(e.clientY - ev.clientY) > 24) { if (hk === "auto") delete WL.h[id]; else WL.h[id] = hk; }
+      WL.span[id] = span; applyLayout(WL); w.append(badge); label();
+    };
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); badge.remove(); layoutChanged(); };
+    label(); addEventListener("pointermove", move); addEventListener("pointerup", up);
   }
   function setEditing(on) {
     document.body.classList.toggle("editing", on); $("wBar").hidden = !on; $("custBtn").setAttribute("aria-pressed", String(on));
     if (on) renderWBar();
-    else for (const e of wEls()) { e.querySelector(":scope > .wtools")?.remove(); e.draggable = false; e.style.opacity = ""; e.ondragstart = e.ondragover = e.ondragleave = e.ondrop = null; }
+    else for (const e of wEls()) { e.querySelector(":scope > .wtools")?.remove(); e.querySelector(":scope > .wres")?.remove(); e.style.opacity = ""; }
     applyLayout(WL);
   }
   $("custBtn").onclick = () => setEditing(!document.body.classList.contains("editing"));

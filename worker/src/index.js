@@ -101,8 +101,10 @@ export default {
         if (body.layout && typeof body.layout === "object") {
           const ids = (a) => (Array.isArray(a) ? a : []).map(String).filter((x) => /^[\w-]{1,30}$/.test(x)).slice(0, 30);
           const span = {};
-          for (const [k, v] of Object.entries(body.layout.span || {})) if (/^[\w-]{1,30}$/.test(k) && [4, 6, 8, 12].includes(+v)) span[k] = +v;
-          mine.layout = { order: ids(body.layout.order), span, hidden: ids(body.layout.hidden) };
+          for (const [k, v] of Object.entries(body.layout.span || {})) if (/^[\w-]{1,30}$/.test(k) && [3, 4, 6, 8, 9, 12].includes(+v)) span[k] = +v;
+          const h = {};
+          for (const [k, v] of Object.entries(body.layout.h || {})) if (/^[\w-]{1,30}$/.test(k) && ["s", "m", "l"].includes(v)) h[k] = v;
+          mine.layout = { order: ids(body.layout.order), span, h, hidden: ids(body.layout.hidden) };
         }
         await store(env).put("user:" + who.email, mine);
         return json({ ok: true });
