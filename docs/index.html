@@ -532,6 +532,9 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 #wDeadlines > .upcoming { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 #wDeadlines .uplist { flex: 1 1 0; min-height: 180px; max-height: none; overflow-y: auto; }
 .widgets > #ask, .widgets > #timerPanel { height: auto; }
+
+/* The empty holder for the page tabs (used only when Today is hidden) shouldn't add a gap. */
+#navHome:empty { display: none; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
