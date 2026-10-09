@@ -59,8 +59,6 @@ header.top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-it
 .headline-left .dayleft .num { font-size: 13px; }
 .headcal .headline-left .dayleft + .stale { margin-left: 0; }
 .headcal .headline-left .dayleft .label { display: block; }
-/* Keep clock, bar, stamp and gear on one line on wider screens. */
-@media (min-width: 701px) { .headcal .headline-left { flex-wrap: nowrap; } .headline-left .dayleft { flex: 1 1 380px; max-width: 420px; min-width: 0; } .headcal .headline-left .gear, .headcal .headline-left .stale { flex: none; } .headline-left .dayleft .row { gap: 8px; } }
 @media (max-width: 700px) { .headline-left .dayleft { flex: 1 1 100%; order: 5; } }
 .dayleft .row { display: flex; justify-content: space-between; gap: 12px; }
 .daybar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
@@ -490,6 +488,8 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 [data-w][data-wh="m"] { height: 440px; overflow: auto; }
 [data-w][data-wh="l"] { height: 680px; overflow: auto; }
 @media (max-width: 1100px) { .widgets > [data-w] { grid-column: span max(var(--span, 12), 6); } }
+/* Keep clock, bar, stamp and gear on one line on wider screens. */
+@media (min-width: 701px) { .headcal .headline-left { flex-wrap: nowrap; } .headline-left .dayleft { flex: 1 1 380px; max-width: 420px; min-width: 0; } .headcal .headline-left .gear, .headcal .headline-left .stale { flex: none; } .headline-left .dayleft .row { gap: 8px; } }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
