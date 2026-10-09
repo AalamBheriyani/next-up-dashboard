@@ -1,8 +1,8 @@
-# Every push to main gets a version number (a git tag like v1.4.2 and a GitHub Release with the
-# changes), then publishes the website to GitHub Pages: the newest version at the root, and every
+# Every push to main gets a version number (a git tag like v0.4.2 and a GitHub Release with the
+# changes; 0.x versions are marked as pre-releases), then publishes the website to GitHub Pages: the newest version at the root, and every
 # earlier version at /v/<version>/ so any of them can be opened again later.
 #
-# Version bumps: patch by default. Put [minor] or [major] in a commit message (or run this workflow
+# Version bumps: patch by default (0.1.0, 0.1.1, ...). Put [minor] or [major] in a commit message (or run this workflow
 # by hand and pick) to bump that part instead.
 name: Site
 on:
@@ -31,6 +31,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      - name: Renumber old 1.x versions as 0.x pre-releases (one-time; no-op once done)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --tags --force
+          for t in $(git tag -l 'v1.*' --sort=v:refname); do
+            IFS=. read -r ma mi pa <<<"${t#v}"
+            n="v0.$((mi+1)).$pa"
+            if ! git rev-parse -q --verify "refs/tags/$n" >/dev/null; then git tag "$n" "$t^{commit}"; git push origin "$n"; fi
+            notes=$(gh release view "$t" --json body -q .body 2>/dev/null | sed "s#/v/$t/#/v/$n/#g" || true)
+            gh release view "$n" >/dev/null 2>&1 || gh release create "$n" --title "$n" --verify-tag --prerelease --notes "${notes:-Renumbered from $t.}"
+            gh release delete "$t" --yes --cleanup-tag 2>/dev/null || git push origin ":refs/tags/$t" || true
+            git tag -d "$t"
+          done
       - name: Version and release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,14 +58,16 @@ jobs:
           bump=${BUMP_INPUT:-patch}
           grep -qi '\[minor\]' <<<"$msgs" && bump=minor
           grep -qi '\[major\]' <<<"$msgs" && bump=major
-          if [ -z "$last" ]; then next=v1.0.0; else
+          if [ -z "$last" ]; then next=v0.1.0; else
             IFS=. read -r ma mi pa <<<"${last#v}"
             case $bump in major) next="v$((ma+1)).0.0";; minor) next="v$ma.$((mi+1)).0";; *) next="v$ma.$mi.$((pa+1))";; esac
           fi
           git tag "$next" && git push origin "$next"
           if [ -n "$last" ]; then notes=$(git log --format='- %s' "$last..HEAD"); else notes=$(git log -20 --format='- %s'); fi
           printf '%s\n\nOpen this version: https://aalambheriyani.github.io/next-up-dashboard/v/%s/\n' "$notes" "$next" > notes.md
-          gh release create "$next" --title "$next" --notes-file notes.md --latest
+          # 0.x versions are pre-releases; from 1.0.0 on they become normal releases.
+          if [[ $next == v0.* ]]; then kind=--prerelease; else kind=--latest; fi
+          gh release create "$next" --title "$next" --notes-file notes.md $kind
       - name: Build site with every version
         run: bash scripts/build-site.sh _site
       - uses: actions/upload-pages-artifact@v3
