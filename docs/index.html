@@ -55,6 +55,7 @@ header.top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-it
 .clock { font: 800 clamp(44px, 9vw, 72px)/.9 var(--f-display); letter-spacing: .01em; }
 .date { color: var(--muted); }
 .dayleft { flex: 1 1 320px; display: grid; gap: 6px; }
+.cal-left .dayleft { flex: none; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
 .dayleft .row { display: flex; justify-content: space-between; gap: 12px; }
 .daybar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
 .daybar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); border-radius: 5px; }
@@ -514,6 +515,11 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
       <div class="cal-split">
         <div class="cal-left">
           <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
+          <div class="dayleft">
+            <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
+            <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
+            <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
+          </div>
         </div>
         <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
       </div>
@@ -523,11 +529,6 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
     <nav class="tabsbar" aria-label="Pages">
     <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
     </nav>
-    <div class="dayleft">
-      <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
-      <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
-      <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
-    </div>
   </div>
   <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
 
