@@ -1,5 +1,7 @@
 # Next Up
 
+> Working on the code with an AI assistant? Start with [CLAUDE.md](CLAUDE.md). How we work together: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 A personal departures-board dashboard: next deadline countdown, the calendar block you're in,
 TickTick tasks with live countdowns, Weekly Time Tracker hours, a Pomodoro timer with a Time Timer
 style dial (finished pomodoros and breaks log XP automatically), the Quest Log XP tracker and an
@@ -19,8 +21,9 @@ Your email, sheet id, routine and private links live in Worker secrets, not in t
 ## One-time setup
 
 ### 1. GitHub Pages
-Repo **Settings → Pages → Build and deployment**: Source *Deploy from a branch*, branch `main`,
-folder `/docs`. The site appears at https://aalambheriyani.github.io/next-up-dashboard/.
+Repo **Settings → Pages → Build and deployment**: Source *GitHub Actions*. The `Site` workflow
+publishes `docs/` (plus every past version under `/v/`). The site appears at
+https://aalambheriyani.github.io/next-up-dashboard/.
 
 ### 2. Google sign-in (Google Cloud Console)
 1. Create a project at https://console.cloud.google.com/. Google Cloud requires 2-step

@@ -1,5 +1,7 @@
 # Working on Next Up together
 
+> Using Claude or another AI assistant? Point it at [CLAUDE.md](CLAUDE.md) first: it has the code map, routes, data model and rules.
+
 Next Up is built by Aalam and Aaliya. Each of you has your own dashboard (same site, separate data),
 and every change to the site is reviewed, versioned and logged.
 
