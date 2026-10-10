@@ -8,8 +8,13 @@ what a web page can't do well:
 - **Timer notifications.** When a pomodoro or break ends you get a notification, even with the app closed.
 - **Links** to other sites (TickTick web, Calendar, Claude) open in the browser.
 
-Everything else (tasks, Track, Quest Log, Ask Claude) is the same page as the website, so changes to
-`docs/` show up in the app without a new build.
+The app has two tabs:
+
+- **Today** (native): the next deadline as a flip-clock countdown, then overdue, today and coming-up
+  deadlines from TickTick, through the same Worker as the website. Tap the circle or swipe right to
+  finish one. Sign in with Google on the tab; connect TickTick once in the Classic tab first.
+- **Classic**: the website in a web view. Tasks, Track, Quest Log and Ask Claude live here, so changes
+  to `docs/` show up without a new build.
 
 ## Install on Android
 
