@@ -8,14 +8,13 @@ import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard/dashboard_screen.dart';
+import 'pages/quest_screen.dart';
 import 'motion.dart';
 import 'pages/adherence_screen.dart';
 import 'pages/settings_screen.dart';
 import 'pages/track_screen.dart';
 import 'services.dart';
 import 'web_auth.dart';
-
-const classicSite = String.fromEnvironment('CLASSIC_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');
 
 void main() {
   WebAuth.ready.ignore(); // starts loading Google's sign-in; failures surface when someone signs in
@@ -97,6 +96,8 @@ class _ShellState extends State<Shell> {
         return TrackScreen(services: _svc, config: _config);
       case 3:
         return AdherenceScreen(services: _svc, config: _config);
+      case 4:
+        return QuestScreen(services: _svc, config: _config);
       default:
         return SettingsScreen(
           services: _svc,
@@ -117,13 +118,14 @@ class _ShellState extends State<Shell> {
       duration: motionBase,
       switchInCurve: motionCurve,
       transitionBuilder: (child, anim) => pageTransition(child, anim),
-      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}'), child: _pageFor(_page)),
+      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}-${_config.questSheetId}'), child: _pageFor(_page)),
     );
     const destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),
       (Icons.flight_takeoff_rounded, 'DEADLINES'),
       (Icons.timer_outlined, 'TRACK'),
       (Icons.insights_outlined, 'ADHERENCE'),
+      (Icons.military_tech_outlined, 'QUESTS'),
       (Icons.settings_outlined, 'SETTINGS'),
     ];
     return Scaffold(

@@ -2,6 +2,7 @@ import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/hours.dart';
+import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/sheets.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
@@ -82,7 +83,7 @@ class FakeSheetsForHours implements SheetsApi {
   Future<void> addTab(String title) async {}
 }
 
-Services fakeServices({bool signedIn = true, FakeTrack? track, HoursRepository? hours, FakeConfig? config, List<Deadline> deadlines = const [], List<CalendarEvent> events = const []}) => Services(
+Services fakeServices({bool signedIn = true, FakeTrack? track, HoursRepository? hours, XpRepository? xp, FakeConfig? config, List<Deadline> deadlines = const [], List<CalendarEvent> events = const []}) => Services(
       config: config ?? FakeConfig(),
       deadlines: FakeDeadlines(deadlines),
       calendar: FakeCalendar(events),
@@ -90,4 +91,15 @@ Services fakeServices({bool signedIn = true, FakeTrack? track, HoursRepository? 
       signIn: () async {},
       trackFactory: track == null ? null : (_) => track,
       hoursFactory: hours == null ? null : (_) => hours,
+      xpFactory: xp == null ? null : (_) => xp,
     );
+
+class FakeXp extends XpRepository {
+  FakeXp([this.log = const []]) : super(FakeSheetsForHours(const [], const []));
+  final List<XpRow> log;
+  final appended = <XpRow>[];
+  @override
+  Future<({List<Quest> quests, List<XpRow> log, XpSettings settings})> load() async => (quests: defaultQuests, log: log, settings: const XpSettings());
+  @override
+  Future<void> append(List<XpRow> rows, int dayStartHour) async => appended.addAll(rows);
+}

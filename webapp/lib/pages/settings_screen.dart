@@ -2,6 +2,7 @@
 // to any device and are shared with the current site.
 import 'package:flutter/material.dart';
 import 'package:next_up_core/deadline_source.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart';
 
@@ -102,6 +103,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Reveal(index: 2, child: Panel(title: 'Account', child: Row(children: [
                 Expanded(child: Text(widget.config.email.isEmpty ? 'Signed in' : 'Signed in as ${widget.config.email}', style: const TextStyle(fontSize: NextUpType.body))),
                 OutlinedButton(onPressed: widget.onSignOut, child: const Text('Sign out')),
+              ]))),
+              const SizedBox(height: 16),
+              Reveal(index: 3, child: Panel(title: 'Old site', child: Row(children: [
+                const Expanded(child: Text('Something not working here? The original site still runs with the same sign-in and the same sheets.', style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted))),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(onPressed: () => launchUrl(Uri.parse(classicSite)), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open old site')),
               ]))),
             ]),
           ),
