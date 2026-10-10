@@ -46,7 +46,7 @@ class CalendarPanel extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(width: 72, child: Text(t.format(e.start), style: const TextStyle(color: NextUpColors.muted, fontSize: 12, fontFeatures: monoFeatures))),
+              SizedBox(width: 72, child: Text(t.format(e.start), style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption, fontFeatures: monoFeatures))),
               Expanded(child: Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))),
             ]),
           ),
@@ -54,7 +54,7 @@ class CalendarPanel extends StatelessWidget {
         const Padding(padding: EdgeInsets.only(top: 8), child: Text('Nothing booked today.', style: TextStyle(color: NextUpColors.muted))),
       if (day.timed.isNotEmpty) ...[
         const SizedBox(height: 14),
-        Text('${_len(day.bookedLeft)} booked for the rest of today', style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
+        Text('${_len(day.bookedLeft)} booked for the rest of today', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
       ],
     ]);
   }
@@ -73,14 +73,14 @@ class _Now extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: NextUpColors.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('NOW', style: TextStyle(color: NextUpColors.accent, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+        const Text('NOW', style: TextStyle(color: NextUpColors.accent, fontSize: NextUpType.label, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
         const SizedBox(height: 4),
-        Text(event.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-        if (event.location.isNotEmpty) Text(event.location, style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
+        Text(event.title, style: const TextStyle(fontSize: NextUpType.title, fontWeight: FontWeight.w800)),
+        if (event.location.isNotEmpty) Text(event.location, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
         const SizedBox(height: 10),
         ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: done, minHeight: 6, backgroundColor: NextUpColors.raised, color: NextUpColors.accent)),
         const SizedBox(height: 6),
-        Text('${_len(left)} left, until ${DateFormat('h:mm a').format(event.end)}', style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
+        Text('${_len(left)} left, until ${DateFormat('h:mm a').format(event.end)}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
       ]),
     );
   }
@@ -98,9 +98,9 @@ class _Free extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: NextUpColors.raised, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('FREE', style: TextStyle(color: NextUpColors.ok, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+        const Text('FREE', style: TextStyle(color: NextUpColors.ok, fontSize: NextUpType.label, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
         const SizedBox(height: 4),
-        Text(n == null ? 'Nothing else today.' : '${_len(n.start.difference(now))} until ${n.title}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        Text(n == null ? 'Nothing else today.' : '${_len(n.start.difference(now))} until ${n.title}', style: const TextStyle(fontSize: NextUpType.title, fontWeight: FontWeight.w700)),
       ]),
     );
   }

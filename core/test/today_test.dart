@@ -68,7 +68,7 @@ void main() {
       d('4', 'Specsavers', DateTime(2026, 11, 1, 23, 59)),
     ]);
     await pump(t, s);
-    expect(find.text('NEXT DEPARTURE'), findsOneWidget);
+    expect(find.text('NEXT DEADLINE'), findsOneWidget);
     expect(find.text('Math exam prep'), findsOneWidget);
     expect(find.text('OVERDUE'), findsOneWidget);
     expect(find.text('6d late'), findsOneWidget);

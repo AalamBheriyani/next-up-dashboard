@@ -89,7 +89,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final items = _items;
     return Scaffold(
       appBar: AppBar(
-        title: Text(DateFormat('EEEE, MMM d').format(now), style: const TextStyle(fontSize: 15, color: NextUpColors.muted)),
+        title: Text(DateFormat('EEEE, MMM d').format(now), style: const TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
         actions: [
           if (_loading)
             const Padding(padding: EdgeInsets.only(right: 16), child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),
@@ -138,14 +138,14 @@ class NextBoard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('NEXT DEPARTURE', style: TextStyle(color: NextUpColors.muted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
+        const Text('NEXT DEADLINE', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
         const SizedBox(height: 10),
-        Text(deadline.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.1)),
+        Text(deadline.title, style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800, height: 1.1)),
         if (deadline.list.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(deadline.list, style: const TextStyle(color: NextUpColors.muted))),
         const SizedBox(height: 16),
         FlapCountdown(target: deadline.due, now: now),
         const SizedBox(height: 12),
-        Text(_dueText(deadline), style: const TextStyle(color: NextUpColors.muted, fontSize: 13)),
+        Text(_dueText(deadline), style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
       ]),
     );
   }
@@ -184,15 +184,15 @@ class DeadlineSection extends StatelessWidget {
       padding: EdgeInsets.only(top: bare ? 0 : 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!bare) Row(children: [
-          Text(title.toUpperCase(), style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+          Text(title.toUpperCase(), style: TextStyle(color: color, fontSize: NextUpType.caption, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
           const SizedBox(width: 8),
-          Text('${items.length}', style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
-          if (hint != null) ...[const Spacer(), Text(hint!, style: const TextStyle(color: NextUpColors.muted, fontSize: 12))],
+          Text('${items.length}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+          if (hint != null) ...[const Spacer(), Text(hint!, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))],
         ]),
         if (!bare) const SizedBox(height: 6),
         for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, showDate: showDate),
         if (shown.length < items.length)
-          Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: const TextStyle(color: NextUpColors.muted, fontSize: 12))),
+          Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
       ]),
     );
   }
@@ -232,14 +232,14 @@ class _Row extends StatelessWidget {
           ),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              if (d.list.isNotEmpty) Text(d.list, style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
+              Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600)),
+              if (d.list.isNotEmpty) Text(d.list, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
             ]),
           ),
           const SizedBox(width: 8),
           Text(
             _relative(d, now, showDate),
-            style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: 12, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : NextUpColors.muted),
+            style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : NextUpColors.muted),
           ),
         ]),
       ),

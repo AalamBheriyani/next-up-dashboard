@@ -49,14 +49,14 @@ class _ClockHeaderState extends State<ClockHeader> {
       children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Text(DateFormat('h:mm').format(now) + DateFormat(' a').format(now).toLowerCase(),
-              style: const TextStyle(fontSize: 56, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
+              style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
           const SizedBox(height: 4),
-          Text(DateFormat('EEEE, MMMM d').format(now), style: const TextStyle(color: NextUpColors.muted, fontSize: 15)),
+          Text(DateFormat('EEEE, MMMM d').format(now), style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
         ]),
         ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 240, maxWidth: 380),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(label, style: const TextStyle(color: NextUpColors.muted, fontSize: 13)),
+            Text(label, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),

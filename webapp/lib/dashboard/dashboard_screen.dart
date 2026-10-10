@@ -167,10 +167,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _board(DateTime now) {
     final items = _deadlines;
     if (items == null) {
-      return const Panel(title: 'Next departure', child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
+      return const Panel(title: 'Next deadline', child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
     }
     final next = DeadlineGroups(items, now).next;
-    if (next == null) return const Panel(title: 'Next departure', child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)));
+    if (next == null) return const Panel(title: 'Next deadline', child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)));
     return NextBoard(deadline: next, now: widget.now);
   }
 

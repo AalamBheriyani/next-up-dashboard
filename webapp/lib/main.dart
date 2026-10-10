@@ -78,7 +78,7 @@ class _ShellState extends State<Shell> {
     );
     final destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),
-      (Icons.flight_takeoff_rounded, 'DEPARTURES'),
+      (Icons.flight_takeoff_rounded, 'DEADLINES'),
       (Icons.open_in_new_rounded, 'CLASSIC SITE'),
     ];
     void select(int i) => i == 2 ? _openClassic() : setState(() => _page = i);
