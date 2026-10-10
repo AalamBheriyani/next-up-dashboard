@@ -6,8 +6,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 const webClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID',
     defaultValue: '385720599418-u8qoimd49q4s9rpb612fteug3ocpkk27.apps.googleusercontent.com');
 
-// Only what the deadline screens need; Calendar and Sheets scopes come with the pages that use them.
-const webScopes = <String>['openid', 'email'];
+// Deadlines need only the first two; the dashboard's calendar panel reads events (read-only).
+// Sheets scopes will come with the pages that use them.
+const webScopes = <String>['openid', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly'];
 
 class WebAuth {
   String? _token;
