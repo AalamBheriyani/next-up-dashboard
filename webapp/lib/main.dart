@@ -1,13 +1,17 @@
 // Next Up on the web, built with Flutter. Published beside the current site (under /beta/) so nothing
 // breaks while it grows page by page. It shares its theme, deadline model and Today screen with the
 // phone app in ../core.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/today_screen.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard/dashboard_screen.dart';
+import 'board/widget_board.dart';
 import 'dashboard/anki_panel.dart';
 import 'dashboard/habits_panel.dart';
 import 'pages/quest_screen.dart';
@@ -56,6 +60,8 @@ class _ShellState extends State<Shell> {
   late final WebAuth _auth = widget.auth ?? WebAuth();
   late final Services _svc = widget.services ?? Services.live(_auth, _signIn);
   AppConfig _config = const AppConfig();
+  BoardLayout _layout = const BoardLayout();
+  Timer? _layoutTimer;
   int _page = 0;
   // Bumped on sign-in or out so every page reloads.
   int _session = 0;
@@ -75,8 +81,22 @@ class _ShellState extends State<Shell> {
     }
   }
 
+  /// Keeps the arrangement on screen now and saves it to the account a moment after the last change.
+  void _saveLayout(BoardLayout l) {
+    _layout = l;
+    _layoutTimer?.cancel();
+    _layoutTimer = Timer(const Duration(milliseconds: 600), () => _svc.config.save(layout: l).catchError((Object _) {}));
+  }
+
+  @override
+  void dispose() {
+    _layoutTimer?.cancel();
+    super.dispose();
+  }
+
   /// Keeps the config and applies its accent and deadline colour to the whole app.
   void _setConfig(AppConfig c) {
+    if (c.layout != null) _layout = c.layout!;
     NextUpColors.apply(accentHex: c.accent, redDeadlines: c.redDeadlines);
     setState(() => _config = c);
     themeRevision.value++;
@@ -105,9 +125,11 @@ class _ShellState extends State<Shell> {
           calendar: _svc.calendar,
           signedIn: _svc.signedIn,
           onSignIn: _signIn,
+          layout: _layout,
+          onLayout: _saveLayout,
           extras: [
-            if (_config.questSheetId.isNotEmpty) HabitsPanel(repo: _svc.xpFor(_config.questSheetId)),
-            if (_config.owner && _svc.anki != null) AnkiPanel(source: _svc.anki!),
+            if (_config.questSheetId.isNotEmpty) BoardItem(id: 'habits', name: 'Habits', span: 12, child: HabitsPanel(repo: _svc.xpFor(_config.questSheetId))),
+            if (_config.owner && _svc.anki != null) BoardItem(id: 'anki', name: 'Anki', span: 12, child: AnkiPanel(source: _svc.anki!)),
           ],
         );
       case 1:

@@ -1,3 +1,4 @@
+import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
@@ -28,10 +29,12 @@ class FakeConfig implements ConfigSource {
   FakeConfig([this.config = const AppConfig(email: 'a@b.c', sheetId: 'sheet')]);
   AppConfig config;
   final saved = <String>[];
+  final savedLayouts = <BoardLayout>[];
   @override
   Future<AppConfig> load() async => config;
   @override
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines}) async {
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout}) async {
+    if (layout != null) savedLayouts.add(layout);
     saved.add('$sheetId|$questSheetId');
     config = AppConfig(email: config.email, sheetId: sheetId ?? config.sheetId, questSheetId: questSheetId ?? config.questSheetId);
   }

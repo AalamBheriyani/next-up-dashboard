@@ -3,10 +3,11 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'board_layout.dart';
 import 'deadline_source.dart';
 
 class AppConfig {
-  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false});
+  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout});
   final String email;
   final bool owner;
   final String sheetId; // Weekly Time Tracker
@@ -16,6 +17,7 @@ class AppConfig {
   final bool ticktick;
   final bool claudeApi;
   final bool relay;
+  final BoardLayout? layout; // the arrangement of dashboard panels, shared by every device
 
   factory AppConfig.fromJson(Map<String, dynamic> j) {
     final theme = j['theme'] is Map ? j['theme'] as Map : const {};
@@ -29,13 +31,14 @@ class AppConfig {
       ticktick: j['ticktick'] == true,
       claudeApi: j['claudeApi'] == true,
       relay: j['relay'] == true,
+      layout: j['webLayout'] is Map ? BoardLayout.fromJson(j['webLayout']) : null,
     );
   }
 }
 
 abstract class ConfigSource {
   Future<AppConfig> load();
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines});
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout});
 }
 
 class WorkerConfigSource implements ConfigSource {
@@ -69,10 +72,11 @@ class WorkerConfigSource implements ConfigSource {
   }
 
   @override
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines}) async {
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout}) async {
     final body = <String, Object?>{
       'sheetId': ?sheetId,
       'questSheetId': ?questSheetId,
+      if (layout != null) 'webLayout': layout.toJson(),
       if (accent != null || redDeadlines != null) 'theme': {'accent': accent ?? '', 'redDeadlines': redDeadlines ?? true},
     };
     await _send((h) => http.post(Uri.parse('$workerUrl/settings'), headers: h, body: jsonEncode(body)));

@@ -129,6 +129,7 @@ export default {
           links, profile,
           theme: mine.theme || null,
           layout: mine.layout || null,
+          webLayout: mine.webLayout || null,
           claudeApi: !!env.ANTHROPIC_API_KEY,
           relay: who.owner && !!env.RELAY_TOKEN,
           ticktick: !!(await store(env).get(ttKey(who.email))),
@@ -150,14 +151,17 @@ export default {
           if (a && !/^#[0-9a-f]{6}$/i.test(a)) return fail(400, "bad colour");
           mine.theme = { accent: a, redDeadlines: body.theme.redDeadlines !== false };
         }
-        // Dashboard widget layout: order, widths and hidden panels.
-        if (body.layout && typeof body.layout === "object") {
+        // Dashboard widget layout: order, widths, heights and hidden panels. The current site saves
+        // `layout`; the Flutter site saves `webLayout`, so neither overwrites the other's arrangement.
+        for (const key of ["layout", "webLayout"]) {
+          const src = body[key];
+          if (!src || typeof src !== "object") continue;
           const ids = (a) => (Array.isArray(a) ? a : []).map(String).filter((x) => /^[\w-]{1,30}$/.test(x)).slice(0, 30);
           const span = {};
-          for (const [k, v] of Object.entries(body.layout.span || {})) if (/^[\w-]{1,30}$/.test(k) && [3, 4, 6, 8, 9, 12].includes(+v)) span[k] = +v;
+          for (const [k, v] of Object.entries(src.span || {})) if (/^[\w-]{1,30}$/.test(k) && [3, 4, 6, 8, 9, 12].includes(+v)) span[k] = +v;
           const h = {};
-          for (const [k, v] of Object.entries(body.layout.h || {})) if (/^[\w-]{1,30}$/.test(k) && ["s", "m", "l"].includes(v)) h[k] = v;
-          mine.layout = { order: ids(body.layout.order), span, h, hidden: ids(body.layout.hidden) };
+          for (const [k, v] of Object.entries(src.h || {})) if (/^[\w-]{1,30}$/.test(k) && ["s", "m", "l"].includes(v)) h[k] = v;
+          mine[key] = { order: ids(src.order), span, h, hidden: ids(src.hidden) };
         }
         await store(env).put("user:" + who.email, mine);
         return json({ ok: true });
