@@ -2,13 +2,17 @@
 // breaks while it grows page by page. It shares its theme, deadline model and Today screen with the
 // phone app in ../core.
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-import 'package:next_up_core/calendar.dart';
-import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/today_screen.dart';
+import 'package:next_up_core/worker_api.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'dashboard/dashboard_screen.dart';
+import 'motion.dart';
+import 'pages/adherence_screen.dart';
+import 'pages/settings_screen.dart';
+import 'pages/track_screen.dart';
+import 'services.dart';
 import 'web_auth.dart';
 
 const classicSite = String.fromEnvironment('CLASSIC_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');
@@ -31,12 +35,11 @@ class NextUpWeb extends StatelessWidget {
       );
 }
 
-/// A rail on wide screens and a bottom bar on narrow ones, around a centred, readable column.
+/// A rail on wide screens and a bottom bar on narrow ones; pages ease in as you move between them.
 class Shell extends StatefulWidget {
-  const Shell({super.key, this.auth, this.source, this.calendar});
+  const Shell({super.key, this.auth, this.services});
   final WebAuth? auth;
-  final DeadlineSource? source;
-  final CalendarSource? calendar;
+  final Services? services; // tests pass fakes
 
   @override
   State<Shell> createState() => _ShellState();
@@ -44,44 +47,85 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   late final WebAuth _auth = widget.auth ?? WebAuth();
-  late final DeadlineSource _source = widget.source ?? WorkerDeadlineSource(_auth.token);
-  late final CalendarSource _calendar = widget.calendar ?? GoogleCalendarSource(_auth.token);
+  late final Services _svc = widget.services ?? Services.live(_auth, _signIn);
+  AppConfig _config = const AppConfig();
   int _page = 0;
-  // Bumped on sign-in or out so the Today screen reloads.
+  // Bumped on sign-in or out so every page reloads.
   int _session = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    if (_svc.signedIn()) _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    try {
+      final c = await _svc.config.load();
+      if (mounted) setState(() => _config = c);
+    } catch (_) {
+      // Pages show their own sign-in or access messages.
+    }
+  }
+
   Future<void> _signIn() async {
-    await _auth.signIn();
+    await (widget.services != null ? _svc.signIn() : _auth.signIn());
     setState(() => _session++);
+    await _loadConfig();
   }
 
   void _signOut() => setState(() {
         _auth.signOut();
+        _config = const AppConfig();
         _session++;
       });
 
   Future<void> _openClassic() => launchUrl(Uri.parse(classicSite));
 
+  Widget _pageFor(int i) {
+    switch (i) {
+      case 0:
+        return DashboardScreen(deadlines: _svc.deadlines, calendar: _svc.calendar, signedIn: _svc.signedIn, onSignIn: _signIn);
+      case 1:
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: TodayScreen(source: _svc.deadlines, signedIn: _svc.signedIn, onSignIn: _signIn),
+          ),
+        );
+      case 2:
+        return TrackScreen(services: _svc, config: _config);
+      case 3:
+        return AdherenceScreen(services: _svc, config: _config);
+      default:
+        return SettingsScreen(
+          services: _svc,
+          config: _config,
+          onSaved: (c) => setState(() {
+            _config = c;
+            _session++;
+          }),
+          onSignOut: _signOut,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 760;
-    final page = KeyedSubtree(
-      key: ValueKey('$_page-$_session'),
-      child: _page == 0
-          ? DashboardScreen(deadlines: _source, calendar: _calendar, signedIn: () => _auth.signedIn, onSignIn: _signIn)
-          : Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: TodayScreen(source: _source, signedIn: () => _auth.signedIn, onSignIn: _signIn),
-              ),
-            ),
+    final page = AnimatedSwitcher(
+      duration: motionBase,
+      switchInCurve: motionCurve,
+      transitionBuilder: (child, anim) => pageTransition(child, anim),
+      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}'), child: _pageFor(_page)),
     );
-    final destinations = <(IconData, String)>[
+    const destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),
       (Icons.flight_takeoff_rounded, 'DEADLINES'),
-      (Icons.open_in_new_rounded, 'CLASSIC SITE'),
+      (Icons.timer_outlined, 'TRACK'),
+      (Icons.insights_outlined, 'ADHERENCE'),
+      (Icons.settings_outlined, 'SETTINGS'),
     ];
-    void select(int i) => i == 2 ? _openClassic() : setState(() => _page = i);
     return Scaffold(
       body: wide
           ? Row(children: [
@@ -89,17 +133,20 @@ class _ShellState extends State<Shell> {
                 backgroundColor: NextUpColors.panel,
                 selectedIndex: _page,
                 labelType: NavigationRailLabelType.all,
-                onDestinationSelected: select,
+                onDestinationSelected: (i) => setState(() => _page = i),
                 trailing: Expanded(
                   child: Align(
                     alignment: Alignment.bottomCenter,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 16),
-                      child: IconButton(tooltip: 'Sign out', onPressed: _signOut, icon: const Icon(Icons.logout_rounded)),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        IconButton(tooltip: 'Open the current site', onPressed: _openClassic, icon: const Icon(Icons.open_in_new_rounded)),
+                        IconButton(tooltip: 'Sign out', onPressed: _signOut, icon: const Icon(Icons.logout_rounded)),
+                      ]),
                     ),
                   ),
                 ),
-                destinations: [for (final d in destinations) NavigationRailDestination(icon: Icon(d.$1), label: Text(d.$2))],
+                destinations: [for (final d in destinations) NavigationRailDestination(icon: Icon(d.$1), label: Text(d.$2, style: const TextStyle(fontSize: NextUpType.label)))],
               ),
               Expanded(child: page),
             ])
@@ -108,7 +155,7 @@ class _ShellState extends State<Shell> {
           ? null
           : NavigationBar(
               selectedIndex: _page,
-              onDestinationSelected: select,
+              onDestinationSelected: (i) => setState(() => _page = i),
               destinations: [for (final d in destinations) NavigationDestination(icon: Icon(d.$1), label: d.$2)],
             ),
     );

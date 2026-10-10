@@ -8,6 +8,13 @@ Now:
   Google Calendar, a focus timer with a dial, a 7-day strip (booked hours and deadlines per day), and
   all deadlines grouped as overdue, today, this week and later (finish one with the circle or by
   swiping). Each panel loads on its own, so a calendar problem never hides the deadlines.
+- **Track**: tap what you are doing; a day timeline next to your calendar plan; totals against daily and
+  weekly targets (confetti when you hit one); add, edit and delete blocks. Stored in the Tracked tab of
+  your Time Tracker sheet, the same place the current site uses.
+- **Adherence**: this week's adherence numbers, courses, days and types, plus **Rate your blocks** from
+  the Log tab.
+- **Settings**: paste your Time Tracker and XP Tracker sheet links (saved with the Worker, shared with
+  the current site).
 - **Deadlines**: the same list as the phone app's Today tab.
 - A side rail on wide screens and a bottom bar on narrow ones; a link opens the current site for
   everything else (Track, Adherence, Rate, Quest Log, Ask Claude, Anki, habits). The theme, deadline model and Today screen come from `../core`,
