@@ -4,13 +4,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/board_layout.dart';
+import 'package:next_up_core/deadline.dart';
+import 'package:next_up_core/deadline_source.dart';
+import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/today_screen.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard/dashboard_screen.dart';
+import 'dashboard/deadline_editor.dart';
+import 'dashboard/focus_controller.dart';
 import 'board/widget_board.dart';
 import 'dashboard/anki_panel.dart';
 import 'dashboard/habits_panel.dart';
@@ -62,6 +68,9 @@ class _ShellState extends State<Shell> {
   AppConfig _config = const AppConfig();
   BoardLayout _layout = const BoardLayout();
   Timer? _layoutTimer;
+  // The focus timer lives here so it keeps running while you move between pages, and so a finished session
+  // can earn XP and a running one can track your time.
+  late final FocusController _focus = FocusController(hooks: FocusHooks(onFinished: _timerFinished, onFocusRunning: _followTimer));
   int _page = 0;
   // Bumped on sign-in or out so every page reloads.
   int _session = 0;
@@ -91,7 +100,54 @@ class _ShellState extends State<Shell> {
   @override
   void dispose() {
     _layoutTimer?.cancel();
+    _focus.dispose();
     super.dispose();
+  }
+
+  /// A finished pomodoro or break earns XP in the Quest Log automatically (quests "timer" and "break").
+  Future<void> _timerFinished(bool focus) async {
+    if (_config.questSheetId.isEmpty || !_svc.signedIn()) return;
+    final q = defaultQuests.firstWhere((x) => x.id == (focus ? 'timer' : 'break'));
+    final row = XpRow(t: DateTime.now().millisecondsSinceEpoch, q: q.id, name: q.name, base: q.xp.toDouble(), mult: 1, xp: q.xp, kind: 'auto');
+    try {
+      await _svc.xpFor(_config.questSheetId).append([row], const XpSettings().dayStartHour);
+      if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('+${q.xp} XP · ${q.name}')));
+    } catch (_) {
+      // XP is a bonus; a failed write must never interrupt the timer.
+    }
+  }
+
+  /// Starting a pomodoro starts tracking time (Study, or the first category); stopping it stops the block.
+  Future<void> _followTimer(bool on, String label) async {
+    if (_config.sheetId.isEmpty || !_svc.signedIn()) return;
+    try {
+      final repo = _svc.trackFor(_config.sheetId);
+      final data = await repo.load();
+      final run = data.running;
+      final now = DateTime.now();
+      if (on && run == null) {
+        final cats = data.categories;
+        final cat = cats.firstWhere((c) => RegExp(r'^study$', caseSensitive: false).hasMatch(c), orElse: () => cats.first);
+        await repo.start(data, cat, 'pomodoro${label.isEmpty ? '' : ': $label'}', now);
+      } else if (!on && run != null && run.note.startsWith('pomodoro')) {
+        await repo.stop(data, now);
+      }
+    } catch (_) {
+      // Tracking follows the timer when it can; it never blocks it.
+    }
+  }
+
+  AskService? get _ask {
+    final t = _svc.askTransport;
+    if (t == null || !_svc.signedIn()) return null;
+    return AskService(transport: t, mode: askModeFor(claudeApi: _config.claudeApi, relay: _config.relay), name: _config.profileName, rules: _config.profileRules);
+  }
+
+  /// Edits a deadline from any page, then reloads the pages that show deadlines.
+  Future<void> _editDeadline(Deadline d) async {
+    final editor = _svc.deadlines;
+    if (editor is! DeadlineEditor) return;
+    if (await showDeadlineEditor(context, editor as DeadlineEditor, d: d)) setState(() => _session++);
   }
 
   /// Keeps the config and applies its accent and deadline colour to the whole app.
@@ -127,6 +183,8 @@ class _ShellState extends State<Shell> {
           onSignIn: _signIn,
           layout: _layout,
           onLayout: _saveLayout,
+          focus: _focus,
+          ask: _ask,
           extras: [
             if (_config.questSheetId.isNotEmpty) BoardItem(id: 'habits', name: 'Habits', span: 12, child: HabitsPanel(repo: _svc.xpFor(_config.questSheetId))),
             if (_config.owner && _svc.anki != null) BoardItem(id: 'anki', name: 'Anki', span: 12, child: AnkiPanel(source: _svc.anki!)),
@@ -136,7 +194,7 @@ class _ShellState extends State<Shell> {
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
-            child: TodayScreen(source: _svc.deadlines, signedIn: _svc.signedIn, onSignIn: _signIn),
+            child: TodayScreen(source: _svc.deadlines, signedIn: _svc.signedIn, onSignIn: _signIn, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null),
           ),
         );
       case 2:

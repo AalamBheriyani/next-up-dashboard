@@ -29,8 +29,13 @@ abstract class DeadlineEditor {
   Future<void> create({required String title, DateTime? day, int priority = 0});
 }
 
+/// Connecting TickTick: the Worker hands back the TickTick sign-in link, and returns to the site afterwards.
+abstract class TickTickConnector {
+  Future<String> connectUrl();
+}
+
 /// Reads `/ticktick/tasks` and `/ticktick/complete` with a Google access token.
-class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor {
+class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor, TickTickConnector {
   WorkerDeadlineSource(this.token);
   final Future<String?> Function() token;
 
@@ -51,7 +56,7 @@ class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor {
     } catch (_) {}
     if (res.statusCode == 401) throw SourceException('Your sign-in expired. Sign in again.', signedOut: true);
     if (res.statusCode == 403) throw SourceException("This Google account isn't allowed yet. Ask the owner to add it.");
-    if (res.statusCode == 409) throw SourceException('Connect TickTick once in the Classic tab, then come back.', notConnected: true);
+    if (res.statusCode == 409) throw SourceException("TickTick isn't connected yet. Connect it once to see your deadlines.", notConnected: true);
     if (res.statusCode >= 400) throw SourceException('${data['error'] ?? 'Something went wrong (${res.statusCode}).'}');
     return data;
   }
@@ -95,4 +100,7 @@ class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor {
         if (day != null) 'isAllDay': true,
         'priority': priority,
       });
+
+  @override
+  Future<String> connectUrl() async => '${(await _call('POST', '/ticktick/start', body: {}))['url']}';
 }

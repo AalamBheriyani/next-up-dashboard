@@ -7,10 +7,12 @@ import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../dashboard/panel.dart';
 import '../motion.dart';
 import '../services.dart';
+import 'settings_screen.dart' show sheetLinkFor;
 
 const _gold = Color(0xFFFFC53D);
 const _flame = Color(0xFFFF6B4A);
@@ -108,6 +110,7 @@ class _QuestScreenState extends State<QuestScreen> {
     final badges = earnedBadges(_rows, m.byDay, m.info, _settings.weeklyGoal);
     final recent = _rows.reversed.take(8).toList();
     return ListView(padding: const EdgeInsets.all(24), children: [
+      Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.questSheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open XP sheet'))),
       Reveal(
         child: Panel(
           title: 'Level ${m.level}',

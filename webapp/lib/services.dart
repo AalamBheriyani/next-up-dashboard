@@ -1,5 +1,6 @@
 // What the pages need from the outside world, in one place so tests can swap in fakes.
 import 'package:next_up_core/anki.dart';
+import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/hours.dart';
@@ -24,6 +25,7 @@ class Services {
     this.hoursFactory,
     this.xpFactory,
     this.anki,
+    this.askTransport,
   });
 
   final ConfigSource config;
@@ -36,6 +38,7 @@ class Services {
   final HoursRepository Function(String sheetId)? hoursFactory;
   final XpRepository Function(String sheetId)? xpFactory;
   final AnkiSource? anki;
+  final AskTransport? askTransport;
 
   TrackRepository? _trackCache;
   String _trackFor = '';
@@ -71,6 +74,7 @@ class Services {
       signedIn: () => auth.signedIn,
       signIn: signIn,
       anki: WorkerAnkiSource(auth.token),
+      askTransport: WorkerAskTransport(auth.token),
     );
     s._token = auth.token;
     return s;

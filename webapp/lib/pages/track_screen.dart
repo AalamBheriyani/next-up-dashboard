@@ -9,11 +9,13 @@ import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../dashboard/panel.dart';
 import '../format.dart';
 import '../motion.dart';
 import '../services.dart';
+import 'settings_screen.dart' show sheetLinkFor;
 
 const trackPalette = [Color(0xFFE4572E), Color(0xFF2E86AB), Color(0xFFF6AE2D), Color(0xFF43AA8B), Color(0xFF9C4DCC), Color(0xFF00A6A6), Color(0xFFFF7F50), Color(0xFF6C6CD8), Color(0xFFD81B60), Color(0xFF8D6E63), Color(0xFF7CB342), Color(0xFFF3722C)];
 
@@ -127,6 +129,7 @@ class _TrackScreenState extends State<TrackScreen> {
           Text('Track', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
           if (_busy) const Padding(padding: EdgeInsets.only(right: 12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+          if (widget.config.sheetId.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.sheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open sheet')),
           if (d != null) OutlinedButton.icon(onPressed: () => _editBlock(null), icon: const Icon(Icons.add_rounded), label: const Text('Add block')),
         ])),
         if (_error != null)

@@ -7,7 +7,7 @@ import 'board_layout.dart';
 import 'deadline_source.dart';
 
 class AppConfig {
-  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout});
+  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = ''});
   final String email;
   final bool owner;
   final String sheetId; // Weekly Time Tracker
@@ -17,9 +17,11 @@ class AppConfig {
   final bool ticktick;
   final bool claudeApi;
   final bool relay;
+  final String profileName, profileRules; // from the server's PROFILE (owner only), used by Ask Claude
   final BoardLayout? layout; // the arrangement of dashboard panels, shared by every device
 
   factory AppConfig.fromJson(Map<String, dynamic> j) {
+    final profile = j['profile'] is Map ? j['profile'] as Map : const {};
     final theme = j['theme'] is Map ? j['theme'] as Map : const {};
     return AppConfig(
       email: '${j['email'] ?? ''}',
@@ -31,6 +33,8 @@ class AppConfig {
       ticktick: j['ticktick'] == true,
       claudeApi: j['claudeApi'] == true,
       relay: j['relay'] == true,
+      profileName: '${profile['name'] ?? ''}',
+      profileRules: '${profile['rules'] ?? ''}',
       layout: j['webLayout'] is Map ? BoardLayout.fromJson(j['webLayout']) : null,
     );
   }

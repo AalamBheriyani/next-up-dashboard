@@ -1,98 +1,74 @@
 // A focus timer with a dial: 25 min focus, 5 min break, or a long 50. Runs in the page, so keep the tab
 // open; a "finished" notification needs the phone app.
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:next_up_core/theme.dart';
 
+import 'focus_controller.dart';
 import 'panel.dart';
 
 class FocusTimer extends StatefulWidget {
-  const FocusTimer({super.key});
+  const FocusTimer({super.key, required this.controller});
+  final FocusController controller;
 
   @override
   State<FocusTimer> createState() => _FocusTimerState();
 }
 
 class _FocusTimerState extends State<FocusTimer> {
-  static const modes = <(String, int)>[('Focus', 25), ('Break', 5), ('Long', 50)];
-  int _mode = 0;
-  Duration _left = const Duration(minutes: 25);
-  Timer? _tick;
-  DateTime? _endsAt;
-  int _done = 0;
+  FocusController get c => widget.controller;
 
-  bool get _running => _tick != null;
-  Duration get _total => Duration(minutes: modes[_mode].$2);
-
-  void _pick(int i) {
-    _stop();
-    setState(() {
-      _mode = i;
-      _left = Duration(minutes: modes[i].$2);
-    });
-  }
-
-  void _start() {
-    _endsAt = DateTime.now().add(_left);
-    _tick = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      final left = _endsAt!.difference(DateTime.now());
-      if (left <= Duration.zero) {
-        _stop();
-        setState(() {
-          if (_mode == 0) _done++;
-          _left = _total;
-        });
-      } else {
-        setState(() => _left = left);
-      }
-    });
-    setState(() {});
-  }
-
-  void _stop() {
-    _tick?.cancel();
-    _tick = null;
+  @override
+  void initState() {
+    super.initState();
+    c.addListener(_changed);
   }
 
   @override
   void dispose() {
-    _stop();
+    c.removeListener(_changed);
     super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final frac = 1 - _left.inMilliseconds / _total.inMilliseconds;
-    final mm = _left.inSeconds ~/ 60, ss = _left.inSeconds % 60;
+    final left = c.left;
+    final mm = left.inSeconds ~/ 60, ss = left.inSeconds % 60;
+    const modes = [(FocusMode.focus, 'Focus'), (FocusMode.shortBreak, 'Break'), (FocusMode.longBreak, 'Long')];
     return Panel(
       title: 'Focus timer',
-      trailing: Text('$_done finished', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+      trailing: Text('${c.done} finished', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
       child: Column(children: [
-        SegmentedButton<int>(
+        SegmentedButton<FocusMode>(
           showSelectedIcon: false,
-          segments: [for (var i = 0; i < modes.length; i++) ButtonSegment(value: i, label: Text('${modes[i].$1} ${modes[i].$2}'))],
-          selected: {_mode},
-          onSelectionChanged: (s) => _pick(s.first),
+          segments: [for (final m in modes) ButtonSegment(value: m.$1, label: Text('${m.$2} ${switch (m.$1) { FocusMode.focus => c.focusMin, FocusMode.shortBreak => c.shortMin, FocusMode.longBreak => c.longMin }}'))],
+          selected: {c.mode},
+          onSelectionChanged: (s) => c.setMode(s.first),
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: 170,
           height: 170,
           child: CustomPaint(
-            painter: _DialPainter(frac, _mode == 1 ? NextUpColors.ok : NextUpColors.accent),
+            painter: _DialPainter(c.fraction, c.mode == FocusMode.focus ? NextUpColors.accent : NextUpColors.ok),
             child: Center(
-              child: Text('${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: NextUpType.display, fontWeight: FontWeight.w800, fontFeatures: monoFeatures)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text('${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: NextUpType.display, fontWeight: FontWeight.w800, fontFeatures: monoFeatures)),
+                if (c.label.isNotEmpty) Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+              ]),
             ),
           ),
         ),
         const SizedBox(height: 14),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          FilledButton(onPressed: _running ? () => setState(_stop) : _start, child: Text(_running ? 'Pause' : 'Start')),
+          FilledButton(onPressed: c.running ? c.pause : c.start, child: Text(c.running ? 'Pause' : 'Start')),
           const SizedBox(width: 8),
-          OutlinedButton(onPressed: () => _pick(_mode), child: const Text('Reset')),
+          OutlinedButton(onPressed: c.reset, child: const Text('Reset')),
         ]),
       ]),
     );

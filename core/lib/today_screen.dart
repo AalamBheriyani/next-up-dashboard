@@ -7,6 +7,7 @@ import 'deadline.dart';
 import 'deadline_source.dart';
 import 'theme.dart';
 import 'flap_countdown.dart';
+import 'urgency.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({
@@ -15,8 +16,10 @@ class TodayScreen extends StatefulWidget {
     required this.signedIn,
     required this.onSignIn,
     this.now,
+    this.onEdit,
   });
 
+  final void Function(Deadline)? onEdit; // when set, each row gets an edit button
   final DeadlineSource source;
   final bool Function() signedIn;
   final Future<void> Function() onSignIn;
@@ -119,24 +122,33 @@ class _TodayScreenState extends State<TodayScreen> {
     return [
       if (next != null) Padding(padding: const EdgeInsets.only(top: 8), child: NextBoard(deadline: next, now: widget.now)),
       const SizedBox(height: 8),
-      DeadlineSection(title: 'Overdue', hint: 'Oldest first', color: NextUpColors.deadline, items: g.overdue, now: now, onFinish: _finish, showDate: true),
-      DeadlineSection(title: 'Today', color: NextUpColors.accent, items: g.today(now).where((d) => d != next).toList(), now: now, onFinish: _finish),
-      DeadlineSection(title: 'This week', color: NextUpColors.accent, items: g.thisWeek(now), now: now, onFinish: _finish, showDate: true),
-      DeadlineSection(title: 'Later', color: NextUpColors.muted, items: g.later(now), now: now, onFinish: _finish, showDate: true, limit: 8),
+      DeadlineSection(title: 'Overdue', hint: 'Oldest first', color: NextUpColors.deadline, items: g.overdue, now: now, onFinish: _finish, showDate: true, onEdit: widget.onEdit),
+      DeadlineSection(title: 'Today', color: NextUpColors.accent, items: g.today(now).where((d) => d != next).toList(), now: now, onFinish: _finish, onEdit: widget.onEdit),
+      DeadlineSection(title: 'This week', color: NextUpColors.accent, items: g.thisWeek(now), now: now, onFinish: _finish, showDate: true, onEdit: widget.onEdit),
+      DeadlineSection(title: 'Later', color: NextUpColors.muted, items: g.later(now), now: now, onFinish: _finish, showDate: true, limit: 8, onEdit: widget.onEdit),
     ];
   }
 }
 
 class NextBoard extends StatelessWidget {
-  const NextBoard({super.key, required this.deadline, this.now});
+  const NextBoard({super.key, required this.deadline, this.now, this.onStart});
   final Deadline deadline;
   final DateTime Function()? now;
+  /// When set, a Start button begins work on this deadline (the site starts a focus session on it).
+  final VoidCallback? onStart;
 
   @override
   Widget build(BuildContext context) {
+    final at = (now ?? DateTime.now)();
+    final u = urgencyOf(deadline, at);
+    final hot = u == Urgency.critical || u == Urgency.soon;
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
+      decoration: BoxDecoration(
+        color: hot ? urgencyColor(u).withValues(alpha: .08) : NextUpColors.panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: hot ? urgencyColor(u) : NextUpColors.line, width: hot ? 1.5 : 1),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('NEXT DEADLINE', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
         const SizedBox(height: 10),
@@ -145,7 +157,8 @@ class NextBoard extends StatelessWidget {
         const SizedBox(height: 16),
         FlapCountdown(target: deadline.due, now: now),
         const SizedBox(height: 12),
-        Text(_dueText(deadline), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
+        Text(hot ? urgencyLine(deadline, at) : _dueText(deadline), style: TextStyle(color: hot ? urgencyColor(u) : NextUpColors.muted, fontSize: NextUpType.body, fontWeight: hot ? FontWeight.w700 : FontWeight.w400)),
+        if (onStart != null) Padding(padding: const EdgeInsets.only(top: 14), child: FilledButton.icon(onPressed: onStart, icon: const Icon(Icons.play_arrow_rounded), label: const Text('Start 25 min on this'))),
       ]),
     );
   }
@@ -242,7 +255,7 @@ class _Row extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             _relative(d, now, showDate),
-            style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : NextUpColors.muted),
+            style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : (urgencyOf(d, now) == Urgency.week || urgencyOf(d, now) == Urgency.later ? NextUpColors.muted : urgencyColor(urgencyOf(d, now)))),
           ),
           if (onEdit != null) IconButton(tooltip: 'Edit ${d.title}', icon: const Icon(Icons.edit_outlined, size: 18), color: NextUpColors.muted, visualDensity: VisualDensity.compact, onPressed: () => onEdit!(d)),
         ]),
