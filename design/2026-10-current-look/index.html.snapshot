@@ -1,0 +1,2344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex">
+<meta name="darkreader-lock"><!-- the page is already dark; stop the Dark Reader extension recolouring it -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Next Up</title>
+<script>try { const t = JSON.parse(localStorage.getItem("nu.theme.last") || "null"); if (t) { if (/^#[0-9a-f]{6}$/i.test(t.accent || "")) document.documentElement.style.setProperty("--accent", t.accent); if (t.redDeadlines === false) document.documentElement.dataset.redDl = "0"; } } catch {}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a departures board for the day. Header clock + "work time left", a NOW card, the deadline board, and a side rail with timer, Ask Claude and links. */
+:root {
+  --bg: #e9edf2; --panel: #ffffff; --ink: #141a26; --muted: #5b6475; --line: #d3d9e2;
+  --board: #18212f; --board-ink: #eef2f8; --board-muted: #93a0b6; --board-line: #2a3546;
+  --flap: #f2b33d; --link: #2853c8;
+  --disk: #e3343b; --face: #ffffff; --face-ink: #1b2230; --late: #e04646; --final: #ee7b2f; --boarding: #e6b12e; --ok: #3d9a6c;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+/* One theme: black, with white text, blue labels and links, red for urgency. The accent is
+   picked with the colour picker in the header (saved per device). */
+:root {
+  --accent: #4d8dff; --dl: #ff3b3b;
+  --bg: #000000; --panel: #0b0b0d; --ink: #ffffff; --muted: color-mix(in srgb, var(--accent) 65%, #ffffff); --line: #1c1f26;
+  --board: #000000; --board-ink: #ffffff; --board-muted: color-mix(in srgb, var(--accent) 65%, #ffffff); --board-line: #1c1f26;
+  --flap: var(--dl); --link: var(--accent); --face: #ffffff; --face-ink: #000000;
+  --late: var(--dl); --final: #ff6a3d; --boarding: #4d8dff; --ok: #3ddc84; color-scheme: dark;
+}
+/* Fewer borders: surfaces separate by tint instead of outlines. */
+:root { --chip: color-mix(in srgb, var(--ink) 6%, transparent); --chip-hi: color-mix(in srgb, var(--ink) 12%, transparent); }
+
+* { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: none; margin: 0; padding: 16px max(clamp(12px, 3vw, 40px), env(safe-area-inset-right, 0px)) 96px max(clamp(12px, 3vw, 40px), env(safe-area-inset-left, 0px)); display: grid; gap: 12px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.label { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--flap); outline-offset: 2px; }
+a { color: var(--link); }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* Header */
+header.top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 12px 24px; }
+@media (max-width: 800px) { header.top { grid-template-columns: minmax(0, 1fr); } }
+.clock { font: 800 clamp(44px, 9vw, 72px)/.9 var(--f-display); letter-spacing: .01em; }
+.date { color: var(--muted); }
+.dayleft { flex: 1 1 320px; display: grid; gap: 6px; }
+.headline-left .dayleft { flex: 0 1 380px; margin-left: auto; align-self: center; }
+.headline-left .dayleft .num { font-size: 13px; }
+.headcal .headline-left .dayleft + .stale { margin-left: 0; }
+.headcal .headline-left .dayleft .label { display: block; }
+@media (max-width: 700px) { .headline-left .dayleft { flex: 1 1 100%; order: 5; } }
+.dayleft .row { display: flex; justify-content: space-between; gap: 12px; }
+.daybar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
+.daybar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); border-radius: 5px; }
+.headline-left { display: grid; gap: 4px; }
+
+/* Grid */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+.wide { grid-column: 1 / -1; }
+.theme-sel { font: 12px var(--f-body); color: var(--ink); background: var(--chip); border: 0; border-radius: 6px; padding: 3px 6px; }
+.col { display: grid; gap: 16px; min-width: 0; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--panel); border: 0; border-radius: 14px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+@media (max-width: 600px) { .panel { padding: 12px 10px; } }
+.panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.panel-h h2 { font: 800 24px/1 var(--f-display); letter-spacing: .02em; text-transform: uppercase; }
+.stale { font: 12px var(--f-mono); color: var(--muted); }
+.note { color: var(--muted); font-size: 14px; }
+.err { border-left: 3px solid var(--final); padding: 6px 10px; font-size: 14px; background: color-mix(in srgb, var(--final) 10%, transparent); border-radius: 4px; }
+
+/* Next deadline banner */
+.banner { background: var(--board); color: var(--board-ink); border-radius: 12px; padding: 16px; display: grid; gap: 6px; }
+.banner .label { color: var(--board-muted); }
+.banner .t { font: 600 18px/1.3 var(--f-body); }
+.banner .cd { font: 800 clamp(36px, 8vw, 56px)/1 var(--f-display); color: var(--flap); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.banner.late .cd { color: var(--late); }
+.banner .sub { color: var(--board-muted); font-size: 14px; }
+
+/* NOW card */
+.now { display: grid; gap: 10px; }
+.now .title { font: 600 20px/1.3 var(--f-body); }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--flap); }
+.firststep { border: 1px dashed var(--flap); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; }
+.firststep b { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.next { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--chip); }
+.desc { white-space: pre-wrap; color: var(--muted); font-size: 14px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+
+/* Departures board */
+.board { background: var(--board); color: var(--board-ink); border-radius: 12px; padding: 4px 0; overflow: hidden; }
+.board .bh, .dep { display: grid; grid-template-columns: 112px minmax(0, 1fr) 104px; gap: 12px; align-items: center; padding: 10px 14px; }
+.board .bh { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--board-muted); border-bottom: 1px solid var(--board-line); }
+.dep { border-bottom: 1px solid var(--board-line); }
+.dep:last-child { border-bottom: 0; }
+.dep .cd { font: 600 15px/1.2 var(--f-mono); font-variant-numeric: tabular-nums; color: var(--flap); }
+.dep .due { font: 12px var(--f-mono); color: var(--board-muted); }
+.dep .tt { font-weight: 600; overflow-wrap: anywhere; }
+.dep .meta { font-size: 12px; color: var(--board-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.dep .body { grid-column: 1 / -1; white-space: pre-wrap; font-size: 13px; color: var(--board-muted); background: color-mix(in srgb, var(--board-ink) 5%, transparent); padding: 8px 10px; border-radius: 6px; }
+.dep .tbtn { all: unset; cursor: pointer; display: grid; gap: 2px; min-width: 0; }
+.dep .tbtn:focus-visible { outline: 2px solid var(--flap); outline-offset: 2px; border-radius: 4px; }
+.pill { font: 600 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; padding: 5px 7px; border-radius: 4px; color: #ffffff; display: inline-block; white-space: nowrap; }
+.s-late .pill { background: var(--late); color: #fff; }
+.s-late .cd { color: var(--late); }
+.s-final .pill { background: var(--final); }
+.s-final .cd { color: var(--final); }
+.s-boarding .pill { background: var(--boarding); }
+.s-sched .pill { background: transparent; color: var(--board-muted); border: 1px solid var(--board-line); }
+.s-sched .cd { color: var(--board-ink); }
+.actions { display: grid; gap: 6px; justify-items: end; }
+.done { background: transparent; color: var(--board-ink); border: 1px solid var(--board-line); border-radius: 6px; padding: 5px 10px; font-size: 13px; }
+.done:hover { border-color: var(--ok); }
+.done.arm { background: var(--ok); border-color: var(--ok); color: #fff; }
+@media (prefers-reduced-motion: no-preference) {
+  .s-final .pill, .s-late .pill { animation: blink 1.6s steps(2, start) infinite; }
+  @keyframes blink { 50% { opacity: .55; } }
+}
+@media (max-width: 520px) {
+  .board .bh { display: none; }
+  .dep { grid-template-columns: minmax(0, 1fr) auto; }
+  .dep .when { grid-column: 1 / -1; display: flex; gap: 10px; align-items: baseline; }
+}
+.empty { padding: 18px 14px; color: var(--board-muted); }
+
+/* Hours */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.kpi { display: grid; gap: 4px; }
+.kpi .v { font: 800 34px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.kpi .v.bad { color: var(--late); } .kpi .v.mid { color: var(--final); } .kpi .v.good { color: var(--ok); }
+.hbars { display: grid; gap: 8px; }
+.hbar { display: grid; grid-template-columns: 92px minmax(0, 1fr) 96px; gap: 10px; align-items: center; font-size: 13px; }
+.hbar .track { height: 12px; border-radius: 3px; background: var(--line); position: relative; overflow: hidden; }
+.hbar .track i { position: absolute; inset: 0 auto 0 0; background: var(--ok); }
+.hbar .track i.today { background: var(--flap); }
+.hbar .n { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.hbar.is-today { font-weight: 600; }
+.sub-h { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
+/* Rate blocks */
+.rate { display: grid; gap: 10px; }
+.rb { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--chip); }
+.rb:last-child { border-bottom: 0; padding-bottom: 0; }
+.rb .t { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.rb .m { font: 12px var(--f-mono); color: var(--muted); }
+.rb .btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rb .btns button { border: 0; background: var(--chip); color: var(--ink); border-radius: 6px; padding: 4px 9px; font-size: 13px; }
+.rb .btns button:hover { background: var(--chip-hi); }
+.rb .btns input { width: 64px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 13px var(--f-mono); }
+.real { color: var(--board-ink); font-size: 12px; }
+
+/* Timer: Time Timer style dial (red disk = time left on a 60-minute face) or a minimal ring */
+.timer { --t-focus: var(--disk); --t-brk: var(--ok); }
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 999px; padding: 4px; }
+.tabs button { flex: 1; border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 8px; font-size: 13px; font-weight: 600; }
+.tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.dialwrap { display: grid; justify-items: center; gap: 6px; }
+.dial { width: min(100%, 200px); aspect-ratio: 1; max-width: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.dial.dragging { cursor: grabbing; }
+.dial:focus-visible { outline: 2px solid var(--flap); outline-offset: 4px; border-radius: 50%; }
+.dial .face { fill: var(--face); }
+.dial .rim { fill: none; stroke: var(--line); stroke-width: 2; }
+.dial .tick { stroke: var(--face-ink); stroke-width: 1; }
+.dial .tick.major { stroke-width: 2.5; }
+.dial .num { fill: var(--face-ink); font: 600 13px var(--f-mono); text-anchor: middle; dominant-baseline: central; }
+.dial .wedge { fill: var(--t-focus); }
+.dial .wedge.brk { fill: var(--t-brk); }
+.dial .wedge.idle { opacity: .35; }
+.dial .knob { fill: var(--face-ink); }
+.dial .track { fill: none; stroke: var(--line); stroke-width: 6; }
+.dial .ring { fill: none; stroke: var(--t-focus); stroke-width: 6; stroke-linecap: round; }
+.dial .ring.brk { stroke: var(--t-brk); }
+.dial .mintext { fill: var(--ink); font: 800 44px var(--f-display); text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; }
+.timer .classic-only, .timer .minimal-only { display: none; }
+.timer:not(.minimal) .classic-only, .timer.minimal .minimal-only { display: inline; }
+.timer.minimal .big { display: none; }
+.timer .big { font: 800 40px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tctl { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.tctl .go { background: var(--ink); color: var(--panel); border: 0; border-radius: 8px; padding: 10px 26px; font: 600 15px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; min-width: 140px; }
+.tctl .ghost { background: var(--chip); color: var(--ink); border: 0; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.tset { display: grid; gap: 10px; font-size: 13px; padding-top: 8px; }
+.tset .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.tset label { display: inline-flex; gap: 6px; align-items: center; }
+.tset input[type=number] { width: 58px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 13px var(--f-mono); }
+.tset input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: transparent; }
+.timer.fs { position: fixed; inset: 0; z-index: 50; border-radius: 0; border: 0; align-content: center; justify-items: center; padding: calc(24px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); overflow: auto; }
+.timer.fs > * { width: min(100%, 560px); }
+.timer.fs .dial { width: min(78vmin, 520px); }
+.timer.fs .big { font-size: clamp(48px, 10vmin, 96px); }
+.timer.fs .tset-wrap, .timer.fs .note { display: none; }
+
+.xptoast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--board); color: var(--flap); padding: 10px 16px; border-radius: 999px; font: 600 14px var(--f-mono); z-index: 60; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+
+/* Jump to (top bar) */
+.jump { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.jump .label { flex: none; }
+.jump .links { display: flex; gap: 8px; flex-wrap: nowrap; }
+.jump .links a { flex: none; padding: 6px 12px; border: 0; border-radius: 999px; text-decoration: none; color: var(--ink); font-weight: 500; font-size: 14px; background: var(--panel); white-space: nowrap; }
+.jump .links a:hover { background: var(--chip-hi); }
+.jump .links a span { display: none; }
+
+/* Chat */
+/* Ask Claude */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 0; background: var(--chip); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 13px; line-height: 1.3; text-align: left; }
+.chip:hover { background: var(--chip-hi); }
+.chip:disabled { opacity: .5; cursor: default; }
+.chat-log { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
+.msg { padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.msg.me { background: color-mix(in srgb, var(--link) 12%, transparent); justify-self: end; max-width: 90%; }
+.msg.cl { background: color-mix(in srgb, var(--flap) 14%, transparent); max-width: 100%; }
+.msg.sys { color: var(--muted); font-size: 13px; padding: 0; }
+.composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.composer textarea { resize: vertical; min-height: 44px; max-height: 160px; padding: 10px; border-radius: 8px; border: 0; background: var(--chip); color: var(--ink); font: inherit; }
+.send { background: var(--ink); color: var(--panel); border: 0; border-radius: 8px; padding: 0 16px; font-weight: 600; }
+.send[disabled] { opacity: .5; cursor: default; }
+
+.links { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.links a { display: block; padding: 10px 12px; border: 0; background: var(--chip); border-radius: 8px; text-decoration: none; color: var(--ink); font-weight: 500; }
+.links a:hover { background: var(--chip-hi); }
+.links a span { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+
+.fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--flap); color: #ffffff; border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+@media (min-width: 901px) { .fab { display: none; } }
+/* Sign-in */
+.gate { min-height: 80vh; display: grid; place-items: center; padding: 24px 16px; }
+.gate .card { max-width: 420px; width: 100%; background: var(--board); color: var(--board-ink); border-radius: 14px; padding: 28px 22px; display: grid; gap: 14px; }
+.gate h1 { font: 800 44px/1 var(--f-display); letter-spacing: .02em; }
+.gate p { margin: 0; color: var(--board-muted); }
+.gbtn { background: var(--flap); color: #ffffff; border: 0; border-radius: 8px; padding: 12px 16px; font-weight: 600; font-size: 15px; }
+.who { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.who button { background: var(--chip); border: 0; color: var(--ink); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.connect { background: var(--flap); color: #ffffff; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
+.sheetform{display:grid;gap:10px}.sheetform label{display:grid;gap:4px;font-size:13px}.sheetform input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line,#444);background:transparent;color:inherit}
+/* Track: one-tap category timers, day timeline (plan vs tracked), totals vs targets */
+.tr-now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 34px; }
+.tr-now .dot { width: 12px; height: 12px; border-radius: 50%; animation: trpulse 1.6s infinite; }
+.tr-now .cat { font: 600 22px/1.2 var(--f-body); }
+.tr-now .el { font: 700 28px var(--f-mono); font-variant-numeric: tabular-nums; }
+.tr-now button { margin-left: auto; border: 0; background: var(--chip); color: var(--ink); border-radius: 8px; padding: 6px 12px; font-weight: 600; }
+@keyframes trpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .tr-now .dot { animation: none; } }
+.tr-cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.tr-cats button { border: 0; box-shadow: inset 5px 0 0 var(--c); background: var(--chip); color: var(--ink); border-radius: 10px; padding: 10px 16px 10px 18px; font-size: 15px; font-weight: 600; min-height: 46px; }
+.tr-cats button:hover { background: var(--chip-hi); }
+.tr-cats button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 22%, transparent); }
+.tr-dayh { display: flex; align-items: center; gap: 8px; }
+.tr-dayh strong { min-width: 110px; text-align: center; }
+.tr-nav, .tr-add { border: 0; background: var(--chip); color: var(--ink); border-radius: 6px; padding: 4px 10px; font-size: 14px; }
+.tr-add { margin-left: auto; }
+.tr-line { position: relative; height: 150px; border: 0; background: var(--chip); border-radius: 10px; overflow: hidden; touch-action: pan-y; }
+.tr-line .lane { position: absolute; left: 0; right: 0; height: 44px; }
+.tr-line .lane.plan { top: 22px; } .tr-line .lane.act { top: 86px; }
+.tr-line .lbl { position: absolute; left: 4px; font: 10px var(--f-mono); color: var(--muted); z-index: 1; }
+.tr-line .blk { position: absolute; top: 0; bottom: 0; border-radius: 4px; overflow: hidden; font-size: 12px; line-height: 44px; padding: 0 5px; white-space: nowrap; color: var(--ink); border: 0; text-align: left; min-width: 3px; }
+.tr-line .plan .blk { background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.tr-line .act .blk { background: color-mix(in srgb, var(--c) 55%, transparent); cursor: pointer; }
+.tr-line .hr { position: absolute; top: 0; bottom: 0; border-left: 1px dashed color-mix(in srgb, var(--line) 80%, transparent); font: 9px/1 var(--f-mono); color: var(--muted); padding-left: 2px; display: flex; align-items: flex-end; padding-bottom: 3px; }
+.tr-line .nowln { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--final); z-index: 2; }
+.tr-form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); align-items: end; border: 0; background: var(--chip); border-radius: 8px; padding: 10px; }
+.tr-form label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.tr-form input, .tr-form select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.tr-form .row { display: flex; gap: 8px; grid-column: 1 / -1; }
+.tr-form button { border: 0; background: var(--chip-hi); color: var(--ink); border-radius: 6px; padding: 6px 12px; font-weight: 600; }
+.tr-form button.primary { background: var(--ink); color: var(--panel); }
+.tr-form button.danger { margin-left: auto; color: var(--late); }
+.tr-stats { display: grid; gap: 8px 28px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.tr-stats > :first-child { grid-column: 1 / -1; }
+.tr-stats .tabs2 { display: flex; gap: 6px; }
+.tr-stats .tabs2 button { border: 0; background: var(--chip); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.tr-stats .tabs2 button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.tr-row { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.tr-row .trk { height: 12px; border-radius: 5px; background: var(--line); overflow: hidden; position: relative; }
+.tr-row .trk i { position: absolute; inset: 0 auto 0 0; background: var(--c); border-radius: 5px; }
+.tr-row .v { font: 12px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.tr-row.hit .v { color: var(--ink); font-weight: 700; }
+.confetti { position: fixed; top: -12px; width: 8px; height: 14px; z-index: 80; pointer-events: none; animation: trfall 2.4s ease-in forwards; }
+@keyframes trfall { to { transform: translateY(105vh) rotate(720deg); opacity: .7; } }
+
+/* Page layout: deadlines, Track, then the calendar with the timer beside it. */
+.stack { display: grid; gap: 12px; min-width: 0; }
+.deadlines { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2.2fr); gap: 12px; align-items: start; }
+.duo { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 12px; align-items: start; }
+@media (max-width: 900px) { .deadlines, .duo { grid-template-columns: minmax(0, 1fr); } }
+.back { font-size: 14px; text-decoration: none; }
+/* Today: summary on the left, an hour-by-hour day column on the right. */
+.cal-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
+@media (max-width: 700px) { .cal-split { grid-template-columns: minmax(0, 1fr); } }
+.cal-day { position: relative; max-height: 560px; overflow-y: auto; border-radius: 10px; background: var(--chip); scrollbar-width: thin; }
+.cal-day .inner { position: relative; margin-left: 44px; }
+.cal-day .hr { position: absolute; left: -44px; right: 0; border-top: 1px solid var(--chip-hi); font: 10px/1 var(--f-mono); color: var(--muted); padding: 2px 0 0 6px; }
+.cal-day .ev { position: absolute; left: 4px; right: 6px; border-radius: 6px; padding: 3px 8px; overflow: hidden; font-size: 13px; line-height: 1.25; background: color-mix(in srgb, var(--link) 18%, var(--panel)); border-left: 3px solid var(--link); }
+.cal-day .ev small { display: block; font: 11px var(--f-mono); color: var(--muted); }
+.cal-day .ev.past { opacity: .5; }
+.cal-day .ev.cur { background: color-mix(in srgb, var(--flap) 28%, var(--panel)); border-left-color: var(--flap); font-weight: 600; }
+.cal-day .nowln { position: absolute; left: -6px; right: 0; border-top: 2px solid var(--final); z-index: 2; }
+.cal-day .nowln::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--final); }
+
+/* Tabs and the top row */
+.tabsbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tabsbar a { flex: none; padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--ink); background: var(--panel); font-weight: 600; font-size: 14px; }
+.tabsbar a[aria-current="page"] { background: var(--flap); color: #fff; }
+.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.widgets > [data-w] { grid-column: span var(--span, 12); min-width: 0; }
+.widgets > [data-w] { align-content: start; }
+.widgets #ask { grid-template-rows: auto auto 1fr auto; }
+@media (max-width: 1100px) { .widgets > [data-w] { grid-column: span max(var(--span, 12), 6); } }
+@media (max-width: 700px) { .widgets > [data-w] { grid-column: span 12; } }
+/* Smaller next-deadline card so the three columns match. */
+.widgets .banner { padding: 12px 14px; gap: 4px; }
+.widgets .banner .t { font-size: 15px; }
+.widgets .banner .cd { font-size: clamp(28px, 3.2vw, 40px); }
+.widgets .banner .sub { font-size: 12px; }
+.widgets .uplist { max-height: 240px; }
+.widgets #ask .chat-log { max-height: 260px; }
+.widgets .timer .dial { width: min(100%, 170px); }
+.tablink { font-size: 13px; text-decoration: none; }
+.upq { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 8px 10px; }
+.uplist { display: grid; gap: 2px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
+.uprow { display: grid; grid-template-columns: 150px minmax(0, 1fr); column-gap: 10px; padding: 7px 8px; border-radius: 8px; text-decoration: none; color: var(--ink); }
+.uprow:hover { background: var(--chip); }
+.uprow .cd { font-weight: 700; color: var(--muted); grid-row: span 2; align-self: center; white-space: nowrap; }
+.uprow.s-late .cd { color: var(--late); } .uprow.s-final .cd { color: var(--final); } .uprow.s-boarding .cd { color: var(--boarding); }
+.uprow .tt { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uprow .meta { font-size: 12px; color: var(--muted); }
+.who .accent { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.who .accent input { width: 28px; height: 22px; padding: 0; border: 0; background: transparent; }
+.gear { position: relative; width: max-content; }
+.gear summary { list-style: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted); padding: 4px 6px; border-radius: 6px; }
+.gear summary::-webkit-details-marker { display: none; }
+.gear summary:hover, .gear[open] summary { color: var(--ink); background: var(--chip); }
+.gear .who { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 230px; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--panel); padding: 12px; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.45); }
+
+/* Calendar in the header, beside the clock; work time left beside the tabs. */
+.headcal { padding: 12px 14px; }
+.headcal .cal-day { max-height: 230px; }
+.tabrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
+.tabrow .tabsbar { flex: none; }
+
+/* Clock, date and the settings gear form the Today panel's title line, so the calendar gets the
+   whole header. */
+header.top { grid-template-columns: minmax(0, 1fr); }
+.cal-left { display: flex; flex-direction: column; gap: 12px; align-self: stretch; min-width: 0; }
+.headcal .headline-left { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; justify-content: flex-start; }
+.headcal .headline-left .label { display: none; }
+.headcal .clock { font-size: 40px; }
+.headcal .headline-left .stale { margin-left: auto; }
+.headcal .gear .who { left: auto; right: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* One accent, used sparingly: the big countdown and the "now" lines. Everything else is white and
+   blue; urgency shows as a small dot instead of coloured text. */
+.banner.late .cd { color: var(--flap); }
+.bar i, .hbar .track i.today { background: var(--ink); }
+.firststep { border-color: var(--line); }
+.msg.cl { background: var(--chip); }
+.tabsbar a[aria-current="page"] { background: transparent; color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
+.tabsbar a { background: transparent; color: var(--muted); }
+.cal-day .ev.cur { background: color-mix(in srgb, var(--ink) 14%, var(--panel)); border-left-color: var(--ink); }
+.cal-day .nowln, .tr-line .nowln { border-color: var(--flap); }
+.cal-day .nowln::before { background: var(--flap); }
+.uprow .cd, .uprow.s-late .cd, .uprow.s-final .cd, .uprow.s-boarding .cd { color: var(--ink); font-weight: 600; }
+.dep .cd, .s-late .cd, .s-final .cd { color: var(--ink); }
+.s-late .pill, .s-final .pill, .s-boarding .pill { background: transparent; color: var(--muted); border: 0; padding-left: 0; }
+.uprow.s-late .cd::before, .s-late .pill::before, .s-final .pill::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--late); margin-right: 6px; vertical-align: middle; }
+.s-final .pill::before { background: var(--muted); }
+/* Departures board: overdue rows stay red (countdown and pill). */
+.dep.s-late .cd { color: var(--late); }
+.dep.s-late .pill { background: var(--late); color: #fff; padding-left: 7px; }
+.dep.s-late .pill::before { display: none; }
+.connect, .gbtn { background: var(--ink); color: var(--bg); }
+
+.ratechat { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--chip); }
+.ratechat textarea { font: inherit; color: var(--ink); background: var(--chip); border: 0; border-radius: 8px; padding: 10px; resize: vertical; }
+.ratechat .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ratechat .send { padding: 8px 14px; }
+#rcOut { display: grid; gap: 6px; }
+.rcpick { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
+.rcpick b { min-width: 90px; }
+
+/* Deadline colour: red by default; with "Red deadlines" off they use the accent. */
+:root[data-red-dl="0"] { --dl: var(--accent); }
+.gear .who .tog { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+.ver { font-size: 12px; text-decoration: none; }
+.oldver { background: var(--dl); color: #fff; text-align: center; padding: 8px 12px; font-size: 14px; }
+.oldver a { color: #fff; font-weight: 700; }
+
+/* Departures: list or week view */
+.depmode { display: flex; gap: 4px; margin-left: auto; margin-right: 10px; }
+.depmode button { border: 0; background: var(--chip); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; }
+.depmode button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.wkbar { display: flex; align-items: center; gap: 8px; }
+.week { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.wkcol { background: var(--chip); border-radius: 10px; padding: 8px; display: grid; gap: 6px; align-content: start; min-height: 120px; min-width: 0; }
+.wkcol.today { box-shadow: inset 0 0 0 1px var(--accent); }
+.wkh { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.wkh span { font: 12px var(--f-mono); color: var(--muted); }
+.wkcol.late .wkh b { color: var(--dl); }
+.wkit { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--panel); text-decoration: none; color: var(--ink); font-size: 13px; border-left: 3px solid var(--accent); }
+.wkit.s-late { border-left-color: var(--dl); }
+.wkit .tt { font-weight: 600; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.wkit .meta { font-size: 11px; color: var(--muted); }
+.wkempty { color: var(--muted); font-size: 13px; }
+/* Calendar mode: each day shows its to-dos on top and that day's Google Calendar events below. */
+.wktog { margin-left: auto; border: 0; background: var(--chip); color: var(--ink); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.wktog[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.wksep { font: 600 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-top: 4px; border-top: 1px solid var(--chip-hi); }
+.wkev { display: grid; gap: 1px; padding: 5px 8px; border-radius: 8px; font-size: 13px; color: var(--ink); text-decoration: none; background: color-mix(in srgb, var(--accent) 16%, var(--panel)); }
+.wkev .meta { font: 11px var(--f-mono); color: var(--muted); }
+.wkev.past { opacity: .5; }
+.wkadd { justify-self: start; border: 0; background: transparent; color: var(--accent); font-size: 11px; padding: 0; cursor: pointer; }
+.wkadd:disabled { color: var(--muted); cursor: default; }
+.wkhid { font-size: 12px; color: var(--muted); }
+
+/* List colours and filter chips */
+.lfilter { display: flex; flex-wrap: wrap; gap: 6px; }
+.lchip { border: 0; background: var(--chip); color: var(--ink); border-radius: 999px; padding: 4px 10px 4px 8px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.lchip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--pc); }
+.lchip[aria-pressed="true"] { background: color-mix(in srgb, var(--pc) 35%, transparent); }
+.lchip.clear::before { display: none; }
+.uprow { box-shadow: inset 3px 0 0 var(--pc, transparent); }
+.dep { box-shadow: inset 4px 0 0 var(--pc, transparent); }
+.wkit { border-left-color: var(--pc, var(--accent)); }
+.wkit.s-late { border-left-color: var(--pc, var(--dl)); }
+
+/* Dropdowns: the open list needs a solid background, or translucent chips show white text on white. */
+select option { background: var(--panel); color: var(--ink); }
+
+/* Habit heatmap */
+.hbsel { font: inherit; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, var(--panel)); border: 0; border-radius: 6px; padding: 4px 8px; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 3px; overflow-x: auto; justify-content: start; padding-bottom: 4px; scrollbar-width: thin; }
+.heat i { width: 13px; height: 13px; border-radius: 3px; background: var(--chip); }
+.heat i.l1 { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.heat i.l2 { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.heat i.l3 { background: color-mix(in srgb, var(--accent) 78%, transparent); }
+.heat i.l4 { background: var(--accent); }
+body:not(.editing) .widgets > .nodata { display: none; }
+.akhint { display: none; } .nodata .akhint { display: block; }
+.akdue { display: flex; align-items: baseline; gap: 8px; }
+.akdue .num { font-size: 28px; font-weight: 700; }
+.akdecks { display: flex; flex-wrap: wrap; gap: 6px; }
+.akdecks span { background: var(--chip); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.akdecks b { color: var(--accent); font-weight: 600; margin-left: 4px; }
+.heatkey { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.heatkey .scale { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
+.heatkey .scale i { width: 10px; height: 10px; border-radius: 2px; background: var(--chip); }
+.heatkey .scale i:nth-child(2) { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.heatkey .scale i:nth-child(3) { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.heatkey .scale i:nth-child(4) { background: color-mix(in srgb, var(--accent) 78%, transparent); }
+.heatkey .scale i:nth-child(5) { background: var(--accent); }
+
+/* Widgets: Customise mode lets each person reorder, resize and hide dashboard panels. */
+.custbtn { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; padding: 8px 10px; cursor: pointer; }
+.custbtn[aria-pressed="true"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.wbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--chip); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.wbar button { border: 0; background: var(--panel); color: var(--ink); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.wbar .done { background: var(--accent); color: #fff; margin-left: auto; }
+.editing [data-w] { position: relative; outline: 2px dashed var(--accent); outline-offset: 2px; cursor: grab; }
+.editing [data-w].dragover { outline-style: solid; }
+.wtools { position: absolute; top: 6px; right: 6px; z-index: 30; display: flex; gap: 4px; background: var(--bg); border-radius: 8px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+.wtools button, .wtools select { border: 0; background: var(--chip); color: var(--ink); border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+.wtools select option { background: #111; color: #fff; }
+
+header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.wbar { margin-bottom: 0; }
+
+/* Widget drag/resize */
+.editing [data-w] { cursor: default; }
+.wtools .grip { cursor: grab; font-size: 14px; touch-action: none; }
+.wph { grid-column: span var(--span, 12); border: 2px dashed var(--accent); border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, transparent); min-height: 80px; }
+[data-w].dragging { position: fixed !important; z-index: 100; opacity: .85; pointer-events: none; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
+.wres { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 31;
+  background: linear-gradient(135deg, transparent 50%, var(--accent) 50%, var(--accent) 60%, transparent 60%, transparent 70%, var(--accent) 70%, var(--accent) 80%, transparent 80%); border-radius: 0 0 12px 0; }
+.wbadge { position: absolute; right: 24px; bottom: 6px; z-index: 32; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; pointer-events: none; }
+[data-w][data-wh="s"] { height: 280px; overflow: auto; }
+[data-w][data-wh="m"] { height: 440px; overflow: auto; }
+[data-w][data-wh="l"] { height: 680px; overflow: auto; }
+@media (max-width: 1100px) { .widgets > [data-w] { grid-column: span max(var(--span, 12), 6); } }
+/* Keep clock, bar, stamp and gear on one line on wider screens. */
+@media (min-width: 701px) { .headcal .headline-left { flex-wrap: nowrap; } .headline-left .dayleft { flex: 1 1 380px; max-width: 420px; min-width: 0; } .headcal .headline-left .gear, .headcal .headline-left .stale { flex: none; } .headline-left .dayleft .row { gap: 8px; } }
+
+/* Today, left column: even spacing between Now, the progress bars, "Use it on" and Next. */
+.headcal .now { gap: 12px; align-content: start; }
+.headcal .now > .label { margin-bottom: -6px; }
+.headcal .now .title { font-size: 20px; line-height: 1.25; }
+.headcal .now .bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 16%, transparent); }
+.now .dayleft { flex: none; max-width: none; margin: 0; padding: 10px 12px; border: 0; border-radius: 10px; background: var(--chip); gap: 6px; }
+.now .dayleft .row { font-size: 13px; align-items: baseline; }
+.now .dayleft .daybar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 16%, transparent); }
+.now .dayleft .row.note:not(:has(span:not(:empty))) { display: none; }
+.headcal .now .firststep { margin: 0; padding: 10px 12px; border-radius: 10px; }
+.headcal .now .next { padding-top: 10px; margin-top: 0; gap: 8px; }
+.headcal .now details { margin: 0; }
+
+/* Today panel: info | page tabs and Jump to links | a narrower day calendar. */
+/* Three equal columns lined up with the three panels below: the column gap is the page gap (12px)
+   plus twice the panel's side padding, so each column sits centred over the panel underneath. */
+.headcal { --hp: 16px; padding: 16px var(--hp); }
+.headcal .cal-split { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: calc(12px + 2 * var(--hp)); row-gap: 16px; }
+.headcal .cal-day { max-height: 200px; }
+.cal-mid { display: grid; gap: 14px; align-content: start; justify-items: center; text-align: center; min-width: 0; padding-top: 4px; }
+.cal-mid .tabrow { justify-content: center; }
+.cal-mid .tabsbar { flex-wrap: wrap; justify-content: center; overflow: visible; }
+.cal-mid .jump { flex-wrap: wrap; justify-content: center; overflow: visible; }
+.cal-mid .jump .links { flex-wrap: wrap; justify-content: center; }
+@media (max-width: 1000px) { .headcal .cal-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .cal-mid { grid-column: 1 / -1; order: 3; } }
+@media (max-width: 700px) { .headcal .cal-split { grid-template-columns: minmax(0, 1fr); } }
+#navHome .cal-mid { justify-items: start; text-align: left; }
+
+/* Next deadline sits at the top of the Today panel's centre column, above the page tabs. */
+.cal-mid .banner { width: 100%; padding: 12px 16px; gap: 4px; background: var(--chip); text-align: center; justify-items: center; }
+.cal-mid .banner .t { font-size: 15px; }
+.cal-mid .banner .cd { font-size: clamp(30px, 3.4vw, 44px); }
+.cal-mid .banner .sub { font-size: 12px; }
+
+/* Deadlines, Ask Claude and Focus timer share one height: the row is as tall as the tallest panel and
+   the deadline list (which could be any length) fills whatever space is left, scrolling inside. */
+#wDeadlines { display: flex; flex-direction: column; gap: 12px; }
+#wDeadlines > .upcoming { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+#wDeadlines .uplist { flex: 1 1 0; min-height: 180px; max-height: none; overflow-y: auto; }
+.widgets > #ask, .widgets > #timerPanel { height: auto; }
+
+/* The empty holder for the page tabs (used only when Today is hidden) shouldn't add a gap. */
+#navHome:empty { display: none; }
+
+/* Block / free-time card and work-time card: identical size, stacked and aligned. */
+.headcal .now .pcard + .dayleft { margin-top: -4px; }
+.now .dayleft .row { min-height: 18px; }
+
+</style>
+<script src="config.js"></script>
+<script src="xp.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="card">
+    <div class="label" style="color:var(--board-muted)">Departures · today</div>
+    <h1>Next Up</h1>
+    <p id="gateMsg">Sign in with your Google account to load your tasks, calendar and hours.</p>
+    <button class="gbtn" id="signin" type="button">Sign in with Google</button>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header class="top widgets">
+    <section class="panel headcal" aria-labelledby="nowH" data-w="today" data-name="Today calendar">
+      <div class="panel-h headline-left">
+        <h2 id="nowH" class="sr-only">Today</h2>
+        <div class="label" id="placeLbl">Next up</div>
+        <div class="clock num" id="clock">--:--</div>
+        <div class="date" id="date"></div>
+        <span class="stale" id="calStamp"></span>
+        <details class="gear" id="gear"><summary aria-label="Settings" title="Settings">⚙</summary>
+        <div class="who"><span id="whoTxt"></span><button id="sheetsBtn" type="button">My sheets</button><button id="signout" type="button">Sign out</button>
+        <label class="accent">Accent <input type="color" id="accentSel" aria-label="Accent colour"></label><button id="accentReset" type="button">Reset</button><label class="tog"><input type="checkbox" id="redDl" checked> Red deadlines</label><a id="verLink" class="ver" href="/next-up-dashboard/v/">Versions</a></div></details>
+      </div>
+      <div class="cal-split">
+        <div class="cal-left">
+          <div id="nowBody" class="now"><p class="note">Loading today's calendar…</p></div>
+          <div class="dayleft">
+          <div class="row"><span class="label">Work time left today</span><span class="num" id="dayleftTxt">–</span></div>
+          <div class="daybar" aria-hidden="true"><i id="daybar"></i></div>
+          <div class="row note"><span id="wakeLbl"></span><span id="sleepLbl"></span></div>
+          </div>
+        </div>
+        <div class="cal-mid" id="navBlock">
+          <section class="banner" id="banner" aria-live="polite">
+          <div class="label">Next deadline</div>
+          <div class="t" id="bTitle">Loading your tasks…</div>
+          <div class="cd" id="bCd">––</div>
+          <div class="sub" id="bSub"></div>
+          </section>
+      <div class="tabrow">
+        <nav class="tabsbar" aria-label="Pages">
+        <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
+        </nav>
+      </div>
+      <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
+        </div>
+        <div class="cal-day" id="calDay" aria-label="Today's calendar"></div>
+      </div>
+    </section>
+  </header>
+  <div id="navHome"></div>
+
+  <div class="wbar" id="wBar" hidden></div>
+  <div id="mainView" class="widgets">
+      <div class="stack" id="wDeadlines" data-w="deadlines" data-name="Deadlines">
+        <section class="panel upcoming" aria-labelledby="upH">
+          <div class="panel-h"><h2 id="upH">Deadlines</h2><a href="#departures" class="tablink">Departures board →</a></div>
+          <div id="taskErr" hidden class="err"></div>
+          <input type="search" id="upQ" class="upq" placeholder="Search deadlines…" aria-label="Search deadlines">
+        <div class="lfilter" role="group" aria-label="Filter by list"></div>
+          <div class="uplist" id="upList" role="list"><div class="note">Loading…</div></div>
+        </section>
+      </div>
+      <section class="panel" id="ask" aria-labelledby="aH" data-w="ask" data-name="Ask Claude">
+        <div class="panel-h"><h2 id="aH">Ask Claude</h2><span class="label">sees your tasks + calendar</span></div>
+        <div class="chips" id="quick">
+          <button class="chip" type="button">What should I do right now?</button>
+          <button class="chip" type="button">Break my most urgent task into a 2-minute first step</button>
+          <button class="chip" type="button">I'm procrastinating. Help me start.</button>
+          <button class="chip" type="button">Plan the rest of today</button>
+        </div>
+        <div class="chat-log" id="log" aria-live="polite">
+          <div class="msg sys" id="askIntro">Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.</div>
+        </div>
+        <form class="composer" id="form">
+          <textarea id="q" rows="2" placeholder="Type a question…" aria-label="Message to Claude"></textarea>
+          <button class="send" id="send" type="submit">Ask</button>
+        </form>
+        <div id="askNote" class="note" hidden></div>
+      </section>
+      <section class="panel timer" id="timerPanel" aria-labelledby="tH" data-w="timer" data-name="Focus timer">
+        <div class="panel-h"><h2 id="tH">Focus timer</h2><span class="label" id="tMode">Ready</span></div>
+        <div class="tabs" role="group" aria-label="Timer mode">
+          <button type="button" data-mode="focus" aria-pressed="true">Pomodoro</button>
+          <button type="button" data-mode="short" aria-pressed="false">Short break</button>
+          <button type="button" data-mode="long" aria-pressed="false">Long break</button>
+        </div>
+        <div class="dialwrap">
+          <svg class="dial" id="tDial" viewBox="0 0 200 200" role="slider" tabindex="0" aria-valuemin="1" aria-valuemax="60" aria-valuenow="25" aria-label="Drag to set minutes">
+            <g class="classic-only">
+              <circle class="face" cx="100" cy="100" r="96"></circle>
+              <circle class="rim" cx="100" cy="100" r="96"></circle>
+              <path class="wedge idle" id="tWedge" d=""></path>
+              <g id="tTicks"></g>
+              <circle class="knob" cx="100" cy="100" r="7"></circle>
+            </g>
+            <g class="minimal-only">
+              <circle class="track" cx="100" cy="100" r="88"></circle>
+              <circle class="ring" id="tRing" cx="100" cy="100" r="88" transform="matrix(0 -1 -1 0 200 200)"></circle>
+              <text class="mintext" id="tMinText" x="100" y="100">25:00</text>
+            </g>
+          </svg>
+          <div class="big" id="tBig">25:00</div>
+        </div>
+        <div class="tctl">
+          <button class="go" id="tGo" type="button">Start</button>
+          <button class="ghost" id="tReset" type="button">Reset</button>
+          <button class="ghost" id="tSkip" type="button">Skip</button>
+          <button class="ghost" id="tFull" type="button">Fullscreen</button>
+        </div>
+        <div class="note" id="tNote">Drag the dial to set the time. Pomodoro #1.</div>
+        <details class="tset-wrap">
+          <summary>Timer settings</summary>
+          <div class="tset">
+            <div class="row">
+              <label>Pomodoro <input id="sFocus" type="number" min="1" max="60"> min</label>
+              <label>Short <input id="sShort" type="number" min="1" max="60"> min</label>
+              <label>Long <input id="sLong" type="number" min="1" max="60"> min</label>
+            </div>
+            <div class="row">
+              <label>Long break every <input id="sEvery" type="number" min="2" max="8"> pomodoros</label>
+              <label><input id="sAuto" type="checkbox"> Start breaks automatically</label>
+            </div>
+            <div class="row">
+              <label><input id="sMinimal" type="checkbox"> Minimal (ring only)</label>
+              <label>Focus colour <input id="sColF" type="color"></label>
+              <label>Break colour <input id="sColB" type="color"></label>
+              <button class="ghost" id="sColReset" type="button" style="border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);padding:3px 8px">Default colours</button>
+            </div>
+          </div>
+        </details>
+      </section>
+    <section class="panel" id="trackPanel" aria-labelledby="trH" data-w="track" data-name="Track">
+        <div class="panel-h"><h2 id="trH">Track</h2><span class="stale" id="trStamp"></span></div>
+        <div class="tr-now" id="trNow"><span class="note">Tap what you're doing to start tracking.</span></div>
+        <div class="tr-cats" id="trCats" role="group" aria-label="Start tracking"></div>
+        <div class="tr-dayh">
+          <button type="button" class="tr-nav" id="trPrev" aria-label="Previous day">‹</button>
+          <strong id="trDay">Today</strong>
+          <button type="button" class="tr-nav" id="trNext" aria-label="Next day">›</button>
+          <button type="button" class="tr-add" id="trAdd">+ Add block</button>
+        </div>
+        <div class="tr-line" id="trLine" aria-label="Day timeline: plan above, tracked below"></div>
+        <div id="trEdit" hidden></div>
+        <div class="tr-stats" id="trStats"></div>
+        <div id="trErr" class="err" hidden></div>
+        <div class="note">Saved to the Tracked tab of your Time Tracker sheet. Targets live there too (columns G to I).</div>
+      </section>
+    <section class="panel" id="habitPanel" aria-labelledby="hbH" data-w="habits" data-name="Habits">
+      <div class="panel-h"><h2 id="hbH">Habits</h2>
+        <select id="hbSel" class="hbsel" aria-label="Habit"><option value="">All habits</option></select></div>
+      <div class="heat" id="heat" role="img" aria-label="Habit heatmap"></div>
+      <div class="heatkey"><span id="hbSum" class="note"></span><span class="scale">Less <i></i><i></i><i></i><i></i><i></i> More</span></div>
+    </section>
+    <section class="panel nodata" id="ankiPanel" aria-labelledby="akH" data-w="anki" data-name="Anki">
+      <div class="panel-h"><h2 id="akH">Anki</h2><span class="stale" id="akStamp"></span><a class="tablink" href="https://ankiweb.net/decks" target="_blank" rel="noopener">Review on AnkiWeb →</a></div>
+      <div class="note akhint">Shows up once your laptop sends Anki data (Anki open with AnkiConnect).</div>
+      <div class="akdue"><span class="num" id="akTotal">–</span><span class="note">cards due today</span></div>
+      <div class="akdecks" id="akDecks" role="list"></div>
+      <div class="heat" id="akHeat" role="img" aria-label="Anki review heatmap"></div>
+      <div class="heatkey"><span id="akSum" class="note"></span><span class="scale">Less <i></i><i></i><i></i><i></i><i></i> More</span></div>
+    </section>
+  </div>
+  <div id="depView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="depH" style="padding-bottom:16px" data-w="departures" data-name="Departures">
+      <div class="panel-h"><h2 id="depH">Departures</h2>
+        <div class="depmode" role="group" aria-label="View"><button type="button" data-dv="list" aria-pressed="true">List</button><button type="button" data-dv="week" aria-pressed="false">Week</button><button type="button" data-dv="cal" aria-pressed="false">Calendar</button></div>
+        <span class="stale" id="taskStamp"></span></div>
+      <div class="lfilter" role="group" aria-label="Filter by list"></div>
+      <div class="wkbar" id="wkBar" hidden><button type="button" class="tr-nav" id="wkPrev" aria-label="This week">‹</button><strong id="wkLbl">Next 7 days</strong><button type="button" class="tr-nav" id="wkNext" aria-label="Following week">›</button><button type="button" class="wktog" id="wkTodos" aria-pressed="false" hidden>Hide to-dos</button></div>
+      <div class="week" id="wkView" hidden></div>
+      <div class="board" role="list" id="depList">
+        <div class="bh"><span>Leaves in</span><span>Task</span><span style="text-align:right">Status</span></div>
+        <div id="deps"><div class="empty">Loading overdue and next 7 days from TickTick…</div></div>
+      </div>
+      <div class="note">Overdue plus the next 14 days. Countdowns run to your personal deadline; the real one shows underneath. Tap a task for details, tap Done twice to complete it in TickTick.</div>
+    </section>
+  </div>
+  <div id="hoursView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="hH" data-w="hours" data-name="Adherence">
+      <div class="panel-h"><h2 id="hH">Adherence · hours this week</h2><span class="stale" id="hStamp"></span></div>
+      <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
+      <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
+    </section>
+  </div>
+  <div id="rateView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="rH" data-w="rate" data-name="Rate your blocks">
+      <div class="panel-h"><h2 id="rH">Rate your blocks</h2><span class="label">writes to Time Tracker</span></div>
+      <form class="ratechat" id="rcForm">
+        <label for="rcQ" class="label">Tell Claude how it went</label>
+        <textarea id="rcQ" rows="3" placeholder="e.g. Finished the MATH 117 assignment, only did half of the Japanese HW, skipped lunch and the commute was fine."></textarea>
+        <div class="row"><button class="send" id="rcGo" type="submit">Rate with Claude</button><span class="note" id="rcNote"></span></div>
+        <div id="rcOut"></div>
+      </form>
+      <div id="rateBody" class="rate"><p class="note">Loading blocks that still need a status…</p></div>
+    </section>
+  </div>
+</div>
+<button class="fab" id="fab" type="button">Ask Claude</button>
+
+<script>
+// Settings menu: closes on an outside click or after choosing an action.
+(() => {
+  const g = document.getElementById("gear");
+  document.addEventListener("click", (e) => { if (g.open && !g.contains(e.target)) g.open = false; });
+  for (const id of ["sheetsBtn", "signout"]) document.getElementById(id).addEventListener("click", () => { g.open = false; });
+})();
+</script>
+<script>
+// Theme: accent colour (labels, links, highlights) and red deadlines on or off. Saved to your account
+// on the server, so it follows you to every device; the last one used here paints first.
+// Version: shown under the gear, linking to every published version. An old version says so on top.
+fetch("version.json", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((v) => {
+  if (!v) return;
+  const link = document.getElementById("verLink"); link.textContent = `${v.version} · all versions`;
+  if (/\/v\/v[\d.]+\//.test(location.pathname)) {
+    const b = document.createElement("div"); b.className = "oldver";
+    b.innerHTML = `You're viewing saved version ${v.version} (${v.date}). <a href="/next-up-dashboard/">Back to the latest</a> · <a href="/next-up-dashboard/v/">All versions</a>`;
+    document.body.prepend(b);
+  }
+}).catch(() => {});
+window.NU_THEME = (() => {
+  const root = document.documentElement, DEF = { accent: "#4d8dff", redDeadlines: true };
+  const sel = document.getElementById("accentSel"), red = document.getElementById("redDl");
+  let cur = { ...DEF }, save = null;
+  const apply = (t) => {
+    cur = { ...DEF, ...(t || {}) };
+    root.style.setProperty("--accent", cur.accent);
+    if (cur.redDeadlines) delete root.dataset.redDl; else root.dataset.redDl = "0";
+    sel.value = cur.accent; red.checked = cur.redDeadlines;
+    try { localStorage.setItem("nu.theme.last", JSON.stringify(cur)); } catch {}
+  };
+  let timer = null;
+  const changed = () => { apply({ accent: sel.value, redDeadlines: red.checked }); clearTimeout(timer); timer = setTimeout(() => save && save(cur), 600); };
+  sel.oninput = changed; red.onchange = changed;
+  document.getElementById("accentReset").onclick = () => { sel.value = DEF.accent; red.checked = true; changed(); };
+  try { apply(JSON.parse(localStorage.getItem("nu.theme.last") || "null")); } catch { apply(null); }
+  return { apply, onSave: (fn) => { save = fn; } };
+})();
+(() => {
+  const TT = "TickTick", GC = "Google Calendar", GS = "Google Sheets";
+  const CFG = window.NEXTUP_CONFIG || {};
+  let SHEET = "";
+  const S = { pcolors: {}, filter: new Set(), overdue: null, week: null, projects: {}, events: null, dash: null, types: null, log: null, removed: new Set(), openId: null, armed: null };
+  const $ = (id) => document.getElementById(id);
+  const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return "UTC"; } })();
+
+  // ---------- time helpers ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  function isoLocal(d) {
+    const off = -d.getTimezoneOffset(), s = off >= 0 ? "+" : "-", a = Math.abs(off);
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00${s}${pad(Math.floor(a/60))}:${pad(a%60)}`;
+  }
+  function parseTT(s) { if (!s) return null; const d = new Date(String(s).replace(/([+-]\d\d)(\d\d)$/, "$1:$2")); return isNaN(d) ? null : d; }
+  function dueOf(t) {
+    const d = parseTT(t.due_date || t.dueDate || t.start_date); if (!d) return null;
+    if (t.is_all_day || t.isAllDay) { const e = new Date(d); e.setHours(23, 59, 0, 0); return e; }
+    return d;
+  }
+  function fmtLeft(ms, secs) {
+    const neg = ms < 0; let s = Math.floor(Math.abs(ms) / 1000);
+    const d = Math.floor(s / 86400); s -= d * 86400; const h = Math.floor(s / 3600); s -= h * 3600; const m = Math.floor(s / 60); s -= m * 60;
+    let out = d ? `${d}d ${h}h ${pad(m)}m` : h ? `${h}h ${pad(m)}m` : `${m}m`;
+    if (secs && !d) out += ` ${pad(s)}s`;
+    return neg ? `-${out}` : out;
+  }
+  const timeFmt = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const dayFmt = (d) => d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  function status(ms) {
+    if (ms < 0) return ["s-late", "Overdue"];
+    if (ms < 864e5) return ["s-final", "Final call"];
+    if (ms < 3 * 864e5) return ["s-boarding", "Boarding"];
+    return ["s-sched", "On time"];
+  }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  // ---------- data shaping ----------
+  function list(p, key) {
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch { return []; } }
+    if (Array.isArray(p)) return p;
+    if (p && Array.isArray(p[key])) return p[key];
+    if (p && typeof p.result === "string") { try { return list(JSON.parse(p.result), key); } catch {} }
+    return [];
+  }
+  function allTasks() {
+    const m = new Map();
+    for (const t of [...(S.overdue || []), ...(S.week || [])]) if (t && t.id && !S.removed.has(t.id)) m.set(t.id, t);
+    return [...m.values()].map((t) => ({ t, due: dueOf(t) })).filter((x) => x.due).sort((a, b) => a.due - b.due);
+  }
+  function realDeadline(t) { const m = String(t.content || "").match(/Real deadline:\s*([^\n]+?)(?:\.\s|\.$|\n|$)/i); return m ? m[1].trim() : ""; }
+  const pid = (t) => t.project_id || t.projectId;
+  const allDay = (t) => !!(t.is_all_day || t.isAllDay);
+  function projName(id) {
+    if (!id || String(id).startsWith("inbox")) return "Inbox";
+    return S.projects[id] || "List";
+  }
+  function todayEvents() {
+    return (S.events || []).filter((e) => e.status !== "cancelled" && e.start && e.start.dateTime)
+      .map((e) => ({ e, s: new Date(e.start.dateTime), en: new Date(e.end.dateTime) })).sort((a, b) => a.s - b.s);
+  }
+
+  // ---------- errors ----------
+  function copyFor(err, server) {
+    const st = err && err.status;
+    if (st === 401) return `Your sign-in expired. Sign in again to reload ${server}.`;
+    if (st === 403) return `This account isn't allowed to use ${server} here.`;
+    if (st === 409) return `${server} isn't connected yet.`;
+    return `${server} couldn't load${err && err.message ? ": " + err.message : ""}.`;
+  }
+
+  // ---------- rendering ----------
+  function renderClock() {
+    const now = new Date();
+    $("clock").textContent = timeFmt(now);
+    $("date").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    const hm = (v, d) => { const m = String(v || d).match(/(\d+):(\d+)/); return m ? [+m[1], +m[2]] : [0, 0]; };
+    const wake = new Date(now); wake.setHours(...hm(PROFILE.wake, "07:00"), 0, 0);
+    const stop = new Date(now); stop.setHours(...hm(PROFILE.windDown, "22:00"), 0, 0);
+    const left = stop - now;
+    $("dayleftTxt").textContent = left > 0 ? `${fmtLeft(left)} until wind-down` : "Wind-down time. Log XP and rest.";
+    const frac = Math.min(1, Math.max(0, (now - wake) / (stop - wake)));
+    $("daybar").style.width = (frac * 100).toFixed(1) + "%";
+  }
+
+  function renderBanner() {
+    const ts = allTasks(); const now = Date.now();
+    const b = $("banner");
+    if (S.overdue === null && S.week === null) return;
+    if (!ts.length) { $("bTitle").textContent = "Nothing due in the next 7 days"; $("bCd").textContent = "Clear"; $("bSub").textContent = "Pick something from Long term & Goals."; b.classList.remove("late"); return; }
+    const late = ts.filter((x) => x.due - now < 0);
+    const pick = late.length ? late[0] : ts[0];
+    const ms = pick.due - now;
+    b.classList.toggle("late", ms < 0);
+    $("bTitle").textContent = pick.t.title;
+    $("bCd").textContent = ms < 0 ? `${fmtLeft(-ms)} late` : fmtLeft(ms, true);
+    const extra = late.length > 1 ? ` · ${late.length} overdue` : "";
+    const real = realDeadline(pick.t);
+    $("bSub").textContent = `${projName(pid(pick.t))} · your deadline ${dayFmt(pick.due)} ${timeFmt(pick.due)}${real ? ` · real deadline ${real}` : ""}${extra}`;
+  }
+
+  const DAYLEFT = document.querySelector(".dayleft");
+  // A small card with a label, a value on the right and a progress bar, the same size as the
+  // "Work time left today" card so the two line up.
+  function progCard(label, value, frac) {
+    const c = el("div", "dayleft pcard");
+    const row = el("div", "row"); row.append(el("span", "label", label), el("span", "num", value));
+    const bar = el("div", "daybar"); bar.setAttribute("aria-hidden", "true");
+    const i = el("i"); i.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%"; bar.append(i);
+    c.append(row, bar); return c;
+  }
+  function renderNow() {
+    const box = $("nowBody");
+    if (S.events === null) return;
+    const now = new Date(); const evs = todayEvents();
+    const cur = evs.find((x) => x.s <= now && x.en > now);
+    const nxt = evs.find((x) => x.s > now);
+    box.replaceChildren();
+    if (cur) {
+      box.append(el("div", "label", `Now · until ${timeFmt(cur.en)}`));
+      box.append(el("div", "title", cur.e.summary || "(untitled)"));
+      box.append(progCard("This block", `${fmtLeft(cur.en - now, true)} left`, (now - cur.s) / (cur.en - cur.s)));
+      box.append(DAYLEFT); // work time left today: same card and bar size, right under the block's
+      addDesc(box, cur.e.description);
+    } else {
+      box.append(el("div", "label", "Now"));
+      box.append(el("div", "title", nxt ? "Free Time until the next block" : "No more blocks today"));
+      if (nxt) {
+        // Free time runs from the end of the last block (or midnight) to the start of the next one.
+        const prev = evs.filter((x) => x.en <= now).pop(); const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+        const from = prev ? prev.en : d0;
+        box.append(progCard("Free time", `${fmtLeft(nxt.s - now, true)} left`, (now - from) / (nxt.s - from)));
+      }
+      box.append(DAYLEFT);
+      const ts = allTasks();
+      if (ts.length) {
+        const fs = el("div", "firststep"); fs.append(el("b", null, "Use it on"), el("span", null, ts[0].t.title)); box.append(fs);
+      }
+    }
+    renderDay(evs, now);
+    if (nxt) {
+      const n = el("div", "next");
+      n.append(el("span", "label", "Next"), el("span", "num", `in ${fmtLeft(nxt.s - now)}`), el("span", null, `${timeFmt(nxt.s)} ${nxt.e.summary || ""}`));
+      box.append(n);
+    }
+  }
+  // Hour-by-hour column for today, scrolled so "now" is near the top.
+  function renderDay(evs, now) {
+    const host = $("calDay"); if (!host) return;
+    const PX = 52, d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+    let h0 = 6, h1 = 23;
+    for (const x of evs) { if (x.s >= d0) h0 = Math.min(h0, x.s.getHours()); h1 = Math.max(h1, Math.min(24, x.en.getHours() + 1)); }
+    const y = (t) => ((t - d0) / 36e5 - h0) * PX;
+    const inner = el("div", "inner"); inner.style.height = (h1 - h0) * PX + "px";
+    for (let h = h0; h < h1; h++) { const m = el("div", "hr", h === 12 ? "12 PM" : h === 0 ? "12 AM" : h > 12 ? `${h - 12} PM` : `${h} AM`); m.style.top = (h - h0) * PX + "px"; inner.append(m); }
+    for (const x of evs) {
+      const top = Math.max(0, y(x.s)), hgt = Math.max(18, y(x.en) - top - 2);
+      const b = el("div", "ev" + (x.en <= now ? " past" : x.s <= now ? " cur" : ""));
+      b.style.top = top + "px"; b.style.height = hgt + "px";
+      b.append(document.createTextNode(x.e.summary || "(untitled)"));
+      if (hgt >= 32) b.append(el("small", null, `${timeFmt(x.s)}–${timeFmt(x.en)}`));
+      b.title = `${timeFmt(x.s)}–${timeFmt(x.en)} ${x.e.summary || ""}`;
+      inner.append(b);
+    }
+    const ln = el("div", "nowln"); ln.style.top = y(now) + "px"; inner.append(ln);
+    host.replaceChildren(inner);
+    // Keep "now" in view until the user scrolls the column themselves.
+    if (!host.dataset.touched) requestAnimationFrame(() => { host.scrollTop = Math.max(0, y(now) - PX); });
+    host.onwheel = host.ontouchstart = () => { host.dataset.touched = "1"; };
+  }
+  function addDesc(box, desc) {
+    if (!desc) return;
+    const plain = desc.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "");
+    const m = plain.match(/First step:\s*([^\n]+)/i);
+    const dw = plain.match(/Done when:\s*([^\n]+)/i);
+    if (m) { const fs = el("div", "firststep"); fs.append(el("b", null, "First step"), el("span", null, m[1].trim())); box.append(fs); }
+    if (dw) box.append(el("div", "note", "Done when: " + dw[1].trim()));
+    const d = el("details"); d.append(el("summary", null, "Block notes"), el("div", "desc", plain)); box.append(d);
+  }
+
+  // Each TickTick list keeps its own colour (from TickTick, or a stable fallback), like calendars do.
+  const PCOL = ["#4d8dff", "#22c55e", "#f59e0b", "#a855f7", "#14b8a6", "#ec4899", "#84cc16", "#f97316", "#06b6d4", "#e11d48"];
+  function listColor(id) {
+    if (S.pcolors[id]) return S.pcolors[id];
+    // Lists without a TickTick colour get distinct palette colours, in name order.
+    const names = ["Inbox", ...Object.values(S.projects)].filter((n, i, a) => a.indexOf(n) === i).sort();
+    const used = new Set(Object.values(S.pcolors).map((c) => c.toLowerCase()));
+    const free = PCOL.filter((c) => !used.has(c)); const pool = free.length ? free : PCOL;
+    return pool[Math.max(0, names.indexOf(projName(id))) % pool.length];
+  }
+  // List filter: chips for every list with open tasks; none selected shows everything.
+  try { S.filter = new Set(JSON.parse(localStorage.getItem("nu.listfilter") || "[]")); } catch {}
+  const shownTasks = () => allTasks().filter(({ t }) => !S.filter.size || S.filter.has(projName(pid(t))));
+  function renderFilters() {
+    const names = [...new Set(allTasks().map(({ t }) => projName(pid(t))))].sort();
+    for (const host of document.querySelectorAll(".lfilter")) {
+      host.replaceChildren();
+      for (const n of names) {
+        const id = Object.keys(S.projects).find((k) => S.projects[k] === n) || (n === "Inbox" ? "inbox" : "");
+        const b = el("button", "lchip", n); b.type = "button"; b.style.setProperty("--pc", listColor(id));
+        b.setAttribute("aria-pressed", String(S.filter.has(n)));
+        b.onclick = () => { S.filter.has(n) ? S.filter.delete(n) : S.filter.add(n); try { localStorage.setItem("nu.listfilter", JSON.stringify([...S.filter])); } catch {} renderTasks(); };
+        host.append(b);
+      }
+      if (S.filter.size) { const c = el("button", "lchip clear", "Show all"); c.type = "button"; c.onclick = () => { S.filter.clear(); try { localStorage.removeItem("nu.listfilter"); } catch {} renderTasks(); }; host.append(c); }
+    }
+  }
+  // Searchable, scrolling list of every open deadline under the big countdown.
+  function renderUpcoming() {
+    const host = $("upList"); if (!host || (S.overdue === null && S.week === null)) return;
+    const q = ($("upQ").value || "").trim().toLowerCase(); const now = Date.now();
+    const ts = shownTasks().filter(({ t }) => !q || (t.title + " " + projName(pid(t))).toLowerCase().includes(q));
+    host.replaceChildren();
+    if (!ts.length) { host.append(el("div", "note", q ? "No deadlines match." : "Nothing due. Board is clear.")); return; }
+    for (const { t, due } of ts) {
+      const ms = due - now; const [cls] = status(ms);
+      const row = el("a", "uprow " + cls); row.href = "#departures"; row.setAttribute("role", "listitem"); row.style.setProperty("--pc", listColor(pid(t)));
+      row.append(el("span", "num cd", ms < 0 ? `${fmtLeft(-ms)} late` : fmtLeft(ms)), el("span", "tt", t.title), el("span", "meta", `${dayFmt(due)} · ${projName(pid(t))}`));
+      host.append(row);
+    }
+  }
+  // Week view of the Departures tab: an Overdue column, then one column per day.
+  const DV = { mode: "list", off: 0, hideTodos: false, ev: {}, added: new Set() };
+  function renderWeek() {
+    const host = $("wkView"); if (!host || DV.mode === "list" || (S.overdue === null && S.week === null)) return;
+    const cal = DV.mode === "cal"; if (cal) loadWeekEvents(DV.off);
+    const now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0); d0.setDate(d0.getDate() + DV.off * 7);
+    const ts = shownTasks(); host.replaceChildren();
+    const col = (title, sub, items, cls, evs) => {
+      const c = el("div", "wkcol" + (cls ? " " + cls : "")); const h = el("div", "wkh"); h.append(el("b", null, title), el("span", null, sub)); c.append(h);
+      if (!items.length && !evs) c.append(el("div", "wkempty", "—"));
+      if (cal && DV.hideTodos && items.length) { c.append(el("div", "wkhid", `${items.length} to-do${items.length === 1 ? "" : "s"} hidden`)); items = []; }
+      for (const { t, due } of items) {
+        const ms = due - now; const [st] = status(ms);
+        const it = el("a", "wkit " + st); it.href = "#departures"; it.title = t.title; it.style.setProperty("--pc", listColor(pid(t)));
+        it.onclick = (e) => { e.preventDefault(); DV.mode = "list"; S.openId = t.id; applyDv(); renderTasks(); };
+        it.append(el("span", "tt", t.title), el("span", "meta", `${allDay(t) ? "all day" : timeFmt(due)} · ${projName(pid(t))}`));
+        if (cal) {
+          const add = el("button", "wkadd", DV.added.has(t.id) ? "✓ In calendar" : "+ Add to Calendar"); add.type = "button"; add.disabled = DV.added.has(t.id);
+          add.onclick = (e) => { e.preventDefault(); e.stopPropagation(); addToCalendar(t, due, add); };
+          it.append(add);
+        }
+        c.append(it);
+      }
+      if (evs) {
+        c.append(el("div", "wksep", "Calendar"));
+        if (evs === "loading") c.append(el("div", "wkempty", "Loading…"));
+        else if (!evs.length) c.append(el("div", "wkempty", "No events"));
+        else for (const ev of evs) {
+          const a = el("a", "wkev" + (ev.end < now ? " past" : "")); a.href = ev.link || "#departures"; a.target = "_blank"; a.rel = "noopener";
+          a.append(el("span", null, ev.title), el("span", "meta", ev.allDay ? "all day" : `${timeFmt(ev.start)}–${timeFmt(ev.end)}`));
+          c.append(a);
+        }
+      }
+      host.append(c);
+    };
+    if (DV.off === 0 && !(cal && DV.hideTodos)) col("Overdue", `${ts.filter((x) => x.due < d0).length}`, ts.filter((x) => x.due < d0), "late");
+    for (let i = 0; i < 7; i++) {
+      const a = new Date(d0); a.setDate(a.getDate() + i); const b = new Date(a); b.setDate(b.getDate() + 1);
+      const items = ts.filter((x) => x.due >= a && x.due < b);
+      const evs = !cal ? null : DV.ev[DV.off] === undefined || DV.ev[DV.off] === "loading" ? "loading" : DV.ev[DV.off].filter((e) => e.start < b && e.end > a && !(e.allDay && e.end <= a));
+      col(i === 0 && DV.off === 0 ? "Today" : a.toLocaleDateString([], { weekday: "short" }), a.toLocaleDateString([], { month: "short", day: "numeric" }), items, i === 0 && DV.off === 0 ? "today" : "", evs);
+    }
+    $("wkLbl").textContent = DV.off === 0 ? "Next 7 days" : "The 7 days after";
+    $("wkPrev").disabled = DV.off === 0; $("wkNext").disabled = DV.off >= 1; // TickTick data covers 14 days ahead
+  }
+  // Google Calendar events for the 7 days shown, fetched once per week offset.
+  async function loadWeekEvents(off, force) {
+    if (!force && DV.ev[off] !== undefined) return;
+    DV.ev[off] = "loading";
+    const a = new Date(); a.setHours(0, 0, 0, 0); a.setDate(a.getDate() + off * 7); const b = new Date(a); b.setDate(b.getDate() + 7);
+    try {
+      const r = await api.events(isoLocal(a), isoLocal(b));
+      DV.ev[off] = (r.items || []).filter((e) => e.status !== "cancelled").map((e) => {
+        const allDay = !!(e.start && e.start.date);
+        const st = allDay ? new Date(e.start.date + "T00:00") : new Date(e.start.dateTime);
+        const en = allDay ? new Date(e.end.date + "T00:00") : new Date(e.end.dateTime);
+        return { title: e.summary || "(no title)", start: st, end: en, allDay, link: e.htmlLink };
+      });
+    } catch { DV.ev[off] = []; }
+    renderWeek();
+  }
+  // "+ Add to Calendar": puts the to-do into Google Calendar so it can be scheduled. A timed to-do becomes
+  // a 1-hour block ending at its deadline; an all-day one becomes an all-day event on its date.
+  async function addToCalendar(t, due, btn) {
+    btn.disabled = true; btn.textContent = "Adding…";
+    const note = [t.content || t.desc || "", "From Next Up (TickTick: " + projName(pid(t)) + ")"].filter(Boolean).join("\n\n");
+    let ev;
+    if (allDay(t)) {
+      const d = `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`;
+      const n = new Date(due); n.setDate(n.getDate() + 1);
+      ev = { summary: t.title, description: note, start: { date: d }, end: { date: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}` } };
+    } else {
+      ev = { summary: t.title, description: note, start: { dateTime: isoLocal(new Date(due - 3600e3)), timeZone: tz }, end: { dateTime: isoLocal(due), timeZone: tz } };
+    }
+    try {
+      await api.addEvent(ev);
+      DV.added.add(t.id); btn.textContent = "✓ Added";
+      loadWeekEvents(DV.off, true); loadCalendar();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "+ Add to Calendar";
+      if (e.status === 403) signedOut("Sign in again and allow calendar access to add events.");
+      else alert("Couldn't add it to Google Calendar: " + (e.message || e));
+    }
+  }
+  function applyDv() {
+    const wk = DV.mode !== "list";
+    $("depList").hidden = wk; $("wkView").hidden = !wk; $("wkBar").hidden = !wk; $("wkTodos").hidden = DV.mode !== "cal";
+    document.querySelectorAll("[data-dv]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dv === DV.mode)));
+    try { localStorage.setItem("nu.depview", DV.mode); } catch {}
+    renderWeek();
+  }
+  try { const v = localStorage.getItem("nu.depview"); if (v === "week" || v === "cal") DV.mode = v; DV.hideTodos = localStorage.getItem("nu.hidetodos") === "1"; } catch {}
+  $("wkTodos").setAttribute("aria-pressed", String(DV.hideTodos)); $("wkTodos").textContent = DV.hideTodos ? "Show to-dos" : "Hide to-dos";
+  $("wkTodos").onclick = () => { DV.hideTodos = !DV.hideTodos; $("wkTodos").setAttribute("aria-pressed", String(DV.hideTodos)); $("wkTodos").textContent = DV.hideTodos ? "Show to-dos" : "Hide to-dos"; try { localStorage.setItem("nu.hidetodos", DV.hideTodos ? "1" : "0"); } catch {} renderWeek(); };
+  document.querySelectorAll("[data-dv]").forEach((b) => b.onclick = () => { DV.mode = b.dataset.dv; applyDv(); });
+  $("wkPrev").onclick = () => { DV.off = 0; renderWeek(); };
+  $("wkNext").onclick = () => { DV.off = 1; renderWeek(); };
+  function renderTasks() {
+    renderFilters(); renderUpcoming(); renderWeek();
+    const host = $("deps");
+    if (S.overdue === null && S.week === null) return;
+    const ts = shownTasks(); const now = Date.now();
+    host.replaceChildren();
+    if (!ts.length) { host.append(el("div", "empty", "Nothing due. Board is clear.")); return; }
+    for (const { t, due } of ts) {
+      const ms = due - now; const [cls, lab] = status(ms);
+      const row = el("div", "dep " + cls); row.setAttribute("role", "listitem"); row.dataset.id = t.id; row.style.setProperty("--pc", listColor(pid(t)));
+      const when = el("div", "when");
+      when.append(el("div", "cd", ms < 0 ? `${fmtLeft(-ms)} late` : fmtLeft(ms, ms < 864e5)), el("div", "due", `${dayFmt(due)} ${allDay(t) ? "all day" : timeFmt(due)}`));
+      const tb = el("button", "tbtn"); tb.type = "button"; tb.setAttribute("aria-expanded", String(S.openId === t.id));
+      tb.append(el("span", "tt", t.title));
+      const meta = el("span", "meta"); meta.append(el("span", null, projName(pid(t))));
+      const real = realDeadline(t); if (real) meta.append(el("span", "real", "Real: " + real));
+      if (t.priority === 5) meta.append(el("span", null, "High priority"));
+      tb.append(meta);
+      tb.onclick = () => { S.openId = S.openId === t.id ? null : t.id; renderTasks(); };
+      const act = el("div", "actions");
+      act.append(el("span", "pill", lab));
+      const done = el("button", "done" + (S.armed === t.id ? " arm" : ""), S.armed === t.id ? "Confirm" : "Done"); done.type = "button";
+      done.setAttribute("aria-label", `Mark "${t.title}" done`);
+      done.onclick = () => onDone(t, done);
+      act.append(done);
+      row.append(when, tb, act);
+      if (S.openId === t.id && t.content) row.append(el("div", "body", t.content));
+      host.append(row);
+    }
+  }
+
+  function renderAll() { renderClock(); renderBanner(); renderNow(); renderTasks(); }
+
+  // ---------- sign-in (Google) and data access ----------
+  const SCOPES = "openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets";
+  const AKEY = "nextup.auth";
+  let auth = null, tokenClient = null;
+  try { auth = JSON.parse(localStorage.getItem(AKEY) || "null"); } catch {}
+  if (auth && auth.exp < Date.now() + 60e3) auth = null;
+  // Permanent sign-in: after "Sign in" the Worker sends us back with a long-lived session token (kept here); whenever the
+  // one-hour Google token is missing or about to run out we swap the session token for a fresh one.
+  const SKEY2 = "nextup.session";
+  let session = "";
+  try {
+    const m = /[#&]nu_session=(nu_[0-9a-f]+)/.exec(location.hash);
+    if (m) { session = m[1]; localStorage.setItem(SKEY2, session); history.replaceState(null, "", location.pathname + location.search); }
+    else session = localStorage.getItem(SKEY2) || "";
+  } catch {}
+  let permanent = false, renewing = null;
+  async function renewAuth() {
+    if (!session) return false;
+    renewing = renewing || (async () => {
+      try {
+        const r = await fetch(String(CFG.workerUrl || "").replace(/\/$/, "") + "/auth/token", { method: "POST", headers: { Authorization: "Bearer " + session } });
+        if (r.status === 401) { session = ""; try { localStorage.removeItem(SKEY2); } catch {} return false; }
+        if (!r.ok) return false; // server hiccup: keep the session, try again later
+        const d = await r.json();
+        auth = { token: d.access_token, exp: Date.now() + (Number(d.expires_in) || 3600) * 1000 };
+        try { localStorage.setItem(AKEY, JSON.stringify(auth)); } catch {}
+        return true;
+      } catch { return false; }
+      finally { renewing = null; }
+    })();
+    return renewing;
+  }
+  class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+  async function http(url, opts = {}) {
+    if (session && (!auth || auth.exp < Date.now() + 120e3)) await renewAuth();
+    if (!auth) throw new HttpError(401, "signed out");
+    const send = () => fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + auth.token, ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
+    let r = await send();
+    if (r.status === 401 && session && (await renewAuth())) r = await send();
+    if (r.status === 401) { signedOut("Your sign-in expired. Sign in again."); throw new HttpError(401, "expired"); }
+    const text = await r.text(); let data = null; try { data = JSON.parse(text); } catch { data = text; }
+    if (!r.ok) throw new HttpError(r.status, (data && data.error && (data.error.message || data.error)) || r.statusText);
+    return data;
+  }
+  const W = (path) => String(CFG.workerUrl || "").replace(/\/$/, "") + path;
+  const api = {
+    config: () => http(W("/config")),
+    tasks: (from, to) => http(W(`/ticktick/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)),
+    completeTask: (projectId, taskId, info = {}) => http(W("/ticktick/complete"), { method: "POST", body: JSON.stringify({ projectId, taskId, ...info }) }),
+    ticktickConnectUrl: () => http(W("/ticktick/start"), { method: "POST", body: "{}" }),
+    claude: (body) => http(W("/claude"), { method: "POST", body: JSON.stringify(body) }),
+    relayStatus: () => http(W("/relay/status")),
+    sheetMeta: () => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties.title`),
+    sheetBatch: (requests) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, { method: "POST", body: JSON.stringify({ requests }) }),
+    sheetPutRaw: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ range, values }) }),
+    sheetAppend: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: "POST", body: JSON.stringify({ values }) }),
+    saveSettings: (body) => http(W("/settings"), { method: "POST", body: JSON.stringify(body) }),
+    relayAsk: (prompt) => http(W("/relay/ask"), { method: "POST", body: JSON.stringify({ prompt }) }),
+    relayAnswer: (id) => http(W("/relay/answer?id=" + encodeURIComponent(id))),
+    events: (from, to) => http(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(from)}&timeMax=${encodeURIComponent(to)}&timeZone=${encodeURIComponent(tz)}`),
+    addEvent: (ev) => http("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", body: JSON.stringify(ev) }),
+    sheetGet: (range) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}`),
+    sheetPut: (range, values) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, { method: "PUT", body: JSON.stringify({ range, values }) }),
+  };
+  function initGoogle() {
+    if (tokenClient || !window.google || !google.accounts || !google.accounts.oauth2) return !!tokenClient;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CFG.googleClientId, scope: SCOPES,
+      callback: (resp) => {
+        if (resp.error) { $("gateMsg").textContent = "Sign-in didn't finish. Try again."; return; }
+        auth = { token: resp.access_token, exp: Date.now() + (Number(resp.expires_in) || 3600) * 1000 };
+        try { localStorage.setItem(AKEY, JSON.stringify(auth)); } catch {}
+        const ret = new URLSearchParams(location.search).get("return");
+        if (ret && /^[\w-]+\.html$/.test(ret)) { location.href = ret; return; }
+        start();
+      },
+    });
+    return true;
+  }
+  // Inside the Android/iOS app (app/ folder), Google sign-in and notifications are native: the app injects
+  // a NextUpNative channel, answers sign-in with window.nextUpNativeAuth, and opens other sites in the browser.
+  const NATIVE = window.NextUpNative && typeof window.NextUpNative.postMessage === "function";
+  const native = (msg) => { if (NATIVE) try { window.NextUpNative.postMessage(JSON.stringify(msg)); } catch {} };
+  window.nextUpNativeAuth = (token, expiresIn, error) => {
+    if (!token) { $("gateMsg").textContent = error || "Sign-in didn't finish. Try again."; return; }
+    auth = { token, exp: Date.now() + (Number(expiresIn) || 3300) * 1000 };
+    try { localStorage.setItem(AKEY, JSON.stringify(auth)); } catch {}
+    start();
+  };
+  if (NATIVE) window.open = (url) => { native({ type: "open", url: String(url) }); return null; };
+  $("signin").onclick = () => {
+    if (NATIVE) { $("gateMsg").textContent = "Signing in…"; native({ type: "signin" }); return; }
+    if (!CFG.googleClientId || !CFG.workerUrl) { $("gateMsg").textContent = "This site isn't configured yet: fill in config.js (see README)."; return; }
+    if (permanent) { location.href = W("/auth/start?client=" + encodeURIComponent(CFG.googleClientId)); return; }
+    if (!initGoogle()) { $("gateMsg").textContent = "Google sign-in is still loading. Try again in a second."; return; }
+    tokenClient.requestAccessToken({ prompt: auth ? "" : "consent" });
+  };
+  $("signout").onclick = () => {
+    native({ type: "signout" });
+    if (session) { fetch(W("/auth/logout"), { method: "POST", headers: { Authorization: "Bearer " + session } }).catch(() => {}); session = ""; try { localStorage.removeItem(SKEY2); } catch {} }
+    try { if (auth && window.google) google.accounts.oauth2.revoke(auth.token, () => {}); } catch {}
+    signedOut("Signed out.");
+  };
+  function signedOut(msg) {
+    auth = null; try { localStorage.removeItem(AKEY); } catch {}
+    $("app").hidden = true; $("gate").hidden = false; $("fab").hidden = true; $("gateMsg").textContent = msg;
+    $("gateMsg").className = /isn't allowed|expired|couldn't|failed/i.test(msg || "") ? "err" : "";
+  }
+
+  // ---------- actions ----------
+  async function completeTask(t) {
+    await api.completeTask(pid(t), t.id, { title: t.title, list: projName(pid(t)), tags: t.tags || [] });
+    S.removed.add(t.id);
+    renderAll();
+  }
+  let armTimer = null;
+  async function onDone(t, btn) {
+    if (S.armed !== t.id) { S.armed = t.id; clearTimeout(armTimer); armTimer = setTimeout(() => { S.armed = null; renderTasks(); }, 4000); renderTasks(); return; }
+    S.armed = null; btn.disabled = true; btn.textContent = "Saving…";
+    try { await completeTask(t); }
+    catch (e) { $("taskErr").hidden = false; $("taskErr").textContent = copyFor(e, TT); btn.disabled = false; btn.textContent = "Done"; }
+  }
+
+  // ---------- timer ----------
+  // Pomodoro / short break / long break, Time Timer dial or minimal ring. Settings and the running
+  // timer are kept in this browser only.
+  const TKEY = "nextup.timer2", SKEY = "nextup.timerSettings";
+  const DEF = { focus: 25, short: 5, long: 15, every: 4, auto: true, minimal: false, colF: "", colB: "" };
+  let set = { ...DEF };
+  try { set = { ...DEF, ...JSON.parse(localStorage.getItem(SKEY) || "{}") }; } catch {}
+  let timer = null; // {mode, dur, left, end, running, label, done}
+  try { timer = JSON.parse(localStorage.getItem(TKEY) || "null"); } catch {}
+  const LABEL = { focus: "Pomodoro", short: "Short break", long: "Long break" };
+  const save = () => {
+    try { localStorage.setItem(TKEY, JSON.stringify(timer)); localStorage.setItem(SKEY, JSON.stringify(set)); } catch {}
+    // In the app, a native notification fires when the running session ends, even with the app closed.
+    native({ type: "timer", end: timer.running ? timer.end : 0, title: timer.mode === "focus" ? "Pomodoro done" : "Break over", body: timer.mode === "focus" ? "Time for a break." : "Back to focus." });
+  };
+  const minsFor = (mode) => Math.max(1, Math.min(60, Number(set[mode]) || DEF[mode]));
+  function fresh(mode, done) { return { mode, dur: minsFor(mode) * 6e4, left: minsFor(mode) * 6e4, end: 0, running: false, label: "", done: done || 0 }; }
+  if (!timer || !timer.mode) timer = fresh("focus", 0);
+  const leftNow = () => timer.running ? timer.end - Date.now() : timer.left;
+  function setMode(mode) { timer = fresh(mode, timer.done); save(); renderTimer(); trackAuto(false); }
+  function play() { if (timer.running) return; timer.end = Date.now() + timer.left; timer.running = true; save(); renderTimer(); if (timer.mode === "focus") trackAuto(true); }
+  function pause() { if (!timer.running) return; timer.left = Math.max(0, timer.end - Date.now()); timer.running = false; save(); renderTimer(); if (timer.mode === "focus") trackAuto(false); }
+  function startTimer(min, label) {
+    min = Math.max(1, Math.min(60, Math.round(Number(min) || set.focus)));
+    timer = { ...fresh("focus", timer.done), dur: min * 6e4, left: min * 6e4, label: label || "" };
+    play();
+    return { started: true, minutes: min, break_minutes: minsFor("short") };
+  }
+  function finish(skipped) {
+    try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch {}
+    if (!skipped) logXp(timer.mode === "focus" ? "timer" : "break");
+    if (timer.mode === "focus") trackAuto(false);
+    if (timer.mode === "focus") {
+      const done = timer.done + 1;
+      timer = fresh(done % (Number(set.every) || 4) === 0 ? "long" : "short", done);
+      if (set.auto) play();
+    } else timer = fresh("focus", timer.done);
+    save();
+  }
+  // Finished pomodoros and breaks earn XP in Quest Log automatically (quest ids "timer" and "break").
+  function logXp(id) {
+    let q = null; try { q = (JSON.parse(localStorage.getItem("xp.quests") || "[]") || []).find((x) => x.id === id); } catch {}
+    const base = q ? q.xp : (id === "timer" ? 15 : 5);
+    const name = q ? q.name : (id === "timer" ? "Finished a timer session" : "Took the break (reverse pomodoro)");
+    XP.queue({ t: Date.now(), q: id, name, base, mult: 1, xp: base, kind: "auto" }, 4);
+    XP.flush().catch(() => {});
+    xpToast(`+${base} XP · ${name}`);
+  }
+  function xpToast(msg) {
+    const t = el("div", "xptoast", msg); document.body.append(t); setTimeout(() => t.remove(), 3000);
+  }
+  (function drawTicks() {
+    const g = $("tTicks"); const NS = "http://www.w3.org/2000/svg";
+    for (let m = 0; m < 60; m++) {
+      const a = (m / 60) * 2 * Math.PI, major = m % 5 === 0;
+      const r1 = 86, r2 = major ? 76 : 81;
+      const ln = document.createElementNS(NS, "line");
+      ln.setAttribute("x1", 100 - r1 * Math.sin(a)); ln.setAttribute("y1", 100 - r1 * Math.cos(a));
+      ln.setAttribute("x2", 100 - r2 * Math.sin(a)); ln.setAttribute("y2", 100 - r2 * Math.cos(a));
+      ln.setAttribute("class", "tick" + (major ? " major" : "")); g.append(ln);
+      if (major) {
+        const t = document.createElementNS(NS, "text");
+        t.setAttribute("x", 100 - 64 * Math.sin(a)); t.setAttribute("y", 100 - 64 * Math.cos(a));
+        t.setAttribute("class", "num"); t.textContent = String(m); g.append(t);
+      }
+    }
+  })();
+  // Red disk covers the minutes left, counterclockwise from 0 at the top, like a Time Timer.
+  function setWedge(minLeft, cls) {
+    const w = $("tWedge"); const m = Math.max(0, Math.min(60, minLeft)); const R = 88;
+    w.setAttribute("class", "wedge " + (cls || ""));
+    if (m >= 59.999) { w.setAttribute("d", `M100 ${100 - R} A${R} ${R} 0 1 0 100 ${100 + R} A${R} ${R} 0 1 0 100 ${100 - R} Z`); return; }
+    if (m <= 0) { w.setAttribute("d", ""); return; }
+    const a = (m / 60) * 2 * Math.PI;
+    const x = 100 - R * Math.sin(a), y = 100 - R * Math.cos(a);
+    w.setAttribute("d", `M100 100 L100 ${100 - R} A${R} ${R} 0 ${m > 30 ? 1 : 0} 0 ${x.toFixed(2)} ${y.toFixed(2)} Z`);
+  }
+  // Minimal ring: full circle = the whole session, shrinking as time runs out.
+  function setRing(frac, cls) {
+    const c = 2 * Math.PI * 88, r = $("tRing");
+    r.setAttribute("class", "ring " + (cls || ""));
+    r.setAttribute("stroke-dasharray", `${(Math.max(0, Math.min(1, frac)) * c).toFixed(2)} ${c.toFixed(2)}`);
+  }
+  const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; };
+  function renderTimer() {
+    if (drag) return;
+    let left = leftNow();
+    if (timer.running && left <= 0) { finish(); left = leftNow(); }
+    const brk = timer.mode !== "focus";
+    const panel = $("timerPanel");
+    panel.classList.toggle("minimal", !!set.minimal);
+    panel.style.setProperty("--t-focus", set.colF || "var(--disk)");
+    panel.style.setProperty("--t-brk", set.colB || "var(--ok)");
+    document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === timer.mode)));
+    setWedge(left / 6e4, (brk ? "brk" : "") + (timer.running ? "" : " idle"));
+    setRing(left / timer.dur, brk ? "brk" : "");
+    $("tBig").textContent = mmss(left); $("tMinText").textContent = mmss(left);
+    $("tDial").setAttribute("aria-valuenow", String(Math.ceil(left / 6e4)));
+    $("tGo").textContent = timer.running ? "Pause" : (left < timer.dur ? "Resume" : "Start");
+    $("tMode").textContent = timer.running ? LABEL[timer.mode] : (left < timer.dur ? "Paused" : "Ready");
+    const n = timer.done + (timer.mode === "focus" ? 1 : 0);
+    $("tNote").textContent = timer.mode === "focus"
+      ? `${timer.label ? timer.label + " · " : ""}Pomodoro #${n}. Drag the dial to set the time.`
+      : `${LABEL[timer.mode]}. Stand up, water, back soon.`;
+    if (document.title !== undefined) {
+      const base = document.title.replace(/^\d\d:\d\d · /, "");
+      document.title = timer.running ? `${mmss(left)} · ${base}` : base;
+    }
+  }
+  $("tGo").onclick = () => (timer.running ? pause() : play());
+  $("tReset").onclick = () => setMode(timer.mode);
+  $("tSkip").onclick = () => { timer.running = false; timer.left = 0; finish(true); renderTimer(); };
+  document.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => setMode(b.dataset.mode));
+
+  // Drag the dial: angle counterclockwise from the top = minutes. Letting go starts the timer.
+  let drag = null;
+  function minutesAt(ev) {
+    const svg = $("tDial"), r = svg.getBoundingClientRect();
+    const dx = (ev.clientX - r.left) / r.width * 200 - 100, dy = (ev.clientY - r.top) / r.height * 200 - 100;
+    let a = Math.atan2(-dx, -dy); if (a < 0) a += 2 * Math.PI;
+    let m = Math.round(a / (2 * Math.PI) * 60);
+    if (m === 0) m = drag && drag.m > 30 ? 60 : 1;
+    return Math.max(1, Math.min(60, m));
+  }
+  function showPick(m) {
+    const brk = timer.mode !== "focus";
+    setWedge(m, brk ? "brk" : ""); setRing(1, brk ? "brk" : "");
+    $("tBig").textContent = `${pad(m)}:00`; $("tMinText").textContent = `${pad(m)}:00`;
+    $("tMode").textContent = "Set";
+    $("tNote").textContent = `Let go to start ${m} min.`;
+  }
+  const dial = $("tDial");
+  dial.addEventListener("pointerdown", (ev) => { ev.preventDefault(); drag = { m: 25 }; drag.m = minutesAt(ev); dial.setPointerCapture(ev.pointerId); dial.classList.add("dragging"); showPick(drag.m); });
+  dial.addEventListener("pointermove", (ev) => { if (!drag) return; drag.m = minutesAt(ev); showPick(drag.m); });
+  dial.addEventListener("pointerup", () => {
+    if (!drag) return; const m = drag.m; drag = null; dial.classList.remove("dragging");
+    timer = { ...fresh(timer.mode, timer.done), dur: m * 6e4, left: m * 6e4, label: timer.label }; play();
+  });
+  dial.addEventListener("pointercancel", () => { drag = null; dial.classList.remove("dragging"); renderTimer(); });
+  dial.addEventListener("keydown", (ev) => {
+    const step = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[ev.key];
+    if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); $("tGo").click(); return; }
+    if (!step) return; ev.preventDefault();
+    const m = Math.max(1, Math.min(60, Math.ceil(leftNow() / 6e4) + step));
+    const was = timer.running; timer = { ...timer, dur: Math.max(timer.dur, m * 6e4), left: m * 6e4, end: Date.now() + m * 6e4 };
+    timer.running = was; save(); renderTimer();
+  });
+
+  // Fullscreen: real fullscreen where allowed, otherwise the panel fills the window.
+  function setFull(on) {
+    $("timerPanel").classList.toggle("fs", on);
+    $("tFull").textContent = on ? "Exit fullscreen" : "Fullscreen";
+    document.body.style.overflow = on ? "hidden" : "";
+  }
+  $("tFull").onclick = () => {
+    const on = !$("timerPanel").classList.contains("fs");
+    setFull(on);
+    try {
+      if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    } catch {}
+  };
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && $("timerPanel").classList.contains("fs")) setFull(false); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && $("timerPanel").classList.contains("fs")) setFull(false); });
+
+  // Settings
+  const bindNum = (id, key) => { const e = $(id); e.value = set[key]; e.onchange = () => { set[key] = Math.max(Number(e.min) || 1, Math.min(Number(e.max) || 60, Math.round(Number(e.value) || DEF[key]))); e.value = set[key]; if (!timer.running && timer.left === timer.dur && key === timer.mode) timer = fresh(key, timer.done); save(); renderTimer(); }; };
+  bindNum("sFocus", "focus"); bindNum("sShort", "short"); bindNum("sLong", "long"); bindNum("sEvery", "every");
+  $("sAuto").checked = !!set.auto; $("sAuto").onchange = () => { set.auto = $("sAuto").checked; save(); };
+  $("sMinimal").checked = !!set.minimal; $("sMinimal").onchange = () => { set.minimal = $("sMinimal").checked; save(); renderTimer(); };
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function syncColors() { $("sColF").value = set.colF || cssVar("--disk") || "#e3343b"; $("sColB").value = set.colB || cssVar("--ok") || "#3d9a6c"; }
+  syncColors();
+  $("sColF").oninput = () => { set.colF = $("sColF").value; save(); renderTimer(); };
+  $("sColB").oninput = () => { set.colB = $("sColB").value; save(); renderTimer(); };
+  $("sColReset").onclick = () => { set.colF = ""; set.colB = ""; save(); syncColors(); renderTimer(); };
+
+  // ---------- Claude chat ----------
+  const turns = [];
+  function snapshot() {
+    const now = new Date();
+    const evs = todayEvents().filter((x) => x.en > now).slice(0, 10).map((x) => {
+      const d = (x.e.description || "").replace(/<[^>]+>/g, "").slice(0, 300);
+      return `- ${timeFmt(x.s)}-${timeFmt(x.en)} ${x.e.summary || ""}${d ? ` | notes: ${d.replace(/\n/g, " ")}` : ""}`;
+    }).join("\n") || "(none loaded)";
+    const ts = allTasks().slice(0, 20).map(({ t, due }) =>
+      `- [${t.id}] ${t.title} | list: ${projName(pid(t))} | personal deadline ${dayFmt(due)} ${timeFmt(due)} (${fmtLeft(due - now)} from now)${realDeadline(t) ? ` | real deadline ${realDeadline(t)}` : ""} | priority ${t.priority || 0}${t.content ? ` | note: ${t.content.slice(0, 240).replace(/\n/g, " ")}` : ""}`
+    ).join("\n") || "(none loaded)";
+    return `Current time: ${now.toString()}\n\nCalendar, rest of today:\n${evs}\n\nOpen TickTick tasks (overdue and next 7 days), soonest first:\n${ts}\n\nHours this week (Time Tracker): ${hoursSummary()}\n\nFocus timer: ${timer.running ? `${LABEL[timer.mode]}, ${mmss(leftNow())} left` : "not running"}`;
+  }
+  // Personal details (name, routine, planning rules) come from the server's PROFILE secret, never this public file.
+  let PROFILE = {};
+  const RULES_BASE = `You are a planning coach built into the user's personal dashboard. Your job is to get them started on the right thing now and keep a sense of urgency without guilt.
+Style: short and direct, at most 6 short lines unless asked for a plan. Lead with the one thing to do now and a concrete first step that takes under 2 minutes. Plain text, no headings. Never diagnose anything.
+You can call tools: complete_task to mark a task done (only when the user clearly says it is done), and start_timer to start the focus timer when the user agrees to start.`;
+  const rules = () => RULES_BASE + (PROFILE.name ? `\nThe user's name is ${PROFILE.name}.` : "") + (PROFILE.rules ? `\nTheir planning rules: ${PROFILE.rules}` : "");
+  function applyProfile() {
+    $("placeLbl").textContent = PROFILE.place ? `Next up · ${PROFILE.place}` : "Next up";
+    $("wakeLbl").textContent = PROFILE.wake ? `Wake ${PROFILE.wake}` : "";
+    $("sleepLbl").textContent = [PROFILE.windDown && `Wind-down ${PROFILE.windDown}`, PROFILE.sleep && `Sleep ${PROFILE.sleep}`].filter(Boolean).join(" · ");
+    renderClock();
+  }
+
+  function addMsg(cls, text) { const m = el("div", "msg " + cls, text); $("log").append(m); $("log").scrollTop = $("log").scrollHeight; return m; }
+  let busy = false;
+  const tools = [
+    { name: "complete_task", description: "Mark one of the user's TickTick tasks as done. Input: task_id from the task list (the value in square brackets). Returns {ok, title}.",
+      input_schema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] },
+      async execute(input) {
+        const t = allTasks().find((x) => x.t.id === String(input.task_id));
+        if (!t) throw new Error("No open task with that id.");
+        await completeTask(t.t); addMsg("sys", `Marked done: ${t.t.title}`); return { ok: true, title: t.t.title };
+      } },
+    { name: "start_timer", description: "Start a pomodoro on the dashboard's focus timer. Input: minutes (1-60) and an optional short label. A short or long break follows. Returns the minutes started.",
+      input_schema: { type: "object", properties: { minutes: { type: "number" }, label: { type: "string" } }, required: ["minutes"] },
+      execute(input) { const r = startTimer(input.minutes, input.label ? String(input.label) : ""); addMsg("sys", `Timer started: ${r.minutes} min`); return r; } },
+  ];
+  // Without an API key: send the question to Claude Code on the laptop (relay) when it's online,
+  // otherwise open a Claude chat (app or claude.ai) prefilled with the page snapshot. Both run on the user's plan.
+  let chatMode = "app", relayOn = false;
+  function setChatMode(cfg) {
+    chatMode = cfg.claudeApi ? "api" : cfg.relay ? "relay" : "app";
+    $("send").textContent = chatMode === "app" ? "Ask" : "Send";
+    $("askIntro").textContent = chatMode === "api" ? "Ask anything about today. Claude can also mark tasks done or start your timer."
+      : chatMode === "relay" ? "Ask anything about today. Your laptop answers; if it's off, this opens Claude in a new tab instead."
+      : "Ask anything about today. It opens Claude with your tasks and calendar filled in, and Claude can tick off TickTick tasks from there.";
+  }
+  function askInApp(text) {
+    const intro = rules().replace(/You can call tools:[^\n]*/, "If the user says a task is done, complete it with the TickTick connector. Task ids are in square brackets.");
+    let prompt = `${text}\n\n---\nContext from my Next Up dashboard:\n${intro}\n\n${snapshot()}`;
+    if (prompt.length > 7000) prompt = prompt.slice(0, 7000) + "\n(trimmed)";
+    try { navigator.clipboard && navigator.clipboard.writeText(prompt); } catch {}
+    window.open("https://claude.ai/new?q=" + encodeURIComponent(prompt), "_blank", "noopener");
+    addMsg("sys", "Opened in Claude. If the message box there is empty, paste: it's on your clipboard.");
+  }
+  const RELAY_ACTIONS = `To act on the dashboard, put each action on its own last line, exactly like:
+ACTION complete_task <task_id>   (only when the user clearly says the task is done)
+ACTION start_timer <minutes> <optional label>   (when the user agrees to start)
+Do not use any other tools.`;
+  async function askLaptop(text, bubble) {
+    const hist = turns.slice(0, -1).map((t) => `${t.role === "user" ? "User" : "You"}: ${t.content}`).join("\n");
+    const prompt = `${rules().replace(/You can call tools:[^\n]*/, RELAY_ACTIONS)}\n\n${snapshot()}${hist ? `\n\nEarlier in this chat:\n${hist}` : ""}\n\nUser: ${text}`;
+    const { id } = await api.relayAsk(prompt);
+    const until = Date.now() + 170e3;
+    while (Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const a = await api.relayAnswer(id);
+      if (a.state === "working") bubble.textContent = "Thinking on your laptop…";
+      if (a.state === "gone") throw new Error("The laptop didn't pick up the question.");
+      if (a.state === "done") {
+        if (a.error) throw new Error("Claude on the laptop failed: " + a.error);
+        const lines = a.text.split("\n"); const keep = [];
+        for (const line of lines) {
+          const m = line.trim().match(/^ACTION\s+(complete_task|start_timer)\s+(\S+)\s*(.*)$/);
+          if (!m) { keep.push(line); continue; }
+          const tool = tools.find((t) => t.name === m[1]);
+          try { await tool.execute(m[1] === "complete_task" ? { task_id: m[2] } : { minutes: parseFloat(m[2]) || 25, label: m[3] }); }
+          catch (e) { addMsg("sys", String(e.message || e)); }
+        }
+        return keep.join("\n").trim();
+      }
+    }
+    throw new Error("The laptop is taking too long. Try again.");
+  }
+  async function ask(text) {
+    if (!text.trim()) return;
+    if (busy) return;
+    if (chatMode === "app") { addMsg("me", text); askInApp(text); return; }
+    if (chatMode === "relay") {
+      try { relayOn = (await api.relayStatus()).online; } catch { relayOn = false; }
+      if (!relayOn) { addMsg("me", text); addMsg("sys", "Your laptop relay is offline, so this opens in Claude instead."); askInApp(text); return; }
+      busy = true; $("send").disabled = true;
+      addMsg("me", text); turns.push({ role: "user", content: text });
+      while (turns.length > 12 || (turns.length && turns[0].role !== "user")) turns.shift();
+      const bubble = addMsg("cl", "Sending to your laptop…");
+      try {
+        const out = await askLaptop(text, bubble);
+        if (out) { bubble.textContent = out; turns.push({ role: "assistant", content: out }); } else bubble.remove();
+      } catch (e) { bubble.remove(); turns.pop(); addMsg("sys", e.status ? copyFor(e, "the relay") : String(e.message || e)); }
+      finally { busy = false; $("send").disabled = false; }
+      return;
+    }
+    busy = true; $("send").disabled = true;
+    addMsg("me", text);
+    turns.push({ role: "user", content: text });
+    while (turns.length > 12 || (turns.length && turns[0].role !== "user")) turns.shift();
+    const bubble = addMsg("cl", "Thinking…");
+    // Each request carries the page snapshot as the system prompt; tool rounds append Claude's full content.
+    const msgs = turns.map((t) => ({ role: t.role, content: t.content }));
+    const toolDefs = tools.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
+    try {
+      let finalText = "";
+      for (let round = 0; round < 5; round++) {
+        const r = await api.claude({ system: rules() + "\n\n" + snapshot(), messages: msgs, tools: toolDefs });
+        const texts = (r.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+        if (texts) { finalText = texts; bubble.textContent = texts; }
+        if (r.stop_reason === "refusal") { finalText = finalText || "Claude couldn't answer that one. Try rephrasing."; bubble.textContent = finalText; break; }
+        if (r.stop_reason !== "tool_use") break;
+        msgs.push({ role: "assistant", content: r.content });
+        const results = [];
+        for (const b of r.content.filter((x) => x.type === "tool_use")) {
+          const tool = tools.find((t) => t.name === b.name);
+          try { const out = await tool.execute(b.input || {}); results.push({ type: "tool_result", tool_use_id: b.id, content: JSON.stringify(out) }); }
+          catch (e) { results.push({ type: "tool_result", tool_use_id: b.id, content: String(e.message || e), is_error: true }); }
+        }
+        msgs.push({ role: "user", content: results });
+      }
+      if (!finalText) { bubble.remove(); addMsg("sys", "Claude didn't reply. Send it again."); turns.pop(); }
+      else turns.push({ role: "assistant", content: finalText });
+    } catch (e) {
+      bubble.remove(); turns.pop();
+      addMsg("sys", e.status === 429 ? "Too many requests. Try again in a minute." : copyFor(e, "Claude"));
+    } finally { busy = false; $("send").disabled = false; }
+  }
+  function hideAsk(msg) { $("form").hidden = true; $("quick").hidden = true; $("askNote").hidden = false; $("askNote").textContent = msg; }
+  $("form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("q").value; $("q").value = ""; ask(v); });
+  $("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } });
+  $("quick").querySelectorAll("button").forEach((b) => b.onclick = () => ask(b.textContent));
+  $("sheetsBtn").onclick = () => sheetForm();
+  $("fab").onclick = () => { $("ask").scrollIntoView({ behavior: "smooth" }); setTimeout(() => $("q").focus(), 300); };
+
+  // ---------- Track (Timelines-style time tracking) ----------
+  // Stored in the Time Tracker sheet's "Tracked" tab. A: start, B: end (blank while running), C: category,
+  // D: note, E: id. Targets sit in G:I (category, daily hours, weekly hours) so they can be edited in the sheet too.
+  const TRTAB = "Tracked";
+  const TR = { rows: null, targets: [], day: 0, view: "day", ready: false, plan: {}, busy: false, edit: null };
+  const PALETTE = ["#e4572e", "#2e86ab", "#f6ae2d", "#43aa8b", "#9c4dcc", "#00a6a6", "#ff7f50", "#6c6cd8", "#d81b60", "#8d6e63", "#7cb342", "#f3722c"];
+  function trCats() {
+    const fromSheet = (S.types || []).map((r) => String(r[0] || "").trim()).filter((n) => n && !/^(type|buffer)$/i.test(n));
+    const base = fromSheet.length ? fromSheet : ["Class", "Study", "Homework", "Debate", "Meals", "Commute", "Chores", "Personal", "Free Time"];
+    const extra = [...(TR.rows || []).map((r) => r.cat), ...TR.targets.map((t) => t.cat)];
+    return [...new Set([...base, ...extra].filter(Boolean))];
+  }
+  function trColor(cat) {
+    let i = trCats().indexOf(cat);
+    if (i < 0) { i = 0; for (const ch of String(cat)) i = (i * 31 + ch.charCodeAt(0)) >>> 0; }
+    return PALETTE[i % PALETTE.length];
+  }
+  const trRunning = () => (TR.rows || []).filter((r) => !r.end).sort((a, b) => b.start - a.start)[0] || null;
+  const trEnd = (r) => r.end || new Date();
+  const hfmt = (ms) => { const m = Math.round(ms / 6e4); return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${pad(m % 60)}m`; };
+  const dayStart = (off) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + off); return d; };
+  const weekStart = () => { const d = dayStart(0); d.setDate(d.getDate() - d.getDay()); return d; }; // weeks run Sunday to Saturday, like the Time Tracker
+  const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const rowOf = (range) => { const m = String(range || "").match(/![A-Z]+(\d+)/); return m ? +m[1] : 0; };
+  function trFail(e) { $("trErr").hidden = false; $("trErr").textContent = copyFor(e, GS); }
+
+  async function trEnsureTab() {
+    if (TR.ready) return;
+    const meta = await api.sheetMeta();
+    if (!(meta.sheets || []).some((s) => s.properties && s.properties.title === TRTAB)) {
+      await api.sheetBatch([{ addSheet: { properties: { title: TRTAB } } }]);
+      await api.sheetPutRaw(`${TRTAB}!A1:I1`, [["Start", "End", "Category", "Note", "Id", "", "Target category", "Daily target (h)", "Weekly target (h)"]]);
+    }
+    TR.ready = true;
+  }
+  async function loadTrack() {
+    if (!SHEET) { $("trErr").hidden = false; $("trErr").textContent = "Set your Time Tracker sheet under My sheets to start tracking."; return; }
+    try {
+      await trEnsureTab();
+      const [a, g] = await Promise.all([api.sheetGet(`${TRTAB}!A2:E5000`), api.sheetGet(`${TRTAB}!G2:I60`)]);
+      TR.rows = (a.values || []).map((r, i) => ({ row: i + 2, start: new Date(r[0]), end: r[1] ? new Date(r[1]) : null, cat: String(r[2] || "").trim(), note: String(r[3] || ""), id: String(r[4] || "") }))
+        .filter((r) => r.cat && !isNaN(r.start) && !(r.end && isNaN(r.end)));
+      TR.targets = (g.values || []).map((r) => ({ cat: String(r[0] || "").trim(), day: parseFloat(r[1]) || 0, week: parseFloat(r[2]) || 0 })).filter((t) => t.cat);
+      $("trErr").hidden = true; stamp("trStamp");
+      renderTrack();
+    } catch (e) { trFail(e); }
+  }
+  async function trWriteEnd(r, end) {
+    await api.sheetPutRaw(`${TRTAB}!B${r.row}`, [[end.toISOString()]]);
+    r.end = end;
+  }
+  async function trAppend(r) {
+    const res = await api.sheetAppend(`${TRTAB}!A1:E1`, [[r.start.toISOString(), r.end ? r.end.toISOString() : "", r.cat, r.note || "", r.id]]);
+    r.row = rowOf(res && res.updates && res.updates.updatedRange);
+    TR.rows.push(r);
+    if (!r.row) await loadTrack(); // couldn't tell which row it landed on; reload to get row numbers
+  }
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // Starts tracking a category; whatever was running stops at the same moment.
+  async function trStart(cat, note) {
+    if (TR.busy || !TR.rows) return; TR.busy = true;
+    try {
+      const now = new Date(), run = trRunning();
+      if (run && run.cat === cat && !note) return;
+      if (run) await trWriteEnd(run, now);
+      await trAppend({ start: now, end: null, cat, note: note || "", id: newId() });
+    } catch (e) { trFail(e); } finally { TR.busy = false; renderTrack(); }
+  }
+  async function trStop() {
+    const run = trRunning(); if (!run || TR.busy) return; TR.busy = true;
+    try { await trWriteEnd(run, new Date()); } catch (e) { trFail(e); } finally { TR.busy = false; renderTrack(); }
+  }
+  // Pomodoros count automatically: a focus session starts tracking (if nothing else is) and stops what it started.
+  function trackAuto(on) {
+    if (!TR.rows) return;
+    const run = trRunning();
+    if (on && !run) {
+      const cats = trCats(); const cat = cats.find((c) => /^study$/i.test(c)) || cats[0];
+      trStart(cat, "pomodoro" + (timer.label ? ": " + timer.label : ""));
+    } else if (!on && run && /^pomodoro/.test(run.note)) trStop();
+  }
+
+  function renderTrack() { renderTrackNow(); renderTrackCats(); renderTrackLine(); renderTrackStats(); }
+  function renderTrackNow() {
+    const box = $("trNow"); if (!box || !TR.rows) return;
+    const run = trRunning();
+    if (!run) { if (box.dataset.state !== "idle") { box.dataset.state = "idle"; box.replaceChildren(el("span", "note", "Not tracking. Tap what you're doing to start.")); } return; }
+    const elapsed = Date.now() - run.start;
+    if (box.dataset.state !== run.id + run.row) {
+      box.dataset.state = run.id + run.row;
+      const dot = el("span", "dot"); dot.style.background = trColor(run.cat);
+      const stop = el("button", null, "Stop"); stop.type = "button"; stop.onclick = trStop;
+      box.replaceChildren(dot, el("span", "cat", run.cat + (run.note ? ` · ${run.note}` : "")), el("span", "el"), stop);
+    }
+    box.querySelector(".el").textContent = fmtLeft(elapsed, true).replace(/^0m /, "");
+  }
+  function renderTrackCats() {
+    const box = $("trCats"); const run = trRunning(); box.replaceChildren();
+    for (const c of trCats()) {
+      const b = el("button", null, c); b.type = "button"; b.style.setProperty("--c", trColor(c));
+      b.setAttribute("aria-pressed", String(!!run && run.cat === c));
+      b.onclick = () => (run && run.cat === c ? trStop() : trStart(c));
+      box.append(b);
+    }
+  }
+  async function trPlanFor(off) {
+    if (off === 0) return todayEvents();
+    const key = String(off);
+    if (!TR.plan[key]) {
+      TR.plan[key] = "loading";
+      const d0 = dayStart(off), d1 = dayStart(off + 1);
+      try { const r = await api.events(isoLocal(d0), isoLocal(d1)); TR.plan[key] = (r.items || []).filter((e) => e.status !== "cancelled" && e.start && e.start.dateTime).map((e) => ({ e, s: new Date(e.start.dateTime), en: new Date(e.end.dateTime) })); }
+      catch { TR.plan[key] = []; }
+      renderTrackLine();
+    }
+    return Array.isArray(TR.plan[key]) ? TR.plan[key] : [];
+  }
+  async function renderTrackLine() {
+    const off = TR.day, d0 = dayStart(off), d1 = dayStart(off + 1);
+    $("trDay").textContent = off === 0 ? "Today" : off === -1 ? "Yesterday" : dayFmt(d0);
+    $("trNext").disabled = off >= 0;
+    const plan = await trPlanFor(off);
+    const acts = (TR.rows || []).filter((r) => r.start < d1 && trEnd(r) > d0);
+    // Show from the earlier of 6 AM or the first block, to midnight.
+    let h0 = 6;
+    for (const x of [...plan.map((p) => p.s), ...acts.map((r) => r.start)]) if (x >= d0 && x < d1) h0 = Math.min(h0, x.getHours());
+    const t0 = d0.getTime() + h0 * 36e5, span = d1.getTime() - t0;
+    const pos = (t) => Math.max(0, Math.min(100, ((t - t0) / span) * 100));
+    const line = $("trLine"); line.replaceChildren();
+    const step = line.clientWidth > 760 ? 1 : line.clientWidth > 480 ? 2 : 3;
+    for (let h = Math.ceil(h0 / step) * step; h < 24; h += step) { const m = el("div", "hr", h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`); m.style.left = pos(d0.getTime() + h * 36e5) + "%"; line.append(m); }
+    const lane = (cls, label) => { const l = el("div", "lane " + cls); l.append(el("span", "lbl", label)); line.append(l); return l; };
+    const pl = lane("plan", "plan"), al = lane("act", "tracked");
+    pl.querySelector(".lbl").style.top = "-14px"; al.querySelector(".lbl").style.top = "-14px";
+    for (const p of plan) {
+      const b = el("div", "blk", p.e.summary || ""); const a = pos(p.s), z = pos(p.en);
+      b.style.left = a + "%"; b.style.width = Math.max(0.3, z - a) + "%"; b.title = `${timeFmt(p.s)}–${timeFmt(p.en)} ${p.e.summary || ""}`; pl.append(b);
+    }
+    for (const r of acts) {
+      const b = el("button", "blk", r.cat); b.type = "button"; const a = pos(r.start), z = pos(trEnd(r));
+      b.style.left = a + "%"; b.style.width = Math.max(0.3, z - a) + "%"; b.style.setProperty("--c", trColor(r.cat));
+      b.title = `${timeFmt(r.start)}–${r.end ? timeFmt(r.end) : "now"} ${r.cat}${r.note ? " · " + r.note : ""}`;
+      b.setAttribute("aria-label", b.title + ". Tap to edit.");
+      b.onclick = () => trEditor(r); al.append(b);
+    }
+    if (off === 0) { const n = el("div", "nowln"); n.style.left = pos(Date.now()) + "%"; line.append(n); }
+  }
+
+  // Edit or add a block. Times use the device's local time.
+  function trEditor(r) {
+    const box = $("trEdit"); const isNew = !r;
+    if (isNew) { const s = new Date(); s.setDate(s.getDate() + TR.day); s.setMinutes(0, 0, 0); s.setHours(s.getHours() - 1); r = { start: s, end: new Date(s.getTime() + 36e5), cat: trCats()[0], note: "" }; }
+    const f = el("form", "tr-form");
+    const field = (label, input) => { const l = el("label", null, label); l.append(input); f.append(l); return input; };
+    const cat = field("Category", el("input")); cat.value = r.cat; cat.setAttribute("list", "trCatList"); cat.required = true;
+    const dl = el("datalist"); dl.id = "trCatList"; for (const c of trCats()) { const o = el("option"); o.value = c; dl.append(o); } f.append(dl);
+    const st = field("Start", el("input")); st.type = "datetime-local"; st.value = localInput(r.start); st.required = true;
+    const en = field("End", el("input")); en.type = "datetime-local"; if (r.end) en.value = localInput(r.end); en.placeholder = "still running";
+    const note = field("Note", el("input")); note.value = r.note || "";
+    const row = el("div", "row");
+    const save = el("button", "primary", isNew ? "Add" : "Save"); save.type = "submit";
+    const cancel = el("button", null, "Cancel"); cancel.type = "button"; cancel.onclick = () => { box.hidden = true; };
+    row.append(save, cancel);
+    if (!isNew) { const del = el("button", "danger", "Delete"); del.type = "button"; del.onclick = () => trDelete(r); row.append(del); }
+    f.append(row);
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const s = new Date(st.value), x = en.value ? new Date(en.value) : null;
+      if (isNaN(s) || (x && !(x > s))) { $("trErr").hidden = false; $("trErr").textContent = "End has to be after start."; return; }
+      save.disabled = true;
+      try {
+        if (isNew) await trAppend({ start: s, end: x, cat: cat.value.trim(), note: note.value.trim(), id: newId() });
+        else {
+          await api.sheetPutRaw(`${TRTAB}!A${r.row}:D${r.row}`, [[s.toISOString(), x ? x.toISOString() : "", cat.value.trim(), note.value.trim()]]);
+          Object.assign(r, { start: s, end: x, cat: cat.value.trim(), note: note.value.trim() });
+        }
+        box.hidden = true; $("trErr").hidden = true;
+      } catch (err) { trFail(err); save.disabled = false; }
+      renderTrack();
+    };
+    box.replaceChildren(f); box.hidden = false; cat.focus();
+  }
+  async function trDelete(r) {
+    try {
+      await api.sheetPutRaw(`${TRTAB}!A${r.row}:E${r.row}`, [["", "", "", "", ""]]);
+      TR.rows = TR.rows.filter((x) => x !== r); $("trEdit").hidden = true; renderTrack();
+    } catch (e) { trFail(e); }
+  }
+
+  // Totals per category for today or this week, against targets; confetti the first time a target is hit.
+  function renderTrackStats() {
+    const box = $("trStats"); if (!TR.rows) return;
+    const from = TR.view === "day" ? dayStart(0) : weekStart(), to = TR.view === "day" ? dayStart(1) : new Date(weekStart().getTime() + 7 * 864e5);
+    const tot = new Map();
+    for (const r of TR.rows) {
+      const a = Math.max(r.start, from), z = Math.min(trEnd(r), to);
+      if (z > a) tot.set(r.cat, (tot.get(r.cat) || 0) + (z - a));
+    }
+    const tgt = (c) => { const t = TR.targets.find((x) => x.cat.toLowerCase() === c.toLowerCase()); return t ? (TR.view === "day" ? t.day : t.week) * 36e5 : 0; };
+    const cats = [...new Set([...tot.keys(), ...TR.targets.filter((t) => (TR.view === "day" ? t.day : t.week)).map((t) => t.cat)])];
+    cats.sort((a, b) => (tot.get(b) || 0) - (tot.get(a) || 0));
+    const max = Math.max(36e5, ...cats.map((c) => Math.max(tot.get(c) || 0, tgt(c))));
+    const head = el("div", "tabs2");
+    for (const [v, label] of [["day", "Today"], ["week", "This week"]]) {
+      const b = el("button", null, label); b.type = "button"; b.setAttribute("aria-pressed", String(TR.view === v));
+      b.onclick = () => { TR.view = v; renderTrackStats(); }; head.append(b);
+    }
+    const tb = el("button", null, "Targets"); tb.type = "button"; tb.onclick = trTargetsEditor; head.append(tb);
+    box.replaceChildren(head);
+    if (!cats.length) { box.append(el("div", "note", TR.view === "day" ? "Nothing tracked today yet." : "Nothing tracked this week yet.")); return; }
+    const key = TR.view === "day" ? from.toDateString() : "w" + from.toDateString();
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem("track.hit") || "{}"); } catch {}
+    for (const c of cats) {
+      const v = tot.get(c) || 0, t = tgt(c), hit = t > 0 && v >= t;
+      const row = el("div", "tr-row" + (hit ? " hit" : "")); row.style.setProperty("--c", trColor(c));
+      const trk = el("div", "trk"), fill = el("i"); fill.style.width = Math.min(100, (v / (t || max)) * 100) + "%"; trk.append(fill);
+      row.append(el("span", null, c), trk, el("span", "v", t ? `${hfmt(v)} / ${hfmt(t)}${hit ? " ✓" : ""}` : hfmt(v)));
+      box.append(row);
+      const k = key + "|" + c;
+      if (hit && !seen[k]) { seen[k] = 1; confetti(); xpToast(`Target hit: ${c} ${TR.view === "day" ? "today" : "this week"}`); }
+    }
+    try { localStorage.setItem("track.hit", JSON.stringify(seen)); } catch {}
+  }
+  function trTargetsEditor() {
+    const box = $("trEdit"); const f = el("form", "tr-form");
+    f.append(el("div", "note", "Hours per category. Leave blank for no target."));
+    const inputs = [];
+    for (const c of trCats()) {
+      const t = TR.targets.find((x) => x.cat.toLowerCase() === c.toLowerCase()) || {};
+      const l = el("label", null, c); const wrap = el("div", "row");
+      const d = el("input"); d.type = "number"; d.min = "0"; d.step = "0.25"; d.placeholder = "per day"; d.value = t.day || "";
+      const w = el("input"); w.type = "number"; w.min = "0"; w.step = "0.5"; w.placeholder = "per week"; w.value = t.week || "";
+      wrap.append(d, w); l.append(wrap); f.append(l); inputs.push([c, d, w]);
+    }
+    const row = el("div", "row"); const save = el("button", "primary", "Save targets"); save.type = "submit";
+    const cancel = el("button", null, "Cancel"); cancel.type = "button"; cancel.onclick = () => { box.hidden = true; };
+    row.append(save, cancel); f.append(row);
+    f.onsubmit = async (e) => {
+      e.preventDefault(); save.disabled = true;
+      const rows = inputs.map(([c, d, w]) => [c, d.value, w.value]).filter((r) => r[1] || r[2]);
+      try {
+        await api.sheetPutRaw(`${TRTAB}!G2:I60`, [...rows, ...Array(Math.max(0, 59 - rows.length)).fill(["", "", ""])]);
+        TR.targets = rows.map((r) => ({ cat: r[0], day: parseFloat(r[1]) || 0, week: parseFloat(r[2]) || 0 }));
+        box.hidden = true; renderTrackStats();
+      } catch (err) { trFail(err); save.disabled = false; }
+    };
+    box.replaceChildren(f); box.hidden = false;
+  }
+  function confetti() {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    for (let i = 0; i < 60; i++) {
+      const p = el("i", "confetti"); p.style.left = Math.random() * 100 + "vw"; p.style.background = PALETTE[i % PALETTE.length];
+      p.style.animationDelay = Math.random() * 0.6 + "s"; document.body.append(p); setTimeout(() => p.remove(), 3200);
+    }
+  }
+  $("trPrev").onclick = () => { TR.day -= 1; $("trEdit").hidden = true; renderTrackLine(); };
+  $("trNext").onclick = () => { if (TR.day < 0) { TR.day += 1; $("trEdit").hidden = true; renderTrackLine(); } };
+  $("trAdd").onclick = () => trEditor(null);
+
+  // ---------- loading ----------
+  function stamp(id) { $(id).textContent = "updated " + timeFmt(new Date()); }
+  function dayBounds() { const d0 = new Date(); d0.setHours(0, 0, 0, 0); const d1 = new Date(d0); d1.setDate(d1.getDate() + 1); return [d0, d1]; }
+  async function loadTasks() {
+    const [d0] = dayBounds();
+    const back = new Date(d0); back.setDate(back.getDate() - 14);
+    const fwd = new Date(d0); fwd.setDate(fwd.getDate() + 14);
+    try {
+      const r = await api.tasks(back.toISOString(), fwd.toISOString());
+      for (const p of r.projects || []) { S.projects[p.id] = p.name; if (/^#[0-9a-f]{6}$/i.test(p.color || "")) S.pcolors[p.id] = p.color; }
+      const all = r.tasks || [];
+      S.overdue = all.filter((t) => { const d = dueOf(t); return d && d < d0; });
+      S.week = all.filter((t) => { const d = dueOf(t); return d && d >= d0; });
+      S.removed.clear();
+      $("taskErr").hidden = true; stamp("taskStamp");
+    } catch (e) {
+      $("taskErr").hidden = false;
+      if (e.status === 409) {
+        $("taskErr").replaceChildren(el("span", null, "Connect TickTick to see your tasks. "));
+        const b = el("button", "connect", "Connect TickTick"); b.type = "button";
+        b.onclick = async () => { try { const { url } = await api.ticktickConnectUrl(); location.href = url; } catch (err) { $("taskErr").textContent = copyFor(err, TT); } };
+        $("taskErr").append(b);
+      } else $("taskErr").textContent = copyFor(e, TT);
+      if (S.overdue === null) { S.overdue = []; S.week = []; }
+    }
+    renderBanner(); renderTasks(); renderNow();
+  }
+  async function loadCalendar() {
+    const [d0, d1] = dayBounds();
+    try { const r = await api.events(isoLocal(d0), isoLocal(d1)); S.events = r.items || []; stamp("calStamp"); renderNow(); }
+    catch (e) { $("nowBody").replaceChildren(el("div", "err", copyFor(e, GC))); }
+  }
+  // ---------- Time Tracker sheet ----------
+  const pct = (v) => { const n = parseFloat(String(v || "").replace("%", "")); return isNaN(n) ? null : n; };
+  const hrs = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+  function hoursSummary() {
+    const d = S.dash; if (!d) return "not loaded";
+    const g = (r, c) => (d[r] && d[r][c]) || "";
+    return `time adherence ${g(1,1)}, block completion ${g(2,1)}, ${g(4,1)} planned hours missed or skipped, university hours done ${g(9,1)} of ${g(8,1)} planned.`;
+  }
+  function renderHours() {
+    const d = S.dash; if (!d) return;
+    const g = (r, c) => (d[r] && d[r][c]) || "";
+    $("hTitle").textContent = (S.dashTitle || "This week") + ". Adherence counts only blocks you've rated.";
+    const body = $("hBody"); body.replaceChildren();
+    const kp = el("div", "kpis");
+    const tone = (p) => p == null ? "" : p >= 70 ? "good" : p >= 40 ? "mid" : "bad";
+    const k = (label, v, cls) => { const e = el("div", "kpi"); e.append(el("div", "label", label), el("div", "v " + (cls || ""), v || "–")); kp.append(e); };
+    k("Time adherence", g(1,1), tone(pct(g(1,1))));
+    k("Blocks done", g(2,1), tone(pct(g(2,1))));
+    k("Hours missed", g(4,1) ? g(4,1) + "h" : "", hrs(g(4,1)) > 3 ? "bad" : "");
+    k("Uni hours done", `${g(9,1) || 0}/${g(8,1) || 0}`, "");
+    body.append(kp);
+    // courses: rows 1..5 cols D..J (index 3..9)
+    const cg = el("div", "hbars"); cg.append(el("div", "sub-h", "Courses · done vs planned"));
+    for (let r = 1; r <= 5; r++) {
+      const name = g(r,3); if (!name) continue;
+      const plan = hrs(g(r,7)), done = hrs(g(r,8));
+      cg.append(bar(name, plan ? done / plan : 0, `${done.toFixed(1)}/${plan.toFixed(1)}h`));
+    }
+    body.append(cg);
+    // days: rows 9..15 cols D..I
+    const dg = el("div", "hbars"); dg.append(el("div", "sub-h", "By day · on-plan vs planned"));
+    const todayLbl = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).replace(",", "");
+    for (let r = 9; r <= 15; r++) {
+      const lbl = g(r,3); if (!lbl) continue;
+      const plan = hrs(g(r,5)), on = hrs(g(r,7)), rated = hrs(g(r,6));
+      const isToday = lbl.replace(/\s+/g, " ") === todayLbl;
+      dg.append(bar(lbl, plan ? on / plan : 0, rated ? `${on.toFixed(1)}/${plan.toFixed(1)}h` : `${plan.toFixed(1)}h unrated`, isToday));
+    }
+    body.append(dg);
+    if (S.types && S.types.length) {
+      const tg = el("div", "hbars"); tg.append(el("div", "sub-h", "By type · done vs planned"));
+      for (const row of S.types) {
+        if (!row[0] || row[0] === "Type" || row[0] === "Buffer") continue;
+        const plan = hrs(row[1]), done = hrs(row[2]);
+        tg.append(bar(row[0], plan ? done / plan : 0, `${done.toFixed(1)}/${plan.toFixed(1)}h`));
+      }
+      body.append(tg);
+    }
+  }
+  function bar(label, frac, num, today) {
+    const r = el("div", "hbar" + (today ? " is-today" : ""));
+    const tr = el("div", "track"); const i = el("i", today ? "today" : ""); i.style.width = Math.min(100, Math.max(0, frac * 100)).toFixed(1) + "%"; tr.append(i);
+    r.append(el("span", null, label), tr, el("span", "n", num));
+    return r;
+  }
+  function parseClock(dateStr, t) {
+    const m = String(t || "").match(/(\d+):(\d+)\s*(am|pm)/i); if (!m) return null;
+    let h = +m[1] % 12; if (/pm/i.test(m[3])) h += 12;
+    const d = new Date(dateStr + "T00:00:00"); if (isNaN(d)) return null; d.setHours(h, +m[2], 0, 0); return d;
+  }
+  // Blocks from the last two days that still have no status.
+  function rateRows() {
+    const now = new Date(); const since = new Date(now); since.setDate(since.getDate() - 2); since.setHours(0, 0, 0, 0);
+    const rows = [];
+    S.log.forEach((r, i) => {
+      const [date, , start, end, block, , type, planned, status] = r;
+      if (!date || status || type === "Buffer" || !block) return;
+      const en = parseClock(date, end), st = parseClock(date, start);
+      if (!en || !st) return;
+      if (en < st) en.setDate(en.getDate() + 1);
+      if (st > now || en < since) return;
+      rows.push({ row: i + 2, date, start, end, block, planned, st, en, live: en > now });
+    });
+    rows.sort((a, b) => b.st - a.st);
+    return rows;
+  }
+  function renderRate() {
+    const host = $("rateBody"); if (!S.log) return;
+    const rows = rateRows();
+    host.replaceChildren();
+    if (!rows.length) { host.append(el("p", "note", "All caught up. Every block from the last two days has a status.")); return; }
+    for (const b of rows.slice(0, 8)) {
+      const e = el("div", "rb");
+      e.append(el("div", "t", b.block), el("div", "m", `${dayFmt(b.st)} ${b.start}–${b.end} · ${b.planned}h planned${b.live ? " · happening now" : ""}`));
+      const btns = el("div", "btns");
+      const actual = el("input"); actual.type = "number"; actual.step = "0.25"; actual.min = "0"; actual.placeholder = "hrs"; actual.id = "act-" + b.row; actual.setAttribute("aria-label", "Actual hours (for partial)");
+      for (const st of ["DONE", "PARTIAL", "MISSED", "SKIP"]) {
+        const bt = el("button", null, st[0] + st.slice(1).toLowerCase()); bt.type = "button";
+        bt.onclick = () => rateBlock(b, st, actual.value, e);
+        btns.append(bt);
+      }
+      btns.append(actual);
+      e.append(btns); host.append(e);
+    }
+  }
+  async function rateBlock(b, status, actual, node) {
+    if (status === "PARTIAL" && !(parseFloat(actual) > 0)) { node.querySelector("input").focus(); node.querySelector(".m").textContent = "Enter the hours you actually did, then tap Partial."; return; }
+    node.querySelectorAll("button").forEach((x) => x.disabled = true);
+    try {
+      await api.sheetPut(`Log!I${b.row}:J${b.row}`, [[status, status === "PARTIAL" ? parseFloat(actual) : ""]]);
+      const r = S.log[b.row - 2]; if (r) r[8] = status;
+      renderRate();
+      loadSheet();
+    } catch (e) {
+      node.querySelectorAll("button").forEach((x) => x.disabled = false);
+      node.querySelector(".m").textContent = copyFor(e, GS);
+    }
+  }
+  // Rate with Claude: describe the day in your own words; Claude proposes a status for each block it can
+  // match, you check the list, and Apply writes them to the Time Tracker like the buttons do.
+  async function claudeOnce(prompt) {
+    if (chatMode === "api") {
+      const r = await api.claude({ system: "You help fill in a personal time tracker. Answer only with the JSON asked for.", messages: [{ role: "user", content: prompt }] });
+      return (r.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+    }
+    let on = false; try { on = (await api.relayStatus()).online; } catch {}
+    if (!on) throw new Error("Rating with Claude needs your laptop relay running (or a Claude API key). The buttons below still work.");
+    const { id } = await api.relayAsk(prompt);
+    const until = Date.now() + 170e3;
+    while (Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const a = await api.relayAnswer(id);
+      if (a.state === "gone") throw new Error("The laptop didn't pick up the request.");
+      if (a.state === "done") { if (a.error) throw new Error("Claude on the laptop failed: " + a.error); return a.text; }
+    }
+    throw new Error("The laptop is taking too long. Try again.");
+  }
+  $("rcForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const text = $("rcQ").value.trim(); if (!text) return;
+    const rows = S.log ? rateRows() : [];
+    if (!rows.length) { $("rcNote").textContent = "Nothing to rate: every recent block already has a status."; return; }
+    $("rcGo").disabled = true; $("rcNote").textContent = "Asking Claude…"; $("rcOut").replaceChildren();
+    const list = rows.map((b) => `${b.row} | ${dayFmt(b.st)} ${b.start}-${b.end} | ${b.block} | ${b.planned}h planned`).join("\n");
+    const prompt = `Today is ${new Date().toString()}. These planned blocks from my time tracker have no status yet (row | when | block | planned hours):
+${list}
+
+What I did, in my own words:
+${text}
+
+Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (did some; give the hours actually done), MISSED (didn't do it), SKIP (block no longer applies). Only include blocks my words clearly cover; leave the rest out. Reply with only this JSON, no other text:
+{"reply": "<one short sentence summarising>", "ratings": [{"row": <row number>, "status": "DONE|PARTIAL|MISSED|SKIP", "hours": <number, only for PARTIAL>}]}`;
+    try {
+      const out = await claudeOnce(prompt);
+      const m = String(out).match(/\{[\s\S]*\}/); if (!m) throw new Error("Claude's answer wasn't in the expected format. Try again.");
+      const res = JSON.parse(m[0]);
+      const byRow = new Map(rows.map((b) => [b.row, b]));
+      const picks = (res.ratings || []).filter((r) => byRow.has(Number(r.row)) && /^(DONE|PARTIAL|MISSED|SKIP)$/.test(r.status));
+      $("rcNote").textContent = res.reply || "";
+      if (!picks.length) { $("rcNote").textContent = (res.reply ? res.reply + " " : "") + "No blocks matched."; return; }
+      const box = $("rcOut");
+      for (const r of picks) {
+        const b = byRow.get(Number(r.row));
+        const lab = el("label", "rcpick"); const cb = el("input"); cb.type = "checkbox"; cb.checked = true; cb.dataset.row = b.row; cb.dataset.status = r.status; cb.dataset.hours = r.hours || "";
+        lab.append(cb, el("b", null, r.status[0] + r.status.slice(1).toLowerCase() + (r.status === "PARTIAL" ? ` ${r.hours}h` : "")), el("span", null, ` ${b.block} · ${dayFmt(b.st)} ${b.start}`));
+        box.append(lab);
+      }
+      const apply = el("button", "send", "Apply to Time Tracker"); apply.type = "button";
+      apply.onclick = async () => {
+        apply.disabled = true;
+        try {
+          for (const cb of box.querySelectorAll("input:checked")) {
+            const st = cb.dataset.status, h = parseFloat(cb.dataset.hours);
+            await api.sheetPut(`Log!I${cb.dataset.row}:J${cb.dataset.row}`, [[st, st === "PARTIAL" && h > 0 ? h : ""]]);
+          }
+          box.replaceChildren(); $("rcQ").value = ""; $("rcNote").textContent = "Saved. Adherence updates in a moment.";
+          await loadSheet();
+        } catch (err) { apply.disabled = false; $("rcNote").textContent = copyFor(err, GS); }
+      };
+      box.append(apply);
+    } catch (err) { $("rcNote").textContent = err.status ? copyFor(err, "Claude") : String(err.message || err); }
+    finally { $("rcGo").disabled = false; }
+  };
+  async function loadSheet() {
+    if (!SHEET) { $("hTitle").textContent = "No Time Tracker sheet yet."; sheetForm(); $("rateBody").replaceChildren(); return; }
+    try {
+      const [dash, types, log] = await Promise.all([api.sheetGet("Dashboard!A1:J21"), api.sheetGet("Dashboard!D24:F40"), api.sheetGet("Log!A2:J600")]);
+      const v = dash.values || [];
+      S.dashTitle = (v[0] && v[0][0]) || ""; S.dash = v.slice(4); S.types = types.values || []; S.log = log.values || [];
+      stamp("hStamp"); renderHours(); renderRate();
+    } catch (e) {
+      $("hBody").replaceChildren(el("div", "err", copyFor(e, GS)));
+      $("rateBody").replaceChildren(el("div", "err", copyFor(e, GS)));
+    }
+  }
+  // Each person points the dashboard at their own Google Sheets (saved on the server per account).
+  const sheetIdOf = (v) => { v = String(v || "").trim(); const m = v.match(/\/d\/([\w-]{20,})/); return m ? m[1] : v; };
+  function sheetForm() {
+    if (location.hash !== "#hours") location.hash = "#hours"; // the form shows on the Adherence tab
+    const box = el("form", "sheetform");
+    const row = (label, id, val) => { const l = el("label", null, label); const i = el("input"); i.id = id; i.value = val ? `https://docs.google.com/spreadsheets/d/${val}` : ""; i.placeholder = "Paste the Google Sheet link"; l.append(i); return l; };
+    const msg = el("div", "note", "Paste links to your own sheets. The Time Tracker needs Dashboard and Log tabs; the Quest Log sheet needs Quests, Log and Settings tabs.");
+    const btn = el("button", "chip", "Save"); btn.type = "submit";
+    box.append(msg, row("Weekly Time Tracker", "sfTime", SHEET), row("Quest Log (XP) sheet", "sfXp", (XP.sheetUrl().match(/\/d\/([\w-]+)/) || [])[1] || ""), btn);
+    box.onsubmit = async (e) => {
+      e.preventDefault(); btn.disabled = true;
+      try {
+        const body = { sheetId: sheetIdOf($("sfTime").value), questSheetId: sheetIdOf($("sfXp").value) };
+        await api.saveSettings(body);
+        SHEET = body.sheetId; QSHEET = body.questSheetId; XP.rememberConfig({ questSheetId: body.questSheetId }); loadHabits();
+        renderLinks(LINKS); $("hTitle").textContent = "Loading your Weekly Time Tracker…"; loadSheet();
+      } catch (err) { msg.textContent = copyFor(err, "the dashboard server"); btn.disabled = false; }
+    };
+    $("hBody").replaceChildren(box);
+    $("hBody").scrollIntoView({ behavior: "smooth" });
+  }
+  let LINKS = [];
+  function renderLinks(links) {
+    LINKS = links || [];
+    const nav = $("links"); nav.replaceChildren();
+    const base = [
+      { name: "TickTick", note: "main task list", url: "https://ticktick.com/webapp/" },
+      { name: "Calendar", note: "today's blocks", url: "https://calendar.google.com/calendar/r/day" },
+      { name: "Quest Log", note: "XP and streaks", url: "quest.html", local: true },
+      { name: "GitHub", note: "your repos", url: "https://github.com/AalamBheriyani" },
+    ];
+    if (SHEET) base.push({ name: "Time Tracker", note: "plan vs actual", url: `https://docs.google.com/spreadsheets/d/${SHEET}` });
+    for (const l of [...base, ...(links || [])]) {
+      if (!l.local && !/^https:\/\//.test(String(l.url || ""))) continue;
+      if (!l.local && /quest log/i.test(l.name || "")) continue;
+      const a = el("a"); a.href = l.url; if (!l.local) { a.target = "_blank"; a.rel = "noopener"; }
+      a.append(document.createTextNode(l.name || "Link"), el("span", null, l.note || ""));
+      nav.append(a);
+    }
+  }
+  // Pages: the dashboard, plus Departures, Adherence and Rate your blocks as tabs (#departures, #hours, #rate).
+  function route() {
+    const v = location.hash.replace("#", "");
+    const views = { "": "mainView", departures: "depView", hours: "hoursView", rate: "rateView" };
+    const cur = views[v] ? v : "";
+    for (const [k, id] of Object.entries(views)) $(id).hidden = k !== cur;
+    document.querySelectorAll(".tabsbar a").forEach((a) => a.setAttribute("aria-current", a.dataset.v === cur ? "page" : "false"));
+    $("fab").hidden = true; // Ask Claude sits at the top of the dashboard now
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
+  $("upQ").oninput = renderUpcoming;
+  // Anki: the laptop relay sends due counts and reviews per day while Anki desktop is open.
+  async function loadAnki() {
+    let a; try { a = await http(W("/anki")); } catch { return; }
+    if (!a || !a.decks) return;
+    $("ankiPanel").classList.remove("nodata");
+    const due = (d) => (d.new || 0) + (d.learn || 0) + (d.review || 0);
+    $("akTotal").textContent = a.decks.reduce((n, d) => n + due(d), 0);
+    $("akDecks").replaceChildren(...a.decks.filter(due).sort((x, y) => due(y) - due(x)).map((d) => {
+      const c = el("span", null, d.name); c.setAttribute("role", "listitem"); c.title = `${d.new} new · ${d.learn} learning · ${d.review} review`;
+      c.append(el("b", null, String(due(d)))); return c;
+    }));
+    $("akStamp").textContent = a.at ? "updated " + new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+    const per = new Map((a.days || []).map(([k, n]) => [k, n]));
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const host = $("akHeat"), end = new Date(); end.setHours(0, 0, 0, 0);
+    const start = new Date(end); start.setDate(start.getDate() - end.getDay() - 52 * 7);
+    const max = Math.max(1, ...per.values());
+    host.replaceChildren();
+    let days = 0, total = 0, streak = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const n = per.get(ymd(d)) || 0; const c = el("i", "l" + (n ? Math.min(4, Math.ceil((n / max) * 4)) : 0));
+      c.title = `${d.toDateString()}: ${n} review${n === 1 ? "" : "s"}`; host.append(c);
+      if (n) { days++; total += n; }
+    }
+    for (let d = new Date(end); per.get(ymd(d)); d.setDate(d.getDate() - 1)) streak++;
+    requestAnimationFrame(() => { host.scrollLeft = host.scrollWidth; });
+    $("akSum").textContent = `${total} reviews on ${days} days · streak ${streak} day${streak === 1 ? "" : "s"}`;
+  }
+  const refreshAll = () => Promise.all([loadAnki(), loadHabits(), loadTasks(), loadCalendar().then(() => TR.rows && renderTrackLine()), loadSheet().then(loadTrack)]);
+  // Habit heatmap, GitHub style: one square per day for the last year, shaded by how many habit
+  // quests you logged in the Quest Log (XP Tracker sheet), or by one habit picked in the menu.
+  let QSHEET = "", HB = { log: null, quests: [] };
+  async function loadHabits() {
+    if (!QSHEET) { $("hbSum").textContent = "Set your XP Tracker sheet under My sheets to see habits."; return; }
+    const get = (r) => http(`https://sheets.googleapis.com/v4/spreadsheets/${QSHEET}/values/${encodeURIComponent(r)}`);
+    try {
+      const [lg, qs] = await Promise.all([get("Log!A2:H20000"), get("Quests!A2:F200")]);
+      HB.quests = (qs.values || []).filter((r) => r[0] && /habit/i.test(r[2] || "")).map((r) => ({ id: r[0], name: r[1] }));
+      HB.log = (lg.values || []).map((r) => ({ t: Number(r[0]), q: String(r[2] || "") })).filter((r) => r.t);
+      const sel = $("hbSel"), keep = sel.value;
+      sel.replaceChildren(el("option", null, "All habits")); sel.options[0].value = "";
+      for (const q of HB.quests) { const o = el("option", null, q.name); o.value = q.id; sel.append(o); }
+      sel.value = keep; renderHeat();
+    } catch (e) { $("hbSum").textContent = copyFor(e, GS); }
+  }
+  function renderHeat() {
+    const host = $("heat"); if (!HB.log) return;
+    const want = $("hbSel").value, ids = new Set(want ? [want] : HB.quests.map((q) => q.id));
+    const key = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const per = new Map();
+    for (const r of HB.log) if (ids.has(r.q)) { const k = key(new Date(r.t)); per.set(k, (per.get(k) || 0) + 1); }
+    const weeks = 53; // a full year; narrow screens scroll, starting at today
+    const end = new Date(); end.setHours(0, 0, 0, 0);
+    const start = new Date(end); start.setDate(start.getDate() - end.getDay() - (weeks - 1) * 7);
+    const max = Math.max(1, ...per.values());
+    host.replaceChildren(); host.style.setProperty("--weeks", weeks);
+    let days = 0, total = 0, streak = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const n = per.get(key(d)) || 0; const lvl = n ? Math.min(4, Math.ceil((n / max) * 4)) : 0;
+      const c = el("i", "l" + lvl); c.title = `${d.toDateString()}: ${n} habit${n === 1 ? "" : "s"}`; host.append(c);
+      if (n) { days++; total += n; }
+    }
+    for (let d = new Date(end); per.get(key(d)); d.setDate(d.getDate() - 1)) streak++;
+    requestAnimationFrame(() => { host.scrollLeft = host.scrollWidth; });
+    $("hbSum").textContent = `${total} habit check-ins on ${days} days · current streak ${streak} day${streak === 1 ? "" : "s"}`;
+  }
+  $("hbSel").onchange = renderHeat;
+  window.addEventListener("resize", () => { clearTimeout(renderHeat.t); renderHeat.t = setTimeout(renderHeat, 200); });
+  // ---------- widgets ----------
+  // Dashboard panels are widgets: in Customise mode each can be moved, resized (third, half, two
+  // thirds, full width) or hidden. The layout is saved to your account, like the theme.
+  // Panels on every page are widgets (the Today calendar, the Dashboard panels and each tab's panel);
+  // ids are unique across pages, and each widget stays on its own page.
+  const WDEF = { order: ["today", "deadlines", "ask", "timer", "track", "habits", "anki", "departures", "hours", "rate"], span: { today: 12, deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12, departures: 12, hours: 12, rate: 12 }, hidden: [] };
+  WDEF.h = {};
+  const WSPANS = [[3, "¼ width"], [4, "⅓ width"], [6, "½ width"], [8, "⅔ width"], [9, "¾ width"], [12, "Full width"]];
+  const WHEIGHTS = [["auto", "Auto height"], ["s", "Compact"], ["m", "Medium"], ["l", "Tall"]];
+  const WHPX = { s: 280, m: 440, l: 680 };
+  let WL = JSON.parse(JSON.stringify(WDEF)), saveLayout = null;
+  const wEls = () => [...document.querySelectorAll(".widgets > [data-w]")];
+  function applyLayout(l) {
+    const known = wEls().map((e) => e.dataset.w);
+    if (l && Array.isArray(l.order)) WL = { order: [...l.order.filter((x) => known.includes(x)), ...known.filter((x) => !l.order.includes(x))], span: { ...WDEF.span, ...(l.span || {}) }, h: { ...(l.h || {}) }, hidden: (l.hidden || []).filter((x) => known.includes(x)) };
+    for (const id of WL.order) {
+      const e = document.querySelector(`.widgets > [data-w="${id}"]`); if (!e) continue;
+      e.parentElement.append(e); e.style.setProperty("--span", WL.span[id] || 12); e.dataset.wh = WL.h[id] || "auto";
+      e.hidden = WL.hidden.includes(id) && !document.body.classList.contains("editing");
+    }
+    // The page tabs live inside the Today panel; if that panel is hidden, show them on their own.
+    const nb = $("navBlock"), todayHidden = WL.hidden.includes("today") && !document.body.classList.contains("editing");
+    if (nb) (todayHidden ? $("navHome") : document.querySelector(".headcal .cal-split")).append(nb);
+    if (nb && !todayHidden) document.querySelector(".headcal .cal-split").insertBefore(nb, $("calDay"));
+    try { localStorage.setItem("nu.layout.last", JSON.stringify(WL)); } catch {}
+    if (document.body.classList.contains("editing")) renderWBar();
+    if (typeof renderHeat === "function") renderHeat();
+  }
+  function layoutChanged() { applyLayout(WL); clearTimeout(layoutChanged.t); layoutChanged.t = setTimeout(() => saveLayout && saveLayout(WL), 600); }
+  function renderWBar() {
+    const bar = $("wBar"); bar.replaceChildren(el("b", null, "Customising:"), el("span", null, "drag a panel by ⠿ (a dashed box shows where it lands), drag its corner to resize, or use the menus. Works on every tab."));
+    const hid = WL.hidden.map((id) => wEls().find((e) => e.dataset.w === id)).filter(Boolean);
+    if (hid.length) bar.append(el("span", null, "Hidden:"));
+    for (const e of hid) { const b = el("button", null, "+ " + e.dataset.name); b.type = "button"; b.onclick = () => { WL.hidden = WL.hidden.filter((x) => x !== e.dataset.w); layoutChanged(); }; bar.append(b); }
+    const r = el("button", null, "Reset layout"); r.type = "button"; r.onclick = () => { WL = JSON.parse(JSON.stringify(WDEF)); layoutChanged(); };
+    const d = el("button", "done", "Done"); d.type = "button"; d.onclick = () => setEditing(false);
+    bar.append(r, d);
+    for (const e of wEls()) {
+      e.querySelector(":scope > .wtools")?.remove(); e.querySelector(":scope > .wres")?.remove();
+      const id = e.dataset.w, t = el("div", "wtools");
+      // Move among the widgets on the same page only (keyboard-friendly alternative to dragging).
+      const mv = (dir) => {
+        const sib = [...e.parentElement.querySelectorAll(":scope > [data-w]")].map((x) => x.dataset.w);
+        const k = sib.indexOf(id) + dir; if (k < 0 || k >= sib.length) return;
+        const i = WL.order.indexOf(id), j = WL.order.indexOf(sib[k]); [WL.order[i], WL.order[j]] = [WL.order[j], WL.order[i]]; layoutChanged();
+      };
+      const grip = el("button", "grip", "⠿"); grip.type = "button"; grip.title = "Drag to move"; grip.onpointerdown = (ev) => startDrag(ev, e);
+      const l = el("button", null, "◀"); l.type = "button"; l.title = "Move earlier"; l.onclick = () => mv(-1);
+      const rr = el("button", null, "▶"); rr.type = "button"; rr.title = "Move later"; rr.onclick = () => mv(1);
+      const sz = el("select"); sz.setAttribute("aria-label", "Width");
+      for (const [v, n] of WSPANS) { const o = el("option", null, n); o.value = v; sz.append(o); }
+      sz.value = WL.span[id] || 12; sz.onchange = () => { WL.span[id] = +sz.value; layoutChanged(); };
+      const hs = el("select"); hs.setAttribute("aria-label", "Height");
+      for (const [v, n] of WHEIGHTS) { const o = el("option", null, n); o.value = v; hs.append(o); }
+      hs.value = WL.h[id] || "auto"; hs.onchange = () => { if (hs.value === "auto") delete WL.h[id]; else WL.h[id] = hs.value; layoutChanged(); };
+      const h = el("button", null, WL.hidden.includes(id) ? "Show" : "Hide"); h.type = "button";
+      h.onclick = () => { WL.hidden.includes(id) ? (WL.hidden = WL.hidden.filter((x) => x !== id)) : WL.hidden.push(id); layoutChanged(); };
+      t.append(grip, l, rr, sz, hs, h); e.prepend(t);
+      const res = el("div", "wres"); res.title = "Drag to resize (snaps to sizes)"; res.onpointerdown = (ev) => startResize(ev, e); e.append(res);
+      e.style.opacity = WL.hidden.includes(id) ? ".4" : "";
+    }
+  }
+  // Drag by the ⠿ handle: a placeholder shows exactly where the panel will land; it snaps before or
+  // after the panel under the pointer (left/right half, or top/bottom half for full-width panels).
+  function startDrag(ev, w) {
+    ev.preventDefault();
+    const box = w.parentElement, r = w.getBoundingClientRect();
+    const ph = el("div", "wph"); ph.style.setProperty("--span", WL.span[w.dataset.w] || 12); ph.style.height = r.height + "px";
+    box.insertBefore(ph, w);
+    w.classList.add("dragging"); Object.assign(w.style, { width: r.width + "px", left: r.left + "px", top: r.top + "px" });
+    const dx = ev.clientX - r.left, dy = ev.clientY - r.top;
+    const move = (e) => {
+      w.style.left = e.clientX - dx + "px"; w.style.top = e.clientY - dy + "px";
+      w.style.pointerEvents = "none"; const under = document.elementFromPoint(e.clientX, e.clientY); w.style.pointerEvents = "";
+      const tgt = under && under.closest(".widgets > [data-w]");
+      if (!tgt || tgt === w || tgt.parentElement !== box) return;
+      const b = tgt.getBoundingClientRect();
+      const after = (WL.span[tgt.dataset.w] || 12) >= 12 ? e.clientY > b.top + b.height / 2 : e.clientX > b.left + b.width / 2;
+      box.insertBefore(ph, after ? tgt.nextSibling : tgt);
+      if (e.clientY < 60) scrollBy(0, -12); else if (e.clientY > innerHeight - 60) scrollBy(0, 12);
+    };
+    const up = () => {
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up);
+      box.insertBefore(w, ph); ph.remove(); w.classList.remove("dragging"); w.style.width = w.style.left = w.style.top = "";
+      const mine = [...box.querySelectorAll(":scope > [data-w]")].map((x) => x.dataset.w);
+      let k = 0; WL.order = WL.order.map((x) => (mine.includes(x) ? mine[k++] : x));
+      layoutChanged();
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", up);
+  }
+  // Resize from the bottom-right corner: width snaps to ¼ ⅓ ½ ⅔ ¾ or full, height to compact /
+  // medium / tall (drag back up past compact for automatic height). A badge shows the size.
+  function startResize(ev, w) {
+    ev.preventDefault(); ev.stopPropagation();
+    const id = w.dataset.w, box = w.parentElement, gap = 12;
+    const colW = (box.clientWidth + gap) / 12, r = w.getBoundingClientRect();
+    const badge = el("div", "wbadge"); w.append(badge);
+    const label = () => { badge.textContent = `${(WSPANS.find(([v]) => v === (WL.span[id] || 12)) || [, ""])[1]} · ${(WHEIGHTS.find(([v]) => v === (WL.h[id] || "auto")) || [, ""])[1]}`; };
+    const move = (e) => {
+      const cols = (r.width + (e.clientX - ev.clientX) + gap) / colW;
+      const span = WSPANS.map(([v]) => v).reduce((a, b) => (Math.abs(b - cols) < Math.abs(a - cols) ? b : a));
+      const hgt = r.height + (e.clientY - ev.clientY);
+      const hk = hgt < WHPX.s - 60 ? "auto" : Object.entries(WHPX).reduce((a, b) => (Math.abs(b[1] - hgt) < Math.abs(a[1] - hgt) ? b : a))[0];
+      if (Math.abs(e.clientY - ev.clientY) > 24) { if (hk === "auto") delete WL.h[id]; else WL.h[id] = hk; }
+      WL.span[id] = span; applyLayout(WL); w.append(badge); label();
+    };
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); badge.remove(); layoutChanged(); };
+    label(); addEventListener("pointermove", move); addEventListener("pointerup", up);
+  }
+  function setEditing(on) {
+    document.body.classList.toggle("editing", on); $("wBar").hidden = !on; $("custBtn").setAttribute("aria-pressed", String(on));
+    if (on) renderWBar();
+    else for (const e of wEls()) { e.querySelector(":scope > .wtools")?.remove(); e.querySelector(":scope > .wres")?.remove(); e.style.opacity = ""; }
+    applyLayout(WL);
+  }
+  $("custBtn").onclick = () => setEditing(!document.body.classList.contains("editing"));
+  try { applyLayout(JSON.parse(localStorage.getItem("nu.layout.last") || "null")); } catch { applyLayout(null); }
+  let started = false;
+  async function start() {
+    $("gate").hidden = true; $("app").hidden = false; $("fab").hidden = false;
+    route(); applyDv(); renderAll(); renderTimer();
+    try {
+      const cfg = await api.config();
+      // A different account on this browser: drop the previous person's cached sheet id and XP queue.
+      try { if (localStorage.getItem("nextup.who") !== cfg.email) { localStorage.removeItem("xp.outbox"); localStorage.removeItem("nextup.cfg"); localStorage.setItem("nextup.who", cfg.email || ""); } } catch {}
+      NU_THEME.apply(cfg.theme); NU_THEME.onSave((t) => api.saveSettings({ theme: t }).catch(() => {}));
+      if (cfg.layout) applyLayout(cfg.layout); saveLayout = (l) => api.saveSettings({ layout: l }).catch(() => {});
+      SHEET = cfg.sheetId || ""; QSHEET = cfg.questSheetId || ""; PROFILE = cfg.profile || {}; applyProfile(); setChatMode(cfg); XP.rememberConfig(cfg); XP.flush().catch(() => {}); $("whoTxt").textContent = cfg.email ? `Signed in as ${cfg.email}` : "";
+      renderLinks(cfg.links);
+    } catch (e) {
+      if (e.status === 401) return;
+      if (e.status === 403) { signedOut("This Google account isn't allowed on this dashboard yet. The owner needs to add it to ALLOWED_EMAIL in the Cloudflare Worker settings."); return; }
+      $("taskErr").hidden = false; $("taskErr").textContent = "Can't reach the dashboard server: " + (e.message || "error");
+    }
+    refreshAll();
+    if (started) return; started = true;
+    setInterval(() => { if (auth && document.visibilityState === "visible") refreshAll(); }, 5 * 6e4);
+    document.addEventListener("visibilitychange", () => { if (auth && document.visibilityState === "visible") refreshAll(); });
+  }
+  function boot() {
+    setInterval(() => { renderClock(); renderBanner(); renderTimer(); updateCountdowns(); renderTrackNow(); }, 1000);
+    setInterval(() => { renderNow(); renderTasks(); renderRate(); }, 30000);
+    $("fab").hidden = true;
+    if (new URLSearchParams(location.search).get("ticktick") === "connected") history.replaceState(null, "", location.pathname);
+    (async () => {
+      if (CFG.workerUrl && !NATIVE) { try { permanent = !!(await (await fetch(W("/auth/info"))).json()).permanent; } catch {} }
+      if (!auth && session) await renewAuth();
+      if (auth) start();
+      else if (session) $("gateMsg").textContent = "Reconnecting…";
+    })();
+    // Renew quietly before the hour is up so nothing ever shows the gate.
+    setInterval(() => { if (session && auth && auth.exp < Date.now() + 5 * 6e4) renewAuth(); }, 6e4);
+  }
+  // Update the ticking countdowns on the board without rebuilding rows each second.
+  function updateCountdowns() {
+    const now = Date.now(); const map = new Map(allTasks().map((x) => [x.t.id, x.due]));
+    document.querySelectorAll(".dep").forEach((row) => {
+      const due = map.get(row.dataset.id); if (!due) return;
+      const ms = due - now; if (Math.abs(ms) >= 864e5) return;
+      const cd = row.querySelector(".cd"); if (cd) cd.textContent = ms < 0 ? `${fmtLeft(-ms)} late` : fmtLeft(ms, true);
+    });
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
