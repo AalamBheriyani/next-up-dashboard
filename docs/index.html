@@ -535,6 +535,10 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 
 /* The empty holder for the page tabs (used only when Today is hidden) shouldn't add a gap. */
 #navHome:empty { display: none; }
+
+/* Block / free-time card and work-time card: identical size, stacked and aligned. */
+.headcal .now .pcard + .dayleft { margin-top: -4px; }
+.now .dayleft .row { min-height: 18px; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -881,6 +885,15 @@ window.NU_THEME = (() => {
   }
 
   const DAYLEFT = document.querySelector(".dayleft");
+  // A small card with a label, a value on the right and a progress bar, the same size as the
+  // "Work time left today" card so the two line up.
+  function progCard(label, value, frac) {
+    const c = el("div", "dayleft pcard");
+    const row = el("div", "row"); row.append(el("span", "label", label), el("span", "num", value));
+    const bar = el("div", "daybar"); bar.setAttribute("aria-hidden", "true");
+    const i = el("i"); i.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%"; bar.append(i);
+    c.append(row, bar); return c;
+  }
   function renderNow() {
     const box = $("nowBody");
     if (S.events === null) return;
@@ -891,13 +904,18 @@ window.NU_THEME = (() => {
     if (cur) {
       box.append(el("div", "label", `Now · until ${timeFmt(cur.en)}`));
       box.append(el("div", "title", cur.e.summary || "(untitled)"));
-      const bar = el("div", "bar"); const i = el("i"); i.style.width = (((now - cur.s) / (cur.en - cur.s)) * 100).toFixed(1) + "%"; bar.append(i); box.append(bar);
-      box.append(DAYLEFT); // work time left today sits right under the block's progress bar
-      box.append(el("div", "num note", `${fmtLeft(cur.en - now, true)} left in this block`));
+      box.append(progCard("This block", `${fmtLeft(cur.en - now, true)} left`, (now - cur.s) / (cur.en - cur.s)));
+      box.append(DAYLEFT); // work time left today: same card and bar size, right under the block's
       addDesc(box, cur.e.description);
     } else {
       box.append(el("div", "label", "Now"));
       box.append(el("div", "title", nxt ? "Free Time until the next block" : "No more blocks today"));
+      if (nxt) {
+        // Free time runs from the end of the last block (or midnight) to the start of the next one.
+        const prev = evs.filter((x) => x.en <= now).pop(); const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+        const from = prev ? prev.en : d0;
+        box.append(progCard("Free time", `${fmtLeft(nxt.s - now, true)} left`, (now - from) / (nxt.s - from)));
+      }
       box.append(DAYLEFT);
       const ts = allTasks();
       if (ts.length) {
