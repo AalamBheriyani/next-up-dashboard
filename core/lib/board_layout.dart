@@ -55,6 +55,6 @@ class BoardLayout {
   }
 
   BoardLayout withSpan(String id, int s) => _with(span: {...span, id: s});
-  BoardLayout withHeight(String id, String? h) => _with(height: {...height}..remove(id)..addAll({'$id': ?h}));
+  BoardLayout withHeight(String id, String? h) => _with(height: {...height}..remove(id)..addAll({id: ?h}));
   BoardLayout toggleHidden(String id) => _with(hidden: isHidden(id) ? hidden.where((x) => x != id).toList() : [...hidden, id]);
 }
