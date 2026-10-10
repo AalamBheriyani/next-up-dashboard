@@ -130,7 +130,7 @@ class _TrackScreenState extends State<TrackScreen> {
           if (d != null) OutlinedButton.icon(onPressed: () => _editBlock(null), icon: const Icon(Icons.add_rounded), label: const Text('Add block')),
         ])),
         if (_error != null)
-          Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: const TextStyle(color: NextUpColors.muted)))),
+          Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
         if (d == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (d != null) ...[
           const SizedBox(height: 16),
@@ -182,7 +182,7 @@ class _TrackScreenState extends State<TrackScreen> {
         TextButton(onPressed: () => _editTargets(d), child: const Text('Targets')),
       ]),
       child: cats.isEmpty
-          ? Text(_week ? 'Nothing tracked this week yet.' : 'Nothing tracked today yet.', style: const TextStyle(color: NextUpColors.muted))
+          ? Text(_week ? 'Nothing tracked this week yet.' : 'Nothing tracked today yet.', style: TextStyle(color: NextUpColors.muted))
           : Column(children: [
               for (final c in cats) _statRow(d, c, tot[c] ?? Duration.zero, target(c), maxMs, from),
             ]),
@@ -206,7 +206,7 @@ class _TrackScreenState extends State<TrackScreen> {
         SizedBox(width: 110, child: Text(cat, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600, color: hit ? NextUpColors.ok : null))),
         Expanded(child: GrowBar(value: v.inMilliseconds / (targetMs > 0 ? targetMs : maxMs), color: hit ? NextUpColors.ok : color)),
         const SizedBox(width: 12),
-        SizedBox(width: 120, child: Text(targetMs > 0 ? '${hm(v)} / ${hm(Duration(milliseconds: targetMs.round()))}${hit ? ' ✓' : ''}' : hm(v), textAlign: TextAlign.right, style: const TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted, fontFeatures: monoFeatures))),
+        SizedBox(width: 120, child: Text(targetMs > 0 ? '${hm(v)} / ${hm(Duration(milliseconds: targetMs.round()))}${hit ? ' ✓' : ''}' : hm(v), textAlign: TextAlign.right, style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted, fontFeatures: monoFeatures))),
       ]),
     );
   }
@@ -373,7 +373,7 @@ class _Timeline extends StatelessWidget {
             height: 46,
             child: Stack(clipBehavior: Clip.none, children: [
               Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(color: NextUpColors.raised, borderRadius: BorderRadius.circular(8)))),
-              Positioned(left: 4, top: -14, child: Text(label.toUpperCase(), style: const TextStyle(fontSize: 9, letterSpacing: 1, color: NextUpColors.muted))),
+              Positioned(left: 4, top: -14, child: Text(label.toUpperCase(), style: TextStyle(fontSize: 9, letterSpacing: 1, color: NextUpColors.muted))),
               ...kids,
             ]),
           );
@@ -386,7 +386,7 @@ class _Timeline extends StatelessWidget {
           height: 18,
           child: Stack(children: [
             for (var h = ((h0 + step - 1) ~/ step) * step; h < 24; h += step)
-              Positioned(left: pos(day.add(Duration(hours: h))) * w, child: Text(h == 12 ? '12p' : h > 12 ? '${h - 12}p' : '${h}a', style: const TextStyle(fontSize: NextUpType.label, color: NextUpColors.muted))),
+              Positioned(left: pos(day.add(Duration(hours: h))) * w, child: Text(h == 12 ? '12p' : h > 12 ? '${h - 12}p' : '${h}a', style: TextStyle(fontSize: NextUpType.label, color: NextUpColors.muted))),
           ]),
         ),
         const SizedBox(height: 16),
@@ -469,11 +469,11 @@ class _BlockDialogState extends State<_BlockDialog> {
             Expanded(child: OutlinedButton(onPressed: () async { final d = await _pick(_end ?? _start.add(const Duration(hours: 1))); if (d != null) setState(() => _end = d); }, child: Text(_end == null ? 'End: still running' : 'End: ${f.format(_end!)}'))),
             if (_end != null) IconButton(tooltip: 'Still running', onPressed: () => setState(() => _end = null), icon: const Icon(Icons.close_rounded)),
           ]),
-          if (_err != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_err!, style: const TextStyle(color: NextUpColors.deadline))),
+          if (_err != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_err!, style: TextStyle(color: NextUpColors.deadline))),
         ]),
       ),
       actions: [
-        if (widget.block != null) TextButton(onPressed: () => Navigator.pop(context, _BlockEdit(cat: _cat.text, note: '', start: _start, delete: true)), child: const Text('Delete', style: TextStyle(color: NextUpColors.deadline))),
+        if (widget.block != null) TextButton(onPressed: () => Navigator.pop(context, _BlockEdit(cat: _cat.text, note: '', start: _start, delete: true)), child: Text('Delete', style: TextStyle(color: NextUpColors.deadline))),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
@@ -513,7 +513,7 @@ class _TargetsDialogState extends State<_TargetsDialog> {
         width: 420,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Align(alignment: Alignment.centerLeft, child: Text('Hours per category. Leave blank for no target.', style: TextStyle(color: NextUpColors.muted))),
+            Align(alignment: Alignment.centerLeft, child: Text('Hours per category. Leave blank for no target.', style: TextStyle(color: NextUpColors.muted))),
             for (final e in _c.entries)
               Padding(
                 padding: const EdgeInsets.only(top: 8),

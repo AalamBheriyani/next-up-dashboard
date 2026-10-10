@@ -8,6 +8,7 @@ class Deadline {
     required this.allDay,
     required this.priority,
     required this.list,
+    this.raw = '',
   });
 
   final String id;
@@ -18,6 +19,17 @@ class Deadline {
   final bool allDay;
   final int priority; // TickTick: 0 none, 1 low, 3 medium, 5 high
   final String list;
+  final String raw; // TickTick's own dueDate text, so an edit can change the day and keep the rest
+
+  /// The dueDate text for moving this deadline to [day], keeping its time of day (or all-day-ness).
+  String dueOn(DateTime day) {
+    if (allDay) {
+      final suffix = RegExp(r'T.*$').firstMatch(raw)?.group(0) ?? 'T00:00:00+0000';
+      return '${_ymd(day)}$suffix';
+    }
+    final local = DateTime(day.year, day.month, day.day, due.hour, due.minute, due.second).toUtc();
+    return '${_ymd(local)}T${_hms(local)}+0000';
+  }
 
   bool isLate(DateTime now) => due.isBefore(now);
 
@@ -45,6 +57,7 @@ class Deadline {
       allDay: allDay,
       priority: (t['priority'] as num?)?.toInt() ?? 0,
       list: listNames[projectId] ?? '',
+      raw: raw,
     );
   }
 }
@@ -74,4 +87,15 @@ class DeadlineGroups {
   }
 
   static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+String _two(int n) => n.toString().padLeft(2, '0');
+String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${_two(d.month)}-${_two(d.day)}';
+String _hms(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}:${_two(d.second)}';
+
+/// TickTick's dueDate text for a new timed deadline, or an all-day one at local midnight.
+String newDueText(DateTime when, {required bool allDay}) {
+  if (allDay) return '${_ymd(when)}T00:00:00+0000';
+  final u = when.toUtc();
+  return '${_ymd(u)}T${_hms(u)}+0000';
 }

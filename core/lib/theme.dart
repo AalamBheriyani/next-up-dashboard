@@ -8,11 +8,21 @@ class NextUpColors {
   static const raised = Color(0xFF14161B);
   static const line = Color(0xFF1C1F26);
   static const ink = Color(0xFFFFFFFF);
-  static const accent = Color(0xFF4D8DFF);
-  static const muted = Color(0xFF9DBDFF); // accent mixed 65% with white, like --muted
-  static const deadline = Color(0xFFFF3B3B);
+  static const defaultAccent = Color(0xFF4D8DFF);
+  static Color accent = defaultAccent;
+  static Color muted = const Color(0xFF9DBDFF); // accent mixed 65% with white, like --muted
+  static Color deadline = const Color(0xFFFF3B3B);
   static const soon = Color(0xFFFF6A3D);
   static const ok = Color(0xFF3DDC84);
+
+  /// Applies a person's saved theme: '#rrggbb' (or empty for the default) and whether deadlines stay red.
+  /// Callers rebuild the app afterwards, as the site does when the theme changes.
+  static void apply({String accentHex = '', bool redDeadlines = true}) {
+    final m = RegExp(r'^#?([0-9a-fA-F]{6})$').firstMatch(accentHex.trim());
+    accent = m == null ? defaultAccent : Color(0xFF000000 | int.parse(m.group(1)!, radix: 16));
+    muted = Color.lerp(accent, Colors.white, .65)!;
+    deadline = redDeadlines ? const Color(0xFFFF3B3B) : accent;
+  }
 }
 
 /// The one type scale. Sizes elsewhere come from here (the flap-digit graphic is the only exception).

@@ -1,13 +1,20 @@
 // Next Up on the web, built with Flutter. Published beside the current site (under /beta/) so nothing
 // breaks while it grows page by page. It shares its theme, deadline model and Today screen with the
 // phone app in ../core.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/today_screen.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard/dashboard_screen.dart';
+import 'board/widget_board.dart';
+import 'dashboard/anki_panel.dart';
+import 'dashboard/habits_panel.dart';
+import 'pages/quest_screen.dart';
 import 'motion.dart';
 import 'pages/adherence_screen.dart';
 import 'pages/settings_screen.dart';
@@ -15,23 +22,27 @@ import 'pages/track_screen.dart';
 import 'services.dart';
 import 'web_auth.dart';
 
-const classicSite = String.fromEnvironment('CLASSIC_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');
-
 void main() {
   WebAuth.ready.ignore(); // starts loading Google's sign-in; failures surface when someone signs in
   runApp(const NextUpWeb());
 }
 
+/// Bumped whenever the saved accent or deadline colour changes, so the whole app is rebuilt with it.
+final themeRevision = ValueNotifier<int>(0);
+
 class NextUpWeb extends StatelessWidget {
   const NextUpWeb({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Next Up',
-        debugShowCheckedModeBanner: false,
-        theme: buildNextUpTheme(),
-        themeMode: ThemeMode.dark,
-        home: const Shell(),
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: themeRevision,
+        builder: (context, _, _) => MaterialApp(
+          title: 'Next Up',
+          debugShowCheckedModeBanner: false,
+          theme: buildNextUpTheme(),
+          themeMode: ThemeMode.dark,
+          home: const Shell(),
+        ),
       );
 }
 
@@ -49,6 +60,8 @@ class _ShellState extends State<Shell> {
   late final WebAuth _auth = widget.auth ?? WebAuth();
   late final Services _svc = widget.services ?? Services.live(_auth, _signIn);
   AppConfig _config = const AppConfig();
+  BoardLayout _layout = const BoardLayout();
+  Timer? _layoutTimer;
   int _page = 0;
   // Bumped on sign-in or out so every page reloads.
   int _session = 0;
@@ -62,10 +75,31 @@ class _ShellState extends State<Shell> {
   Future<void> _loadConfig() async {
     try {
       final c = await _svc.config.load();
-      if (mounted) setState(() => _config = c);
+      if (mounted) _setConfig(c);
     } catch (_) {
       // Pages show their own sign-in or access messages.
     }
+  }
+
+  /// Keeps the arrangement on screen now and saves it to the account a moment after the last change.
+  void _saveLayout(BoardLayout l) {
+    _layout = l;
+    _layoutTimer?.cancel();
+    _layoutTimer = Timer(const Duration(milliseconds: 600), () => _svc.config.save(layout: l).catchError((Object _) {}));
+  }
+
+  @override
+  void dispose() {
+    _layoutTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Keeps the config and applies its accent and deadline colour to the whole app.
+  void _setConfig(AppConfig c) {
+    if (c.layout != null) _layout = c.layout!;
+    NextUpColors.apply(accentHex: c.accent, redDeadlines: c.redDeadlines);
+    setState(() => _config = c);
+    themeRevision.value++;
   }
 
   Future<void> _signIn() async {
@@ -77,6 +111,7 @@ class _ShellState extends State<Shell> {
   void _signOut() => setState(() {
         _auth.signOut();
         _config = const AppConfig();
+        NextUpColors.apply();
         _session++;
       });
 
@@ -85,7 +120,18 @@ class _ShellState extends State<Shell> {
   Widget _pageFor(int i) {
     switch (i) {
       case 0:
-        return DashboardScreen(deadlines: _svc.deadlines, calendar: _svc.calendar, signedIn: _svc.signedIn, onSignIn: _signIn);
+        return DashboardScreen(
+          deadlines: _svc.deadlines,
+          calendar: _svc.calendar,
+          signedIn: _svc.signedIn,
+          onSignIn: _signIn,
+          layout: _layout,
+          onLayout: _saveLayout,
+          extras: [
+            if (_config.questSheetId.isNotEmpty) BoardItem(id: 'habits', name: 'Habits', span: 12, child: HabitsPanel(repo: _svc.xpFor(_config.questSheetId))),
+            if (_config.owner && _svc.anki != null) BoardItem(id: 'anki', name: 'Anki', span: 12, child: AnkiPanel(source: _svc.anki!)),
+          ],
+        );
       case 1:
         return Center(
           child: ConstrainedBox(
@@ -97,12 +143,14 @@ class _ShellState extends State<Shell> {
         return TrackScreen(services: _svc, config: _config);
       case 3:
         return AdherenceScreen(services: _svc, config: _config);
+      case 4:
+        return QuestScreen(services: _svc, config: _config);
       default:
         return SettingsScreen(
           services: _svc,
           config: _config,
           onSaved: (c) => setState(() {
-            _config = c;
+            _setConfig(c);
             _session++;
           }),
           onSignOut: _signOut,
@@ -117,13 +165,14 @@ class _ShellState extends State<Shell> {
       duration: motionBase,
       switchInCurve: motionCurve,
       transitionBuilder: (child, anim) => pageTransition(child, anim),
-      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}'), child: _pageFor(_page)),
+      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}-${_config.questSheetId}-${_config.accent}-${_config.redDeadlines}'), child: _pageFor(_page)),
     );
     const destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),
       (Icons.flight_takeoff_rounded, 'DEADLINES'),
       (Icons.timer_outlined, 'TRACK'),
       (Icons.insights_outlined, 'ADHERENCE'),
+      (Icons.military_tech_outlined, 'QUESTS'),
       (Icons.settings_outlined, 'SETTINGS'),
     ];
     return Scaffold(

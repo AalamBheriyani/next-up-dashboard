@@ -55,8 +55,8 @@ Key ideas:
 Every route except the auth/relay/callback ones requires a Google access token (`checkGoogle`), and the
 email must be in `ALLOWED_EMAIL` (comma list; first email = owner).
 
-Routes: `/config` (per-user settings + feature flags), `/settings` (save sheets/theme/layout),
-`/ticktick/start|callback|tasks|complete`, `/claude` (only with `ANTHROPIC_API_KEY`), `/anki`, `/auth/start|callback|token|logout|info` (permanent sign-in), `/relay/*` (laptop relay,
+Routes: `/config` (per-user settings + feature flags), `/settings` (save sheets/theme/layout; `layout` is the old site, `webLayout` the Flutter site),
+`/ticktick/start|callback|tasks|complete|update|delete|create`, `/claude` (only with `ANTHROPIC_API_KEY`), `/anki`, `/auth/start|callback|token|logout|info` (permanent sign-in), `/relay/*` (laptop relay,
 authenticated with `RELAY_TOKEN`).
 
 State lives in the `Relay` Durable Object through `store(env)` (a small key/value API) with key

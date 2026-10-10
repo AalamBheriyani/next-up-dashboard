@@ -1,12 +1,17 @@
 // What the pages need from the outside world, in one place so tests can swap in fakes.
+import 'package:next_up_core/anki.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/hours.dart';
+import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/sheets.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
 
 import 'web_auth.dart';
+
+/// The original site, kept running as a backup while this one grows. It uses the same sign-in and sheets.
+const classicSite = String.fromEnvironment('CLASSIC_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');
 
 class Services {
   Services({
@@ -17,6 +22,8 @@ class Services {
     required this.signIn,
     this.trackFactory,
     this.hoursFactory,
+    this.xpFactory,
+    this.anki,
   });
 
   final ConfigSource config;
@@ -27,6 +34,8 @@ class Services {
   /// Replaced in tests; the real ones read and write the person's own sheet.
   final TrackRepository Function(String sheetId)? trackFactory;
   final HoursRepository Function(String sheetId)? hoursFactory;
+  final XpRepository Function(String sheetId)? xpFactory;
+  final AnkiSource? anki;
 
   TrackRepository? _trackCache;
   String _trackFor = '';
@@ -39,6 +48,8 @@ class Services {
   }
 
   HoursRepository hoursFor(String sheetId) => hoursFactory != null ? hoursFactory!(sheetId) : HoursRepository(_sheets(sheetId));
+
+  XpRepository xpFor(String sheetId) => xpFactory != null ? xpFactory!(sheetId) : XpRepository(_sheets(sheetId));
 
   SheetsApi? _api;
   String _apiFor = '';
@@ -59,6 +70,7 @@ class Services {
       calendar: GoogleCalendarSource(auth.token),
       signedIn: () => auth.signedIn,
       signIn: signIn,
+      anki: WorkerAnkiSource(auth.token),
     );
     s._token = auth.token;
     return s;
