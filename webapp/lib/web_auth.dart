@@ -6,9 +6,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 const webClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID',
     defaultValue: '385720599418-u8qoimd49q4s9rpb612fteug3ocpkk27.apps.googleusercontent.com');
 
-// Deadlines need only the first two; the dashboard's calendar panel reads events (read-only).
-// Sheets scopes will come with the pages that use them.
-const webScopes = <String>['openid', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly'];
+// Deadlines need only the first two; the dashboard reads Calendar events (read-only), and Track,
+// Adherence and Rate read and write the person's own Time Tracker sheet.
+const webScopes = <String>['openid', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/spreadsheets'];
 
 class WebAuth {
   String? _token;
