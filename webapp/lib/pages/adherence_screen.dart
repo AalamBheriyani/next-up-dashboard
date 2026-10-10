@@ -83,8 +83,8 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
           const Spacer(),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
-        if (s != null) Reveal(index: 1, child: Text('${s.title}. Adherence counts only blocks you have rated.', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body))),
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: const TextStyle(color: NextUpColors.muted)))),
+        if (s != null) Reveal(index: 1, child: Text('${s.title}. Adherence counts only blocks you have rated.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body))),
+        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
         if (s == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (s != null) ...[
           const SizedBox(height: 16),
@@ -108,7 +108,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
           Reveal(index: 6, child: Panel(
             title: 'Rate your blocks',
             child: _blocks!.isEmpty
-                ? const Text('All caught up. Every block from the last two days has a status.', style: TextStyle(color: NextUpColors.muted))
+                ? Text('All caught up. Every block from the last two days has a status.', style: TextStyle(color: NextUpColors.muted))
                 : Column(children: [for (final b in _blocks!.take(8)) _RateRow(key: ValueKey(b.row), block: b, now: _now(), busy: _rating.contains(b.row), note: _note[b.row], onRate: (st, h) => _rate(b, st, h))]),
           )),
         ],
@@ -132,7 +132,7 @@ class _Kpis extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: NextUpColors.line)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label.toUpperCase(), style: const TextStyle(fontSize: NextUpType.label, letterSpacing: 1.2, color: NextUpColors.muted, fontWeight: FontWeight.w700)),
+              Text(label.toUpperCase(), style: TextStyle(fontSize: NextUpType.label, letterSpacing: 1.2, color: NextUpColors.muted, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               v == null ? Text(fallback ?? '–', style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)) : CountUp(value: v, format: f, style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800, color: color, fontFeatures: monoFeatures)),
             ]),
@@ -161,7 +161,7 @@ class _BarRow extends StatelessWidget {
         SizedBox(width: 100, child: Text(bar.label, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: NextUpType.body, fontWeight: today ? FontWeight.w800 : FontWeight.w500, color: today ? NextUpColors.accent : null))),
         Expanded(child: GrowBar(value: bar.fraction, color: today ? NextUpColors.accent : NextUpColors.muted.withValues(alpha: 0.7))),
         const SizedBox(width: 10),
-        SizedBox(width: 92, child: Text(unrated ?? '${bar.done.toStringAsFixed(1)}/${bar.planned.toStringAsFixed(1)}h', textAlign: TextAlign.right, style: const TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted, fontFeatures: monoFeatures))),
+        SizedBox(width: 92, child: Text(unrated ?? '${bar.done.toStringAsFixed(1)}/${bar.planned.toStringAsFixed(1)}h', textAlign: TextAlign.right, style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted, fontFeatures: monoFeatures))),
       ]),
     );
   }
@@ -197,7 +197,7 @@ class _RateRowState extends State<_RateRow> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(b.name, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w700)),
         Text('${DateFormat('EEE, MMM d').format(b.from)} ${b.start} to ${b.end} · ${b.planned}h planned${b.isLive(widget.now) ? ' · happening now' : ''}', style: TextStyle(fontSize: NextUpType.caption, color: widget.note == null ? NextUpColors.muted : NextUpColors.deadline)),
-        if (widget.note != null) Text(widget.note!, style: const TextStyle(fontSize: NextUpType.caption, color: NextUpColors.deadline)),
+        if (widget.note != null) Text(widget.note!, style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.deadline)),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
           for (final st in const ['DONE', 'PARTIAL', 'MISSED', 'SKIP'])

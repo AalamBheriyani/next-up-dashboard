@@ -89,7 +89,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final items = _items;
     return Scaffold(
       appBar: AppBar(
-        title: Text(DateFormat('EEEE, MMM d').format(now), style: const TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
+        title: Text(DateFormat('EEEE, MMM d').format(now), style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
         actions: [
           if (_loading)
             const Padding(padding: EdgeInsets.only(right: 16), child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),
@@ -138,14 +138,14 @@ class NextBoard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('NEXT DEADLINE', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
+        Text('NEXT DEADLINE', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
         const SizedBox(height: 10),
         Text(deadline.title, style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800, height: 1.1)),
-        if (deadline.list.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(deadline.list, style: const TextStyle(color: NextUpColors.muted))),
+        if (deadline.list.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(deadline.list, style: TextStyle(color: NextUpColors.muted))),
         const SizedBox(height: 16),
         FlapCountdown(target: deadline.due, now: now),
         const SizedBox(height: 12),
-        Text(_dueText(deadline), style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
+        Text(_dueText(deadline), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
       ]),
     );
   }
@@ -186,13 +186,13 @@ class DeadlineSection extends StatelessWidget {
         if (!bare) Row(children: [
           Text(title.toUpperCase(), style: TextStyle(color: color, fontSize: NextUpType.caption, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
           const SizedBox(width: 8),
-          Text('${items.length}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
-          if (hint != null) ...[const Spacer(), Text(hint!, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))],
+          Text('${items.length}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+          if (hint != null) ...[const Spacer(), Text(hint!, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))],
         ]),
         if (!bare) const SizedBox(height: 6),
         for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, showDate: showDate),
         if (shown.length < items.length)
-          Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
+          Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
       ]),
     );
   }
@@ -233,7 +233,7 @@ class _Row extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600)),
-              if (d.list.isNotEmpty) Text(d.list, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+              if (d.list.isNotEmpty) Text(d.list, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
             ]),
           ),
           const SizedBox(width: 8),
@@ -291,7 +291,7 @@ class _Loading extends StatelessWidget {
 class _Empty extends StatelessWidget {
   const _Empty();
   @override
-  Widget build(BuildContext context) => const Padding(
+  Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.only(top: 80),
         child: Center(child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted))),
       );

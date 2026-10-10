@@ -116,9 +116,9 @@ class _QuestScreenState extends State<QuestScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               CountUp(value: m.total.toDouble(), format: (v) => v.round().toString(), style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, fontFeatures: monoFeatures)),
-              const Padding(padding: EdgeInsets.only(left: 6, bottom: 6), child: Text('XP', style: TextStyle(color: NextUpColors.muted))),
+              Padding(padding: EdgeInsets.only(left: 6, bottom: 6), child: Text('XP', style: TextStyle(color: NextUpColors.muted))),
               const Spacer(),
-              Text('${m.next - m.total} to level ${m.level + 1}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+              Text('${m.next - m.total} to level ${m.level + 1}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
             ]),
             const SizedBox(height: 10),
             GrowBar(value: span == 0 ? 0 : (m.total - m.floor) / span, color: _gold),
@@ -171,13 +171,13 @@ class _QuestScreenState extends State<QuestScreen> {
         title: 'Recent',
         trailing: recent.any((r) => r.kind != 'undo') ? TextButton(onPressed: _undo, child: const Text('Undo last')) : null,
         child: recent.isEmpty
-            ? const Text('Nothing logged yet.', style: TextStyle(color: NextUpColors.muted))
+            ? Text('Nothing logged yet.', style: TextStyle(color: NextUpColors.muted))
             : Column(children: [
                 for (final r in recent)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(children: [
-                      SizedBox(width: 92, child: Text(DateFormat('E h:mm a').format(DateTime.fromMillisecondsSinceEpoch(r.t)), style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
+                      SizedBox(width: 92, child: Text(DateFormat('E h:mm a').format(DateTime.fromMillisecondsSinceEpoch(r.t)), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
                       Expanded(child: Text(r.kind == 'undo' ? 'Undid: ${r.name}' : r.name, style: const TextStyle(fontSize: NextUpType.body))),
                       Text('${r.xp < 0 ? '−' : '+'}${r.xp.abs()}', style: TextStyle(color: r.xp < 0 ? NextUpColors.deadline : _gold, fontWeight: FontWeight.w700, fontFeatures: monoFeatures)),
                     ]),
@@ -205,11 +205,11 @@ class _Stat extends StatelessWidget {
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
               const SizedBox(width: 6),
-              Flexible(child: Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(of, overflow: TextOverflow.ellipsis, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)))),
+              Flexible(child: Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(of, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)))),
             ]),
             const SizedBox(height: 8),
             GrowBar(value: frac.clamp(0, 1).toDouble(), color: color, height: 6),
-            if (note != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(note!, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
+            if (note != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(note!, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
           ]),
         ),
       );
@@ -243,7 +243,7 @@ class _QuestButton extends StatelessWidget {
               const SizedBox(width: 8),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Text('+${(q.xp * mult).round()}', style: const TextStyle(color: _gold, fontWeight: FontWeight.w800)),
-                Text('$done/${q.cap}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+                Text('$done/${q.cap}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
               ]),
             ]),
           ),
@@ -263,7 +263,7 @@ class _Message extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(text, textAlign: TextAlign.center, style: const TextStyle(color: NextUpColors.muted)),
+            Text(text, textAlign: TextAlign.center, style: TextStyle(color: NextUpColors.muted)),
             if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again')),
           ]),
         ),

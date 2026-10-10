@@ -45,7 +45,7 @@ class WeekStrip extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(booked[i].inMinutes == 0 ? '' : '${(booked[i].inMinutes / 60).toStringAsFixed(1)}h', style: const TextStyle(fontSize: NextUpType.label, color: NextUpColors.muted)),
+              Text(booked[i].inMinutes == 0 ? '' : '${(booked[i].inMinutes / 60).toStringAsFixed(1)}h', style: TextStyle(fontSize: NextUpType.label, color: NextUpColors.muted)),
               const SizedBox(height: 6),
               SizedBox(
                 height: 14,
@@ -53,7 +53,7 @@ class WeekStrip extends StatelessWidget {
                     ? null
                     : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         for (var k = 0; k < due[i].clamp(0, 4); k++)
-                          Container(width: 7, height: 7, margin: const EdgeInsets.symmetric(horizontal: 1.5), decoration: const BoxDecoration(color: NextUpColors.deadline, shape: BoxShape.circle)),
+                          Container(width: 7, height: 7, margin: const EdgeInsets.symmetric(horizontal: 1.5), decoration: BoxDecoration(color: NextUpColors.deadline, shape: BoxShape.circle)),
                       ]),
               ),
             ]),

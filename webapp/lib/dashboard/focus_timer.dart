@@ -68,7 +68,7 @@ class _FocusTimerState extends State<FocusTimer> {
     final mm = _left.inSeconds ~/ 60, ss = _left.inSeconds % 60;
     return Panel(
       title: 'Focus timer',
-      trailing: Text('$_done finished', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+      trailing: Text('$_done finished', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
       child: Column(children: [
         SegmentedButton<int>(
           showSelectedIcon: false,

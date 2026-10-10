@@ -25,17 +25,17 @@ class _AnkiPanelState extends State<AnkiPanel> {
         builder: (context, snap) {
           final s = snap.data;
           if (snap.connectionState != ConnectionState.done) return const Panel(title: 'Anki', child: Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
-          if (s == null) return const Panel(title: 'Anki', child: Text('No Anki data yet. It appears when Anki is open on the laptop.', style: TextStyle(color: NextUpColors.muted)));
+          if (s == null) return Panel(title: 'Anki', child: Text('No Anki data yet. It appears when Anki is open on the laptop.', style: TextStyle(color: NextUpColors.muted)));
           final today = (widget.now ?? DateTime.now)();
           final decks = s.decks.where((d) => d.due > 0).toList()..sort((a, b) => b.due.compareTo(a.due));
           return Panel(
             title: 'Anki',
-            trailing: s.at == null ? null : Text('updated ${DateFormat('MMM d, h:mm a').format(s.at!)}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+            trailing: s.at == null ? null : Text('updated ${DateFormat('MMM d, h:mm a').format(s.at!)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Text('${s.totalDue}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800)),
                 const SizedBox(width: 8),
-                const Padding(padding: EdgeInsets.only(bottom: 6), child: Text('cards due', style: TextStyle(color: NextUpColors.muted))),
+                Padding(padding: EdgeInsets.only(bottom: 6), child: Text('cards due', style: TextStyle(color: NextUpColors.muted))),
               ]),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 8, children: [

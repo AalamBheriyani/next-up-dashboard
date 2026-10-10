@@ -23,16 +23,22 @@ void main() {
   runApp(const NextUpWeb());
 }
 
+/// Bumped whenever the saved accent or deadline colour changes, so the whole app is rebuilt with it.
+final themeRevision = ValueNotifier<int>(0);
+
 class NextUpWeb extends StatelessWidget {
   const NextUpWeb({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Next Up',
-        debugShowCheckedModeBanner: false,
-        theme: buildNextUpTheme(),
-        themeMode: ThemeMode.dark,
-        home: const Shell(),
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: themeRevision,
+        builder: (context, _, _) => MaterialApp(
+          title: 'Next Up',
+          debugShowCheckedModeBanner: false,
+          theme: buildNextUpTheme(),
+          themeMode: ThemeMode.dark,
+          home: const Shell(),
+        ),
       );
 }
 
@@ -63,10 +69,17 @@ class _ShellState extends State<Shell> {
   Future<void> _loadConfig() async {
     try {
       final c = await _svc.config.load();
-      if (mounted) setState(() => _config = c);
+      if (mounted) _setConfig(c);
     } catch (_) {
       // Pages show their own sign-in or access messages.
     }
+  }
+
+  /// Keeps the config and applies its accent and deadline colour to the whole app.
+  void _setConfig(AppConfig c) {
+    NextUpColors.apply(accentHex: c.accent, redDeadlines: c.redDeadlines);
+    setState(() => _config = c);
+    themeRevision.value++;
   }
 
   Future<void> _signIn() async {
@@ -78,6 +91,7 @@ class _ShellState extends State<Shell> {
   void _signOut() => setState(() {
         _auth.signOut();
         _config = const AppConfig();
+        NextUpColors.apply();
         _session++;
       });
 
@@ -114,7 +128,7 @@ class _ShellState extends State<Shell> {
           services: _svc,
           config: _config,
           onSaved: (c) => setState(() {
-            _config = c;
+            _setConfig(c);
             _session++;
           }),
           onSignOut: _signOut,
@@ -129,7 +143,7 @@ class _ShellState extends State<Shell> {
       duration: motionBase,
       switchInCurve: motionCurve,
       transitionBuilder: (child, anim) => pageTransition(child, anim),
-      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}-${_config.questSheetId}'), child: _pageFor(_page)),
+      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}-${_config.questSheetId}-${_config.accent}-${_config.redDeadlines}'), child: _pageFor(_page)),
     );
     const destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),

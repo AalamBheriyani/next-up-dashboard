@@ -20,11 +20,11 @@ class HeatSummary {
 }
 
 class HeatGrid extends StatelessWidget {
-  const HeatGrid({super.key, required this.counts, required this.today, this.weeks = 53, this.color = NextUpColors.accent, this.unit = 'item'});
+  const HeatGrid({super.key, required this.counts, required this.today, this.weeks = 53, this.color, this.unit = 'item'});
   final Map<String, int> counts; // 'yyyy-mm-dd' -> n
   final DateTime today;
   final int weeks;
-  final Color color;
+  final Color? color;
   final String unit;
 
   @override
@@ -45,7 +45,7 @@ class HeatGrid extends StatelessWidget {
         final level = n == 0 ? 0 : (n / max * 4).ceil().clamp(1, 4);
         cells.add(Tooltip(
           message: '${d.month}/${d.day}: $n $unit${n == 1 ? '' : 's'}',
-          child: Container(width: 12, height: 12, decoration: BoxDecoration(color: level == 0 ? NextUpColors.raised : color.withValues(alpha: .25 + .19 * level), borderRadius: BorderRadius.circular(3))),
+          child: Container(width: 12, height: 12, decoration: BoxDecoration(color: level == 0 ? NextUpColors.raised : (color ?? NextUpColors.accent).withValues(alpha: .25 + .19 * level), borderRadius: BorderRadius.circular(3))),
         ));
       }
       cols.add(Column(mainAxisSize: MainAxisSize.min, spacing: 3, children: cells));
@@ -64,4 +64,4 @@ class HeatGrid extends StatelessWidget {
 }
 
 /// The summary line under a heat grid.
-Widget heatCaption(HeatSummary s, String unit) => Text('${s.total} $unit${s.total == 1 ? '' : 's'} on ${s.days} days · streak ${s.streak} day${s.streak == 1 ? '' : 's'}', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption));
+Widget heatCaption(HeatSummary s, String unit) => Text('${s.total} $unit${s.total == 1 ? '' : 's'} on ${s.days} days · streak ${s.streak} day${s.streak == 1 ? '' : 's'}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption));

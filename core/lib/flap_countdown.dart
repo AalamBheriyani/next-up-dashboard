@@ -66,7 +66,7 @@ class _FlapCountdownState extends State<FlapCountdown> {
               _Flap(u.$2.toString().padLeft(2, '0')),
               Padding(
                 padding: const EdgeInsets.only(left: 3, right: 10, bottom: 6),
-                child: Text(u.$1, style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption, fontWeight: FontWeight.w600)),
+                child: Text(u.$1, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption, fontWeight: FontWeight.w600)),
               ),
             ],
           ],

@@ -57,12 +57,12 @@ class _HabitsPanelState extends State<HabitsPanel> {
               value: _pick,
               underline: const SizedBox.shrink(),
               isDense: true,
-              style: const TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted),
+              style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted),
               onChanged: (v) => setState(() => _pick = v ?? ''),
               items: [const DropdownMenuItem(value: '', child: Text('All habits')), for (final h in habits) DropdownMenuItem(value: h.id, child: Text(h.name))],
             ),
       child: _error != null
-          ? Text(_error!, style: const TextStyle(color: NextUpColors.muted))
+          ? Text(_error!, style: TextStyle(color: NextUpColors.muted))
           : habits == null
               ? const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
               : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
