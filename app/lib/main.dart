@@ -19,6 +19,11 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'data/deadline_source.dart';
+import 'data/native_auth.dart';
+import 'features/today_screen.dart';
+import 'theme.dart';
+
 // Public values, same as docs/config.js. Override at build time with --dart-define if you fork this.
 const siteUrl = String.fromEnvironment('SITE_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');
 // The web OAuth client: Android needs it as the "server client" to issue tokens.
@@ -78,9 +83,54 @@ class NextUpApp extends StatelessWidget {
     return MaterialApp(
       title: 'Next Up',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFFF2B33D), useMaterial3: true),
-      darkTheme: ThemeData(colorSchemeSeed: const Color(0xFFF2B33D), brightness: Brightness.dark, useMaterial3: true),
-      home: const DashboardScreen(),
+      theme: buildNextUpTheme(),
+      themeMode: ThemeMode.dark, // the site is one dark theme; the native screens match it
+      home: const HomeShell(),
+    );
+  }
+}
+
+/// Two tabs: Today (native, fast, works from the Worker) and Classic (the full website in a web view).
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  final _auth = NativeAuth(scopes);
+  late final _source = WorkerDeadlineSource(_auth.token);
+  int _tab = 0;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth.restore().whenComplete(() {
+      if (mounted) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _tab, children: [
+        // Wait for the silent sign-in check so Today doesn't flash "sign in" first.
+        if (_ready)
+          TodayScreen(source: _source, signedIn: () => _auth.signedIn, onSignIn: _auth.signIn)
+        else
+          const Center(child: CircularProgressIndicator()),
+        const DashboardScreen(),
+      ]),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.flight_takeoff_rounded), label: 'TODAY'),
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'CLASSIC'),
+        ],
+      ),
     );
   }
 }
