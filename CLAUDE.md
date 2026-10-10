@@ -56,7 +56,7 @@ Every route except the auth/relay/callback ones requires a Google access token (
 email must be in `ALLOWED_EMAIL` (comma list; first email = owner).
 
 Routes: `/config` (per-user settings + feature flags), `/settings` (save sheets/theme/layout),
-`/ticktick/start|callback|tasks|complete`, `/claude` (only with `ANTHROPIC_API_KEY`), `/anki`, `/auth/start|callback|token|logout|info` (permanent sign-in), `/relay/*` (laptop relay,
+`/ticktick/start|callback|tasks|complete|update|delete|create`, `/claude` (only with `ANTHROPIC_API_KEY`), `/anki`, `/auth/start|callback|token|logout|info` (permanent sign-in), `/relay/*` (laptop relay,
 authenticated with `RELAY_TOKEN`).
 
 State lives in the `Relay` Durable Object through `store(env)` (a small key/value API) with key

@@ -11,6 +11,7 @@ import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/today_screen.dart';
 
 import 'calendar_panel.dart';
+import 'deadline_editor.dart';
 import 'clock_header.dart';
 import 'focus_timer.dart';
 import 'panel.dart';
@@ -118,6 +119,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _load();
   }
 
+  /// Opens the editor for [d], or the add form when null, and reloads if anything changed.
+  Future<void> _edit(Deadline? d) async {
+    final editor = widget.deadlines;
+    if (editor is! DeadlineEditor) return;
+    if (await showDeadlineEditor(context, editor as DeadlineEditor, d: d, now: widget.now)) await _load();
+  }
+
   Future<void> _finish(Deadline d) async {
     final before = _deadlines;
     setState(() => _deadlines = before?.where((x) => x.id != d.id).toList());
@@ -147,6 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(child: ClockHeader(now: widget.now)),
                 if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
                 IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
               ]),
               const SizedBox(height: 20),
@@ -188,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         : Panel(
             title: title,
             accent: color,
-            child: DeadlineSection(title: title, hint: hint, color: color, items: list, now: now, onFinish: _finish, showDate: showDate, limit: limit, bare: true),
+            child: DeadlineSection(title: title, hint: hint, color: color, items: list, now: now, onFinish: _finish, showDate: showDate, limit: limit, bare: true, onEdit: widget.deadlines is DeadlineEditor ? _edit : null),
           );
     return [
       _Grid(cols: cols == 3 ? 2 : cols, gap: 16, children: [

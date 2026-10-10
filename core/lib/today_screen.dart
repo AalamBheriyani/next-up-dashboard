@@ -165,8 +165,10 @@ class DeadlineSection extends StatelessWidget {
     this.showDate = false,
     this.limit,
     this.bare = false,
+    this.onEdit,
   });
   final bool bare; // the caller's panel already shows the title
+  final void Function(Deadline)? onEdit; // when set, each row gets an edit button
   final String title;
   final String? hint;
   final Color color;
@@ -190,7 +192,7 @@ class DeadlineSection extends StatelessWidget {
           if (hint != null) ...[const Spacer(), Text(hint!, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))],
         ]),
         if (!bare) const SizedBox(height: 6),
-        for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, showDate: showDate),
+        for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, onEdit: onEdit, showDate: showDate),
         if (shown.length < items.length)
           Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
       ]),
@@ -199,10 +201,11 @@ class DeadlineSection extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.d, required this.now, required this.onFinish, required this.showDate});
+  const _Row({required this.d, required this.now, required this.onFinish, required this.showDate, this.onEdit});
   final Deadline d;
   final DateTime now;
   final void Function(Deadline) onFinish;
+  final void Function(Deadline)? onEdit;
   final bool showDate;
 
   @override
@@ -241,6 +244,7 @@ class _Row extends StatelessWidget {
             _relative(d, now, showDate),
             style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : NextUpColors.muted),
           ),
+          if (onEdit != null) IconButton(tooltip: 'Edit ${d.title}', icon: const Icon(Icons.edit_outlined, size: 18), color: NextUpColors.muted, visualDensity: VisualDensity.compact, onPressed: () => onEdit!(d)),
         ]),
       ),
     );

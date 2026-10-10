@@ -217,6 +217,42 @@ export default {
         return json({ ok: true });
       }
 
+      // Editing deadlines: TickTick's open API can update a task, delete it, or create one.
+      if (url.pathname === "/ticktick/update" && req.method === "POST") {
+        const token = await store(env).get(ttKey(who.email));
+        if (!token) return fail(409, "TickTick isn't connected");
+        const b = await req.json();
+        if (!/^[\w-]+$/.test(String(b.projectId)) || !/^[\w-]+$/.test(String(b.taskId))) return fail(400, "bad task id");
+        const patch = { id: b.taskId, projectId: b.projectId };
+        if (typeof b.title === "string" && b.title.trim()) patch.title = b.title.trim().slice(0, 500);
+        if (typeof b.dueDate === "string" && /^\d{4}-\d\d-\d\dT[\d:]{8}[+-]\d{4}$/.test(b.dueDate)) { patch.dueDate = b.dueDate; patch.isAllDay = !!b.isAllDay; }
+        if ([0, 1, 3, 5].includes(b.priority)) patch.priority = b.priority;
+        await ticktick(token, `/task/${b.taskId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+        return json({ ok: true });
+      }
+
+      if (url.pathname === "/ticktick/delete" && req.method === "POST") {
+        const token = await store(env).get(ttKey(who.email));
+        if (!token) return fail(409, "TickTick isn't connected");
+        const { projectId, taskId } = await req.json();
+        if (!/^[\w-]+$/.test(String(projectId)) || !/^[\w-]+$/.test(String(taskId))) return fail(400, "bad task id");
+        await ticktick(token, `/project/${projectId}/task/${taskId}`, { method: "DELETE" });
+        return json({ ok: true });
+      }
+
+      if (url.pathname === "/ticktick/create" && req.method === "POST") {
+        const token = await store(env).get(ttKey(who.email));
+        if (!token) return fail(409, "TickTick isn't connected");
+        const b = await req.json();
+        const title = typeof b.title === "string" ? b.title.trim().slice(0, 500) : "";
+        if (!title) return fail(400, "title required");
+        const task = { title }; // no projectId: it lands in the Inbox
+        if (typeof b.dueDate === "string" && /^\d{4}-\d\d-\d\dT[\d:]{8}[+-]\d{4}$/.test(b.dueDate)) { task.dueDate = b.dueDate; task.isAllDay = !!b.isAllDay; }
+        if ([0, 1, 3, 5].includes(b.priority)) task.priority = b.priority;
+        await ticktick(token, "/task", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(task) });
+        return json({ ok: true });
+      }
+
       if (url.pathname === "/claude" && req.method === "POST") {
         if (!env.ANTHROPIC_API_KEY) return fail(501, "No Claude API key on the server");
         const { system, messages, tools } = await req.json();

@@ -21,8 +21,16 @@ abstract class DeadlineSource {
   Future<void> complete(Deadline d);
 }
 
+/// What TickTick's API lets us change besides finishing: title, day, priority, delete, and adding new ones.
+abstract class DeadlineEditor {
+  /// Any of [title], [day] (moves the deadline, keeping its time) or [priority] (0 none, 1 low, 3 medium, 5 high).
+  Future<void> update(Deadline d, {String? title, DateTime? day, int? priority});
+  Future<void> delete(Deadline d);
+  Future<void> create({required String title, DateTime? day, int priority = 0});
+}
+
 /// Reads `/ticktick/tasks` and `/ticktick/complete` with a Google access token.
-class WorkerDeadlineSource implements DeadlineSource {
+class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor {
   WorkerDeadlineSource(this.token);
   final Future<String?> Function() token;
 
@@ -66,4 +74,25 @@ class WorkerDeadlineSource implements DeadlineSource {
   @override
   Future<void> complete(Deadline d) =>
       _call('POST', '/ticktick/complete', body: {'projectId': d.projectId, 'taskId': d.id, 'title': d.title, 'list': d.list});
+
+  @override
+  Future<void> update(Deadline d, {String? title, DateTime? day, int? priority}) => _call('POST', '/ticktick/update', body: {
+        'projectId': d.projectId,
+        'taskId': d.id,
+        'title': ?title,
+        if (day != null) 'dueDate': d.dueOn(day),
+        if (day != null) 'isAllDay': d.allDay,
+        'priority': ?priority,
+      });
+
+  @override
+  Future<void> delete(Deadline d) => _call('POST', '/ticktick/delete', body: {'projectId': d.projectId, 'taskId': d.id});
+
+  @override
+  Future<void> create({required String title, DateTime? day, int priority = 0}) => _call('POST', '/ticktick/create', body: {
+        'title': title,
+        if (day != null) 'dueDate': newDueText(day, allDay: true),
+        if (day != null) 'isAllDay': true,
+        'priority': priority,
+      });
 }
