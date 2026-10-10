@@ -16,7 +16,7 @@ class Panel extends StatelessWidget {
       decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
-          Text(title.toUpperCase(), style: TextStyle(color: accent ?? NextUpColors.muted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
+          Text(title.toUpperCase(), style: TextStyle(color: accent ?? NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
           const Spacer(),
           ?trailing,
         ]),

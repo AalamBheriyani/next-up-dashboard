@@ -1,4 +1,4 @@
-// Next Up look: the website's departures-board theme (black, blue accent, red for deadlines),
+// Next Up look: the website's dark theme (black, blue accent, red for deadlines),
 // shared by the native screens. Colours match :root in docs/index.html.
 import 'package:flutter/material.dart';
 
@@ -13,6 +13,20 @@ class NextUpColors {
   static const deadline = Color(0xFFFF3B3B);
   static const soon = Color(0xFFFF6A3D);
   static const ok = Color(0xFF3DDC84);
+}
+
+/// The one type scale. Sizes elsewhere come from here (the flap-digit graphic is the only exception).
+/// label: uppercase section labels; caption: hints and dates; body: text and list rows; subtitle: lead-ins;
+/// title: panel headlines; heading: the next deadline; display: timer digits; clock: the big clock.
+class NextUpType {
+  static const double label = 11;
+  static const double caption = 12;
+  static const double body = 14;
+  static const double subtitle = 16;
+  static const double title = 20;
+  static const double heading = 24;
+  static const double display = 40;
+  static const double clock = 56;
 }
 
 const monoFeatures = [FontFeature.tabularFigures()];

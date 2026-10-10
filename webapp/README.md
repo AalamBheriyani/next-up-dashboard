@@ -8,7 +8,7 @@ Now:
   Google Calendar, a focus timer with a dial, a 7-day strip (booked hours and deadlines per day), and
   all deadlines grouped as overdue, today, this week and later (finish one with the circle or by
   swiping). Each panel loads on its own, so a calendar problem never hides the deadlines.
-- **Departures**: the same list as the phone app's Today tab.
+- **Deadlines**: the same list as the phone app's Today tab.
 - A side rail on wide screens and a bottom bar on narrow ones; a link opens the current site for
   everything else (Track, Adherence, Rate, Quest Log, Ask Claude, Anki, habits). The theme, deadline model and Today screen come from `../core`,
 shared with the phone app.

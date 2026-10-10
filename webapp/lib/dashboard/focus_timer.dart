@@ -68,7 +68,7 @@ class _FocusTimerState extends State<FocusTimer> {
     final mm = _left.inSeconds ~/ 60, ss = _left.inSeconds % 60;
     return Panel(
       title: 'Focus timer',
-      trailing: Text('$_done finished', style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
+      trailing: Text('$_done finished', style: const TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
       child: Column(children: [
         SegmentedButton<int>(
           showSelectedIcon: false,
@@ -84,7 +84,7 @@ class _FocusTimerState extends State<FocusTimer> {
             painter: _DialPainter(frac, _mode == 1 ? NextUpColors.ok : NextUpColors.accent),
             child: Center(
               child: Text('${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800, fontFeatures: monoFeatures)),
+                  style: const TextStyle(fontSize: NextUpType.display, fontWeight: FontWeight.w800, fontFeatures: monoFeatures)),
             ),
           ),
         ),

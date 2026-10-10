@@ -30,8 +30,8 @@ class WeekStrip extends StatelessWidget {
           Expanded(
             child: Column(children: [
               Text(DateFormat('E').format(days[i]).toUpperCase(),
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: i == 0 ? NextUpColors.accent : NextUpColors.muted)),
-              Text('${days[i].day}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: i == 0 ? NextUpColors.accent : NextUpColors.ink)),
+                  style: TextStyle(fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1, color: i == 0 ? NextUpColors.accent : NextUpColors.muted)),
+              Text('${days[i].day}', style: TextStyle(fontSize: NextUpType.title, fontWeight: FontWeight.w800, color: i == 0 ? NextUpColors.accent : NextUpColors.ink)),
               const SizedBox(height: 8),
               SizedBox(
                 height: 44,
@@ -45,7 +45,7 @@ class WeekStrip extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(booked[i].inMinutes == 0 ? '' : '${(booked[i].inMinutes / 60).toStringAsFixed(1)}h', style: const TextStyle(fontSize: 11, color: NextUpColors.muted)),
+              Text(booked[i].inMinutes == 0 ? '' : '${(booked[i].inMinutes / 60).toStringAsFixed(1)}h', style: const TextStyle(fontSize: NextUpType.label, color: NextUpColors.muted)),
               const SizedBox(height: 6),
               SizedBox(
                 height: 14,
