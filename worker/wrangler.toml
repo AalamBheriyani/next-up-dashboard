@@ -5,6 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 # Keep variables set in the Cloudflare dashboard (GOOGLE_CLIENT_ID) when deploying.
 keep_vars = true
 
+# Workers Logs: requests and errors, searchable in Cloudflare > the Worker > Observability (7 days).
+[observability]
+enabled = true
+
 # Holds the TickTick token and the queue between the dashboard and Claude Code on your laptop
 # (free plan, SQLite-backed).
 [[durable_objects.bindings]]

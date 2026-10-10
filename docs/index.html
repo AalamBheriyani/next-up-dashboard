@@ -539,6 +539,16 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
 /* Block / free-time card and work-time card: identical size, stacked and aligned. */
 .headcal .now .pcard + .dayleft { margin-top: -4px; }
 .now .dayleft .row { min-height: 18px; }
+
+/* Activity tab */
+.actcols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+@media (max-width: 800px) { .actcols { grid-template-columns: minmax(0, 1fr); } }
+.actlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; max-height: 560px; overflow-y: auto; }
+.actlist li { display: grid; grid-template-columns: 130px 90px minmax(0, 1fr); gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 13px; align-items: baseline; }
+.actlist li:nth-child(odd) { background: var(--chip); }
+.actlist .when { font: 12px var(--f-mono); color: var(--muted); }
+.actlist .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.actlist .what { overflow-wrap: anywhere; color: var(--ink); text-decoration: none; }
 </style>
 <script src="config.js"></script>
 <script src="xp.js"></script>
@@ -585,7 +595,7 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
           </section>
       <div class="tabrow">
         <nav class="tabsbar" aria-label="Pages">
-        <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
+        <a href="#" data-v="">Dashboard</a><a href="#departures" data-v="departures">Departures</a><a href="#hours" data-v="hours">Adherence</a><a href="#rate" data-v="rate">Rate your blocks</a><a href="#log" data-v="log">Activity</a><button type="button" id="custBtn" class="custbtn" title="Rearrange, resize or hide panels">Customise</button>
         </nav>
       </div>
       <div class="jump" aria-label="Jump to"><span class="label">Jump to</span><nav class="links" id="links"></nav></div>
@@ -727,6 +737,15 @@ header.top.widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 
       <div class="panel-h"><h2 id="hH">Adherence · hours this week</h2><span class="stale" id="hStamp"></span></div>
       <div id="hTitle" class="note">Loading your Weekly Time Tracker…</div>
       <div id="hBody" class="hbody" style="display:grid;gap:14px"></div>
+    </section>
+  </div>
+  <div id="logView" class="widgets" hidden>
+    <section class="panel" aria-labelledby="lgH" data-w="activity" data-name="Activity">
+      <div class="panel-h"><h2 id="lgH">Activity</h2><select id="lgWho" class="hbsel" aria-label="Person"><option value="">Everyone</option></select></div>
+      <div class="actcols">
+        <div><div class="label">Account activity</div><ul class="actlist" id="lgList"><li class="note">Loading…</li></ul></div>
+        <div><div class="label">Website changes <a href="https://github.com/AalamBheriyani/next-up-dashboard/commits/main" target="_blank" rel="noopener">full history →</a></div><ul class="actlist" id="lgGit"><li class="note">Loading…</li></ul></div>
+      </div>
     </section>
   </div>
   <div id="rateView" class="widgets" hidden>
@@ -1193,6 +1212,7 @@ window.NU_THEME = (() => {
     saveSettings: (body) => http(W("/settings"), { method: "POST", body: JSON.stringify(body) }),
     relayAsk: (prompt) => http(W("/relay/ask"), { method: "POST", body: JSON.stringify({ prompt }) }),
     relayAnswer: (id) => http(W("/relay/answer?id=" + encodeURIComponent(id))),
+    activity: () => http(W("/log")),
     events: (from, to) => http(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(from)}&timeMax=${encodeURIComponent(to)}&timeZone=${encodeURIComponent(tz)}`),
     addEvent: (ev) => http("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", body: JSON.stringify(ev) }),
     sheetGet: (range) => http(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(range)}`),
@@ -2097,7 +2117,8 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   // Pages: the dashboard, plus Departures, Adherence and Rate your blocks as tabs (#departures, #hours, #rate).
   function route() {
     const v = location.hash.replace("#", "");
-    const views = { "": "mainView", departures: "depView", hours: "hoursView", rate: "rateView" };
+    const views = { "": "mainView", departures: "depView", hours: "hoursView", rate: "rateView", log: "logView" };
+    if (v === "log") loadActivity();
     const cur = views[v] ? v : "";
     for (const [k, id] of Object.entries(views)) $(id).hidden = k !== cur;
     document.querySelectorAll(".tabsbar a").forEach((a) => a.setAttribute("aria-current", a.dataset.v === cur ? "page" : "false"));
@@ -2179,7 +2200,7 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   // thirds, full width) or hidden. The layout is saved to your account, like the theme.
   // Panels on every page are widgets (the Today calendar, the Dashboard panels and each tab's panel);
   // ids are unique across pages, and each widget stays on its own page.
-  const WDEF = { order: ["today", "deadlines", "ask", "timer", "track", "habits", "anki", "departures", "hours", "rate"], span: { today: 12, deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12, departures: 12, hours: 12, rate: 12 }, hidden: [] };
+  const WDEF = { order: ["today", "deadlines", "ask", "timer", "track", "habits", "anki", "departures", "hours", "rate", "activity"], span: { today: 12, deadlines: 4, ask: 4, timer: 4, track: 12, habits: 12, anki: 12, departures: 12, hours: 12, rate: 12, activity: 12 }, hidden: [] };
   WDEF.h = {};
   const WSPANS = [[3, "¼ width"], [4, "⅓ width"], [6, "½ width"], [8, "⅔ width"], [9, "¾ width"], [12, "Full width"]];
   const WHEIGHTS = [["auto", "Auto height"], ["s", "Compact"], ["m", "Medium"], ["l", "Tall"]];
@@ -2291,6 +2312,41 @@ Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (di
   }
   $("custBtn").onclick = () => setEditing(!document.body.classList.contains("editing"));
   try { applyLayout(JSON.parse(localStorage.getItem("nu.layout.last") || "null")); } catch { applyLayout(null); }
+  // Activity tab: account activity from the Worker (the owner sees everyone's, others their own) and
+  // the latest website changes from the git history on GitHub.
+  async function loadActivity() {
+    const list = $("lgList"), git = $("lgGit");
+    try {
+      const { log } = await api.activity();
+      const people = [...new Set(log.map((e) => e.email))].sort();
+      const sel = $("lgWho"), keep = sel.value; sel.replaceChildren(el("option", null, "Everyone")); sel.options[0].value = "";
+      for (const p of people) { const o = el("option", null, p); o.value = p; sel.append(o); }
+      sel.value = people.includes(keep) ? keep : "";
+      const show = () => {
+        list.replaceChildren();
+        const rows = log.filter((e) => !sel.value || e.email === sel.value);
+        if (!rows.length) list.append(el("li", "note", "Nothing logged yet."));
+        for (const e of rows) {
+          const li = el("li"); const d = new Date(e.at);
+          li.append(el("span", "when", `${dayFmt(d)} ${timeFmt(d)}`), el("span", "who", e.email.split("@")[0]), el("span", "what", e.action + (e.detail ? ": " + e.detail : "")));
+          list.append(li);
+        }
+      };
+      sel.onchange = show; show();
+    } catch (e) { list.replaceChildren(el("li", "err", copyFor(e, "the dashboard server"))); }
+    try {
+      const r = await fetch("https://api.github.com/repos/AalamBheriyani/next-up-dashboard/commits?per_page=25");
+      const cs = r.ok ? await r.json() : [];
+      git.replaceChildren();
+      for (const c of cs) {
+        const li = el("li"); const d = new Date(c.commit.author.date);
+        const a = el("a", "what", c.commit.message.split("\n")[0]); a.href = c.html_url; a.target = "_blank"; a.rel = "noopener";
+        li.append(el("span", "when", `${dayFmt(d)} ${timeFmt(d)}`), el("span", "who", (c.author && c.author.login) || c.commit.author.name), a);
+        git.append(li);
+      }
+      if (!cs.length) git.append(el("li", "note", "Couldn't load the history right now."));
+    } catch { git.replaceChildren(el("li", "note", "Couldn't load the history right now.")); }
+  }
   let started = false;
   async function start() {
     $("gate").hidden = true; $("app").hidden = false; $("fab").hidden = false;
