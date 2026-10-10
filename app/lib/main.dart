@@ -19,10 +19,11 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'data/deadline_source.dart';
+import 'package:next_up_core/deadline_source.dart';
+import 'package:next_up_core/theme.dart';
+import 'package:next_up_core/today_screen.dart';
+
 import 'data/native_auth.dart';
-import 'features/today_screen.dart';
-import 'theme.dart';
 
 // Public values, same as docs/config.js. Override at build time with --dart-define if you fork this.
 const siteUrl = String.fromEnvironment('SITE_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');

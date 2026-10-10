@@ -5,15 +5,27 @@ name: App builds
 
 on:
   push:
-    paths: ["app/**", ".github/workflows/app.yml"]
+    paths: ["app/**", "core/**", "webapp/**", ".github/workflows/app.yml"]
   pull_request:
-    paths: ["app/**", ".github/workflows/app.yml"]
+    paths: ["app/**", "core/**", "webapp/**", ".github/workflows/app.yml"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  core-and-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Shared code (core/)
+        working-directory: core
+        run: flutter pub get && flutter analyze && flutter test
+      - name: Flutter website (webapp/)
+        working-directory: webapp
+        run: flutter pub get && flutter analyze && flutter test && flutter build web --release --no-web-resources-cdn
   android:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: app } }

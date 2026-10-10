@@ -1,7 +1,7 @@
 // Where deadlines come from. The app reads the same Cloudflare Worker as the website, so TickTick
 // stays the single list and nothing personal is stored in the app.
 import 'dart:convert';
-import 'dart:io';
+import 'package:http/http.dart' as http;
 
 import 'deadline.dart';
 
@@ -29,30 +29,23 @@ class WorkerDeadlineSource implements DeadlineSource {
   Future<Map<String, dynamic>> _call(String method, String path, {Object? body}) async {
     final t = await token();
     if (t == null) throw SourceException('Sign in to see your deadlines.', signedOut: true);
-    final client = HttpClient();
+    final headers = {'Authorization': 'Bearer $t', if (body != null) 'Content-Type': 'application/json'};
+    final uri = Uri.parse(workerUrl + path);
+    http.Response res;
     try {
-      final req = await client.openUrl(method, Uri.parse(workerUrl + path));
-      req.headers.set('Authorization', 'Bearer $t');
-      if (body != null) {
-        req.headers.contentType = ContentType.json;
-        req.write(jsonEncode(body));
-      }
-      final res = await req.close();
-      final text = await res.transform(utf8.decoder).join();
-      Map<String, dynamic> data = {};
-      try {
-        data = jsonDecode(text) as Map<String, dynamic>;
-      } catch (_) {}
-      if (res.statusCode == 401) throw SourceException('Your sign-in expired. Sign in again.', signedOut: true);
-      if (res.statusCode == 403) throw SourceException("This Google account isn't allowed yet. Ask the owner to add it.");
-      if (res.statusCode == 409) throw SourceException('Connect TickTick once in the Classic tab, then come back.', notConnected: true);
-      if (res.statusCode >= 400) throw SourceException('${data['error'] ?? 'Something went wrong (${res.statusCode}).'}');
-      return data;
-    } on SocketException {
+      res = method == 'POST' ? await http.post(uri, headers: headers, body: jsonEncode(body)) : await http.get(uri, headers: headers);
+    } on http.ClientException {
       throw SourceException("Can't reach Next Up. Check your connection.");
-    } finally {
-      client.close();
     }
+    Map<String, dynamic> data = {};
+    try {
+      data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+    if (res.statusCode == 401) throw SourceException('Your sign-in expired. Sign in again.', signedOut: true);
+    if (res.statusCode == 403) throw SourceException("This Google account isn't allowed yet. Ask the owner to add it.");
+    if (res.statusCode == 409) throw SourceException('Connect TickTick once in the Classic tab, then come back.', notConnected: true);
+    if (res.statusCode >= 400) throw SourceException('${data['error'] ?? 'Something went wrong (${res.statusCode}).'}');
+    return data;
   }
 
   @override

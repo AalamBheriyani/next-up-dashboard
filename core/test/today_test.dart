@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:next_up/data/deadline.dart';
-import 'package:next_up/data/deadline_source.dart';
-import 'package:next_up/features/today_screen.dart';
-import 'package:next_up/theme.dart';
+import 'package:next_up_core/deadline.dart';
+import 'package:next_up_core/deadline_source.dart';
+import 'package:next_up_core/today_screen.dart';
+import 'package:next_up_core/theme.dart';
 
 class FakeSource implements DeadlineSource {
   FakeSource(this.items, {this.fail});
