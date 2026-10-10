@@ -8,6 +8,8 @@ import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard/dashboard_screen.dart';
+import 'dashboard/anki_panel.dart';
+import 'dashboard/habits_panel.dart';
 import 'pages/quest_screen.dart';
 import 'motion.dart';
 import 'pages/adherence_screen.dart';
@@ -84,7 +86,16 @@ class _ShellState extends State<Shell> {
   Widget _pageFor(int i) {
     switch (i) {
       case 0:
-        return DashboardScreen(deadlines: _svc.deadlines, calendar: _svc.calendar, signedIn: _svc.signedIn, onSignIn: _signIn);
+        return DashboardScreen(
+          deadlines: _svc.deadlines,
+          calendar: _svc.calendar,
+          signedIn: _svc.signedIn,
+          onSignIn: _signIn,
+          extras: [
+            if (_config.questSheetId.isNotEmpty) HabitsPanel(repo: _svc.xpFor(_config.questSheetId)),
+            if (_config.owner && _svc.anki != null) AnkiPanel(source: _svc.anki!),
+          ],
+        );
       case 1:
         return Center(
           child: ConstrainedBox(

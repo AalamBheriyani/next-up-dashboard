@@ -24,12 +24,15 @@ class DashboardScreen extends StatefulWidget {
     required this.signedIn,
     required this.onSignIn,
     this.now,
+    this.extras = const [],
   });
   final DeadlineSource deadlines;
   final CalendarSource calendar;
   final bool Function() signedIn;
   final Future<void> Function() onSignIn;
   final DateTime Function()? now; // for tests
+  /// Further panels (habits, Anki) shown below the deadlines, each loading on its own.
+  final List<Widget> extras;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -157,6 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               WeekStrip(deadlines: [...?_deadlines], events: [...?_events], now: now),
               const SizedBox(height: 16),
               ..._lists(now, cols),
+              if (widget.extras.isNotEmpty) ...[const SizedBox(height: 16), _Grid(cols: cols == 3 ? 2 : cols, gap: 16, children: widget.extras)],
             ],
           );
         }),
