@@ -66,6 +66,15 @@ jobs:
           gh release create "$next" --title "$next" --notes-file notes.md $kind
       - name: Build site with every version
         run: bash scripts/build-site.sh _site
+      # The Flutter version of the site (webapp/) is published beside the current one at /beta/.
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Build the Flutter site into /beta/
+        working-directory: webapp
+        run: |
+          flutter pub get
+          flutter build web --release --no-web-resources-cdn --base-href /next-up-dashboard/beta/
+          rm -rf ../_site/beta && cp -r build/web ../_site/beta
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
       - id: deploy

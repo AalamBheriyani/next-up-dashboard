@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-import '../data/deadline.dart';
-import '../data/deadline_source.dart';
-import '../theme.dart';
+import 'deadline.dart';
+import 'deadline_source.dart';
+import 'theme.dart';
 import 'flap_countdown.dart';
 
 class TodayScreen extends StatefulWidget {

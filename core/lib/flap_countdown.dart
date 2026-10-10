@@ -3,7 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
+import 'theme.dart';
 
 class FlapCountdown extends StatefulWidget {
   const FlapCountdown({super.key, required this.target, this.now});
