@@ -4,6 +4,7 @@ import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_web/board/widget_board.dart';
 
 void main() {
+  resizeTests();
   const items = [
     BoardItem(id: 'a', name: 'Alpha', span: 6, child: SizedBox(height: 50, child: Text('A body'))),
     BoardItem(id: 'b', name: 'Beta', span: 6, child: SizedBox(height: 50, child: Text('B body'))),
@@ -75,5 +76,33 @@ void main() {
     expect(effectiveSpan(4, 900), 6);
     expect(effectiveSpan(9, 900), 9);
     expect(effectiveSpan(4, 420), 12);
+  });
+}
+
+void resizeTests() {
+  testWidgets('dragging the corner snaps the width and height', (t) async {
+    t.view.physicalSize = const Size(1400, 1200);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final saved = <BoardLayout>[];
+    await t.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: WidgetBoard(
+            items: const [BoardItem(id: 'a', name: 'Alpha', span: 6, child: SizedBox(height: 300, child: Text('A body')))],
+            layout: const BoardLayout(),
+            editing: true,
+            onChanged: saved.add,
+          ),
+        ),
+      ),
+    ));
+    await t.pump(const Duration(seconds: 1));
+    await t.drag(find.byIcon(Icons.south_east_rounded), const Offset(900, 0));
+    await t.pump(const Duration(seconds: 1));
+    expect(saved.last.span['a'], 12);
+    await t.drag(find.byIcon(Icons.south_east_rounded), const Offset(0, 300));
+    await t.pump(const Duration(seconds: 1));
+    expect(saved.last.height['a'], isNotNull);
   });
 }

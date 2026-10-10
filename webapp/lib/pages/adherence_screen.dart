@@ -5,10 +5,12 @@ import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/hours.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../dashboard/panel.dart';
 import '../motion.dart';
 import '../services.dart';
+import 'settings_screen.dart' show sheetLinkFor;
 
 class AdherenceScreen extends StatefulWidget {
   const AdherenceScreen({super.key, required this.services, required this.config, this.now});
@@ -81,6 +83,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
         Reveal(child: Row(children: [
           const Text('Adherence', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
+          if (widget.config.sheetId.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.sheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open sheet')),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
         if (s != null) Reveal(index: 1, child: Text('${s.title}. Adherence counts only blocks you have rated.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body))),

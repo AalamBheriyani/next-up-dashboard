@@ -53,7 +53,7 @@ void main() {
     expect(find.text('Chemistry class'), findsOneWidget);
     expect(find.text('Piano'), findsOneWidget);
     expect(find.text('OVERDUE'), findsWidgets);
-    expect(find.text('Late essay'), findsOneWidget);
+    expect(find.text('Late essay'), findsWidgets); // the "do this first" strip and the list
     expect(find.text('NEXT 7 DAYS'), findsOneWidget);
   });
 

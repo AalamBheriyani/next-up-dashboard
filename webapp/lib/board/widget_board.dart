@@ -52,6 +52,7 @@ class WidgetBoard extends StatelessWidget {
               editing: editing,
               visibleIds: visibleIds,
               span: l.spanOf(item.id, item.span),
+              boardWidth: w,
               onChanged: onChanged,
             ),
           ),
@@ -61,12 +62,13 @@ class WidgetBoard extends StatelessWidget {
 }
 
 class _Tile extends StatefulWidget {
-  const _Tile({required this.item, required this.layout, required this.editing, required this.visibleIds, required this.span, required this.onChanged});
+  const _Tile({required this.item, required this.layout, required this.editing, required this.visibleIds, required this.span, required this.boardWidth, required this.onChanged});
   final BoardItem item;
   final BoardLayout layout;
   final bool editing;
   final List<String> visibleIds;
   final int span;
+  final double boardWidth;
   final ValueChanged<BoardLayout> onChanged;
 
   @override
@@ -75,6 +77,36 @@ class _Tile extends StatefulWidget {
 
 class _TileState extends State<_Tile> {
   bool _over = false;
+  double _startW = 0, _startH = 0;
+  Offset _acc = Offset.zero;
+  String? _badge;
+
+  /// Drag the corner: width snaps to the nearest of the allowed shares, height to compact, medium or tall
+  /// (drag back up past compact for automatic height), as on the current site.
+  void _resizeStart() {
+    final box = context.size ?? Size.zero;
+    _acc = Offset.zero;
+    _startW = box.width;
+    _startH = box.height;
+  }
+
+  void _resize(Offset delta) {
+    final id = widget.item.id;
+    final colW = (widget.boardWidth + boardGap) / 12;
+    var l = widget.layout;
+    if (widget.boardWidth >= 700) {
+      final cols = (_startW + delta.dx + boardGap) / colW;
+      final span = boardSpans.reduce((a, b) => (b - cols).abs() < (a - cols).abs() ? b : a);
+      l = l.withSpan(id, span);
+    }
+    if (delta.dy.abs() > 24) {
+      final h = _startH + delta.dy;
+      final key = h < _heightPx['s']! - 60 ? null : _heightPx.entries.reduce((a, b) => (b.value - h).abs() < (a.value - h).abs() ? b : a).key;
+      l = l.withHeight(id, key);
+    }
+    setState(() => _badge = '${_spanNames[l.spanOf(id, widget.item.span)]} · ${_heightNames[l.height[id]]}');
+    widget.onChanged(l);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +140,24 @@ class _TileState extends State<_Tile> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             _Tools(item: widget.item, layout: widget.layout, visibleIds: widget.visibleIds, span: widget.span, onChanged: widget.onChanged),
             const SizedBox(height: 4),
-            IgnorePointer(child: body),
+            Stack(children: [
+              IgnorePointer(child: body),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: (_) => _resizeStart(),
+                  onPanUpdate: (d) {
+                    _acc += d.delta;
+                    _resize(_acc);
+                  },
+                  onPanEnd: (_) => setState(() => _badge = null),
+                  child: MouseRegion(cursor: SystemMouseCursors.resizeDownRight, child: Container(width: 36, height: 36, alignment: Alignment.bottomRight, padding: const EdgeInsets.all(6), child: Icon(Icons.south_east_rounded, size: 18, color: NextUpColors.accent))),
+                ),
+              ),
+              if (_badge != null) Positioned(left: 8, bottom: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(8)), child: Text(_badge!, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white)))),
+            ]),
           ]),
         ),
       ),

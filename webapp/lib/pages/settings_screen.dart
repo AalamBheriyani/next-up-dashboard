@@ -11,6 +11,9 @@ import '../motion.dart';
 import '../services.dart';
 
 /// Accepts a pasted sheet link or a bare id and returns the id, or null when it doesn't look like one.
+/// The link people expect to see and open for a saved sheet id (empty when none is set).
+String sheetLinkFor(String id) => id.isEmpty ? '' : 'https://docs.google.com/spreadsheets/d/$id/edit';
+
 String? sheetIdFrom(String input) {
   final t = input.trim();
   if (t.isEmpty) return '';
@@ -30,8 +33,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final _time = TextEditingController(text: widget.config.sheetId);
-  late final _xp = TextEditingController(text: widget.config.questSheetId);
+  late final _time = TextEditingController(text: sheetLinkFor(widget.config.sheetId));
+  late final _xp = TextEditingController(text: sheetLinkFor(widget.config.questSheetId));
   String? _msg;
   bool _bad = false;
   bool _saving = false;
@@ -92,6 +95,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Opens the sheet named in [c] in a new tab (works for a pasted link or a saved id).
+  Widget _openButton(TextEditingController c) => IconButton(
+        tooltip: 'Open this sheet',
+        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+        onPressed: () {
+          final id = sheetIdFrom(c.text);
+          if (id != null && id.isNotEmpty) launchUrl(Uri.parse(sheetLinkFor(id)));
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -107,9 +120,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Reveal(index: 1, child: Panel(title: 'Your sheets', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Paste the link to each Google Sheet. They stay private to you.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
                 const SizedBox(height: 12),
-                TextField(controller: _time, decoration: const InputDecoration(labelText: 'Weekly Time Tracker sheet', helperText: 'Used by Track and Adherence')),
+                TextField(controller: _time, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: 'Weekly Time Tracker (Adherence) sheet', helperText: 'Used by Track and Adherence', suffixIcon: _openButton(_time))),
                 const SizedBox(height: 12),
-                TextField(controller: _xp, decoration: const InputDecoration(labelText: 'XP Tracker sheet', helperText: 'Used by the Quest Log')),
+                TextField(controller: _xp, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: 'XP Tracker sheet', helperText: 'Used by the Quest Log', suffixIcon: _openButton(_xp))),
                 const SizedBox(height: 16),
                 Row(children: [
                   FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving…' : 'Save')),
@@ -148,6 +161,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Reveal(index: 3, child: Panel(title: 'Account', child: Row(children: [
                 Expanded(child: Text(widget.config.email.isEmpty ? 'Signed in' : 'Signed in as ${widget.config.email}', style: const TextStyle(fontSize: NextUpType.body))),
                 OutlinedButton(onPressed: widget.onSignOut, child: const Text('Sign out')),
+              ]))),
+              const SizedBox(height: 16),
+              Reveal(index: 3, child: Panel(title: 'TickTick', child: Row(children: [
+                Expanded(child: Text(widget.config.ticktick ? 'Connected. Your deadlines come from TickTick.' : 'Not connected yet. Connect it to see and edit your deadlines.', style: TextStyle(fontSize: NextUpType.body, color: widget.config.ticktick ? NextUpColors.ok : NextUpColors.muted))),
+                const SizedBox(width: 12),
+                if (widget.services.deadlines is TickTickConnector)
+                  OutlinedButton(
+                    onPressed: () async {
+                      try {
+                        await launchUrl(Uri.parse(await (widget.services.deadlines as TickTickConnector).connectUrl()), webOnlyWindowName: '_self');
+                      } on SourceException catch (e) {
+                        if (mounted) setState(() => _msg = e.message);
+                      }
+                    },
+                    child: Text(widget.config.ticktick ? 'Reconnect' : 'Connect'),
+                  ),
               ]))),
               const SizedBox(height: 16),
               Reveal(index: 4, child: Panel(title: 'Old site', child: Row(children: [

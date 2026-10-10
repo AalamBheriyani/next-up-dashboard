@@ -4,6 +4,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
@@ -13,7 +15,10 @@ import 'package:next_up_core/today_screen.dart';
 
 import '../board/widget_board.dart';
 import 'calendar_panel.dart';
+import 'ask_panel.dart';
 import 'deadline_editor.dart';
+import 'do_now.dart';
+import 'focus_controller.dart';
 import 'clock_header.dart';
 import 'focus_timer.dart';
 import 'panel.dart';
@@ -30,6 +35,8 @@ class DashboardScreen extends StatefulWidget {
     this.extras = const [],
     this.layout = const BoardLayout(),
     this.onLayout,
+    this.focus,
+    this.ask,
   });
   final DeadlineSource deadlines;
   final CalendarSource calendar;
@@ -41,6 +48,9 @@ class DashboardScreen extends StatefulWidget {
   /// The saved arrangement of panels, and where to report a change (saved to the account by the shell).
   final BoardLayout layout;
   final ValueChanged<BoardLayout>? onLayout;
+  /// The focus timer (owned by the shell so it keeps running between pages) and Ask Claude, when available.
+  final FocusController? focus;
+  final AskService? ask;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -51,9 +61,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<CalendarEvent>? _events;
   String? _deadlineError, _calendarError;
   bool _needsSignIn = false;
+  bool _notConnected = false;
   bool _loading = false;
   bool _editing = false;
   late BoardLayout _layout = widget.layout;
+  late final FocusController _ownFocus = FocusController();
+  FocusController get _focus => widget.focus ?? _ownFocus;
   Timer? _refresh;
   Timer? _clock;
 
@@ -123,10 +136,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           fail(e.message);
           _needsSignIn = _needsSignIn || e.signedOut;
+          _notConnected = e.notConnected;
         });
       }
     } catch (_) {
       if (mounted) setState(() => fail(fallback));
+    }
+  }
+
+  /// Sends the person to TickTick to connect; the Worker brings them back to the site afterwards.
+  Future<void> _connect() async {
+    final c = widget.deadlines;
+    if (c is! TickTickConnector) return;
+    try {
+      await launchUrl(Uri.parse(await (c as TickTickConnector).connectUrl()), webOnlyWindowName: '_self');
+    } on SourceException catch (e) {
+      if (mounted) setState(() => _deadlineError = e.message);
     }
   }
 
@@ -174,14 +199,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: ClockHeader(now: widget.now)),
+                Expanded(child: ClockHeader(now: widget.now, events: _events)),
                 if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                 if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
                 IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
                 IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
               ]),
               const SizedBox(height: 20),
-              if (_deadlineError != null && _deadlines == null) _Banner(message: _deadlineError!, onSignIn: _needsSignIn ? _signIn : null, onRetry: _load),
+              if (_deadlineError != null && _deadlines == null) _Banner(message: _deadlineError!, onSignIn: _needsSignIn ? _signIn : null, onConnect: _notConnected && widget.deadlines is TickTickConnector ? _connect : null, onRetry: _load),
+              if (!_editing && doNowTarget(_deadlines ?? const [], now) != null) ...[
+                Builder(builder: (context) {
+                  final t = doNowTarget(_deadlines ?? const [], now)!;
+                  return DoNowStrip(deadline: t, now: now, onStart: () => _startOn(t), onFirstStep: widget.ask == null || _layout.isHidden('ask') ? null : () => _firstStep(t));
+                }),
+                const SizedBox(height: 16),
+              ],
               if (_editing) ...[
                 BoardBar(items: items, layout: _layout.resolved([for (final i in items) i.id]), onChanged: _setLayout, onReset: () => _setLayout(const BoardLayout()), onDone: () => setState(() => _editing = false)),
                 const SizedBox(height: 16),
@@ -194,15 +226,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _board(DateTime now) {
+  Widget _board(DateTime now, {VoidCallback? onStart}) {
     final items = _deadlines;
     if (items == null) {
       return const Panel(title: 'Next deadline', child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
     }
     final next = DeadlineGroups(items, now).next;
     if (next == null) return Panel(title: 'Next deadline', child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)));
-    return NextBoard(deadline: next, now: widget.now);
+    return NextBoard(deadline: next, now: widget.now, onStart: onStart);
   }
+
+  late final AskTools _tools = _DashboardTools(this);
+  final _askKey = GlobalKey<AskPanelState>();
+
+  void _startOn(Deadline d) => _focus.startFocus(25, d.title);
+
+  void _firstStep(Deadline d) => _askKey.currentState?.send('Break "${d.title}" into a 2-minute first step');
 
   /// Every panel the dashboard can show; the board places them.
   List<BoardItem> _items(DateTime now) {
@@ -223,9 +262,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
     return [
-      BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now)),
+      BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
       BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, error: _calendarError, onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
-      const BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer()),
+      BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
+      if (widget.ask != null)
+        BoardItem(
+          id: 'ask',
+          name: 'Ask Claude',
+          span: 4,
+          child: AskPanel(key: _askKey, service: widget.ask!, tools: _tools, snapshot: () => askSnapshot(now: _now(), deadlines: _deadlines ?? const [], events: _events ?? const [], focus: _focus)),
+        ),
       BoardItem(id: 'week', name: 'Next 7 days', span: 12, child: WeekStrip(deadlines: [...all], events: [...?_events], now: now)),
       if (_deadlines != null) ...[
         if (g.overdue.isNotEmpty || _editing) list('overdue', 'Overdue', NextUpColors.deadline, g.overdue, hint: 'Oldest first', showDate: true),
@@ -239,9 +285,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _Banner extends StatelessWidget {
-  const _Banner({required this.message, required this.onSignIn, required this.onRetry});
+  const _Banner({required this.message, required this.onSignIn, required this.onRetry, this.onConnect});
   final String message;
-  final VoidCallback? onSignIn;
+  final VoidCallback? onSignIn, onConnect;
   final VoidCallback onRetry;
 
   @override
@@ -253,8 +299,25 @@ class _Banner extends StatelessWidget {
       child: Row(children: [
         Expanded(child: Text(message)),
         const SizedBox(width: 12),
-        if (onSignIn != null) FilledButton(onPressed: onSignIn, child: const Text('Sign in with Google')) else OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+        if (onSignIn != null) FilledButton(onPressed: onSignIn, child: const Text('Sign in with Google')) else if (onConnect != null) FilledButton(onPressed: onConnect, child: const Text('Connect TickTick')) else OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
       ]),
     );
   }
+}
+
+/// What Ask Claude may do: finish a task from the loaded list, or start the focus timer.
+class _DashboardTools implements AskTools {
+  _DashboardTools(this.s);
+  final _DashboardScreenState s;
+
+  @override
+  Future<String> completeTask(String id) async {
+    final d = (s._deadlines ?? const <Deadline>[]).where((x) => x.id == id).firstOrNull;
+    if (d == null) throw SourceException('No open task with that id.');
+    await s._finish(d);
+    return d.title;
+  }
+
+  @override
+  int startTimer(int minutes, String label) => s._focus.startFocus(minutes, label);
 }
