@@ -117,25 +117,24 @@ class _TodayScreenState extends State<TodayScreen> {
     final g = DeadlineGroups(items, now);
     final next = g.next;
     return [
-      if (next != null) _NextBoard(deadline: next, now: widget.now),
+      if (next != null) Padding(padding: const EdgeInsets.only(top: 8), child: NextBoard(deadline: next, now: widget.now)),
       const SizedBox(height: 8),
-      _Section(title: 'Overdue', hint: 'Oldest first', color: NextUpColors.deadline, items: g.overdue, now: now, onFinish: _finish, showDate: true),
-      _Section(title: 'Today', color: NextUpColors.accent, items: g.today(now).where((d) => d != next).toList(), now: now, onFinish: _finish),
-      _Section(title: 'This week', color: NextUpColors.accent, items: g.thisWeek(now), now: now, onFinish: _finish, showDate: true),
-      _Section(title: 'Later', color: NextUpColors.muted, items: g.later(now), now: now, onFinish: _finish, showDate: true, limit: 8),
+      DeadlineSection(title: 'Overdue', hint: 'Oldest first', color: NextUpColors.deadline, items: g.overdue, now: now, onFinish: _finish, showDate: true),
+      DeadlineSection(title: 'Today', color: NextUpColors.accent, items: g.today(now).where((d) => d != next).toList(), now: now, onFinish: _finish),
+      DeadlineSection(title: 'This week', color: NextUpColors.accent, items: g.thisWeek(now), now: now, onFinish: _finish, showDate: true),
+      DeadlineSection(title: 'Later', color: NextUpColors.muted, items: g.later(now), now: now, onFinish: _finish, showDate: true, limit: 8),
     ];
   }
 }
 
-class _NextBoard extends StatelessWidget {
-  const _NextBoard({required this.deadline, this.now});
+class NextBoard extends StatelessWidget {
+  const NextBoard({super.key, required this.deadline, this.now});
   final Deadline deadline;
   final DateTime Function()? now;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -154,8 +153,9 @@ class _NextBoard extends StatelessWidget {
 
 String _dueText(Deadline d) => d.allDay ? 'Due ${DateFormat('EEE, MMM d').format(d.due)}' : 'Due ${DateFormat('EEE, MMM d, h:mm a').format(d.due)}';
 
-class _Section extends StatelessWidget {
-  const _Section({
+class DeadlineSection extends StatelessWidget {
+  const DeadlineSection({
+    super.key,
     required this.title,
     required this.color,
     required this.items,
@@ -164,7 +164,9 @@ class _Section extends StatelessWidget {
     this.hint,
     this.showDate = false,
     this.limit,
+    this.bare = false,
   });
+  final bool bare; // the caller's panel already shows the title
   final String title;
   final String? hint;
   final Color color;
@@ -179,15 +181,15 @@ class _Section extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     final shown = limit == null ? items : items.take(limit!).toList();
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: EdgeInsets.only(top: bare ? 0 : 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
+        if (!bare) Row(children: [
           Text(title.toUpperCase(), style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
           const SizedBox(width: 8),
           Text('${items.length}', style: const TextStyle(color: NextUpColors.muted, fontSize: 12)),
           if (hint != null) ...[const Spacer(), Text(hint!, style: const TextStyle(color: NextUpColors.muted, fontSize: 12))],
         ]),
-        const SizedBox(height: 6),
+        if (!bare) const SizedBox(height: 6),
         for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, showDate: showDate),
         if (shown.length < items.length)
           Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: const TextStyle(color: NextUpColors.muted, fontSize: 12))),

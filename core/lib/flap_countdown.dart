@@ -55,17 +55,22 @@ class _FlapCountdownState extends State<FlapCountdown> {
     return Semantics(
       label: '${_left.inDays} days ${_left.inHours % 24} hours ${_left.inMinutes % 60} minutes left',
       excludeSemantics: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final u in units) ...[
-            _Flap(u.$2.toString().padLeft(2, '0')),
-            Padding(
-              padding: const EdgeInsets.only(left: 3, right: 10, bottom: 6),
-              child: Text(u.$1, style: const TextStyle(color: NextUpColors.muted, fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
+      // Scales down in narrow cards instead of overflowing.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (final u in units) ...[
+              _Flap(u.$2.toString().padLeft(2, '0')),
+              Padding(
+                padding: const EdgeInsets.only(left: 3, right: 10, bottom: 6),
+                child: Text(u.$1, style: const TextStyle(color: NextUpColors.muted, fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
