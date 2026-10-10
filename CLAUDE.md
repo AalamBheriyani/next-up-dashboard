@@ -23,7 +23,7 @@ from a Google Sheet. Two people use it (Aalam = owner, Aaliya), each with their 
 | `docs/index.html` | The whole dashboard: HTML, CSS (one `<style>`), JS (one IIFE `<script>` at the end) | ~2400 lines. No build step, no framework. |
 | `docs/quest.html`, `docs/xp.js` | Quest Log (XP) page and the shared XP writer | XP goes to the user's XP Tracker sheet |
 | `docs/config.js` | Public config: Google web client id, Worker URL | Not secret |
-| `worker/src/index.js` | Cloudflare Worker: auth, per-user settings, TickTick proxy, relay queue, activity log | One file. Durable Object class `Relay` holds all state |
+| `worker/src/index.js` | Cloudflare Worker: auth, per-user settings, TickTick proxy, relay queue | One file. Durable Object class `Relay` holds all state |
 | `worker/wrangler.toml` | Worker config | `keep_vars = true`; secrets live in the Cloudflare dashboard |
 | `relay/laptop.mjs`, `relay/org-done.mjs` | Runs on Aalam's laptop (systemd user service `nextup-relay`) | Answers Ask Claude with Claude Code, sends Anki stats, marks org TODOs DONE |
 | `app/` | Flutter app (Android/iOS): native Google sign-in + notifications around the website in a web view | Built by `.github/workflows/app.yml` |
@@ -40,7 +40,7 @@ Key ideas:
 - `S` holds loaded data (tasks, events, sheet rows); `render*()` functions redraw from `S`.
 - `api.*` wraps every network call; `http()` adds the Google token and refreshes it if needed.
 - Pages are hash routes handled by `route()`: `#` Dashboard, `#departures`, `#hours` (Adherence),
-  `#rate`, `#log` (Activity). Each page is a `<div id="...View" class="widgets">`.
+  `#rate`. Each page is a `<div id="...View" class="widgets">`.
 - **Widgets:** every panel is a direct child of a `.widgets` container with `data-w="<id>"` and
   `data-name`. Layout (order, width span 3/4/6/8/9/12, height s/m/l, hidden) is per user, saved via
   `/settings`. Defaults: `WDEF` in the widgets section. A new panel needs a unique `data-w` and an entry
@@ -56,14 +56,13 @@ Every route except the auth/relay/callback ones requires a Google access token (
 email must be in `ALLOWED_EMAIL` (comma list; first email = owner).
 
 Routes: `/config` (per-user settings + feature flags), `/settings` (save sheets/theme/layout),
-`/ticktick/start|callback|tasks|complete`, `/claude` (only with `ANTHROPIC_API_KEY`), `/anki`, `/log`
-(activity), `/auth/start|callback|token|logout|info` (permanent sign-in), `/relay/*` (laptop relay,
+`/ticktick/start|callback|tasks|complete`, `/claude` (only with `ANTHROPIC_API_KEY`), `/anki`, `/auth/start|callback|token|logout|info` (permanent sign-in), `/relay/*` (laptop relay,
 authenticated with `RELAY_TOKEN`).
 
 State lives in the `Relay` Durable Object through `store(env)` (a small key/value API) with key
 prefixes: `user:<email>` (settings), `tt_token:<email>`, `sess:<hash>` (sign-in sessions),
-`rt:<email>` (Google refresh token), `au_state:`/`tt_state:` (one-time OAuth states), plus `log`,
-`anki` and the relay queue.
+`rt:<email>` (Google refresh token), `au_state:`/`tt_state:` (one-time OAuth states), plus `anki` and the relay
+queue.
 
 Secrets and variables (Cloudflare → Worker → Settings → Variables and secrets, never in the repo):
 `GOOGLE_CLIENT_ID` (text, comma list: web, Android, iOS), `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAIL`,
@@ -93,9 +92,6 @@ conveniences.
 7. Keep the code style: plain DOM JS, short comments explaining why, no new libraries or build tools
    without agreement.
 
-## Logs and history
+## History
 
-- Activity tab (`#log`): sign-ins, settings/layout changes, TickTick connections, completed tasks
-  (Worker `audit()`), plus recent commits from GitHub.
-- Cloudflare Workers Logs (`[observability]` in wrangler.toml): requests and errors, 7 days.
-- `git log`, GitHub Releases, and every old version at `/v/`.
+`git log`, GitHub Releases, and every old version at `/v/`.

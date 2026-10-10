@@ -37,14 +37,7 @@ Checks run on every pull request: the phone app builds for Android and iOS. Keep
   Put `[minor]` or `[major]` in a commit message to bump that part.
 - Every version stays usable at `/next-up-dashboard/v/` (pick one), so a change can always be compared
   with or rolled back to an earlier version.
-- `git log` and the **Activity** tab on the dashboard show what changed and who changed it.
-
-## Logs
-
-- **Activity tab** (dashboard → Activity): sign-ins, sign-outs, settings and layout changes, TickTick
-  connections and completed tasks, with who and when. The owner sees everyone's; others see their own.
-- **Worker logs**: Cloudflare → Workers & Pages → next-up-dashboard → Observability (requests and
-  errors, last 7 days).
+- `git log` and GitHub Releases show what changed and who changed it.
 
 ## Local development
 

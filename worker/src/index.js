@@ -44,7 +44,6 @@ export default {
       if (!r.ok) return new Response("TickTick didn't accept the sign-in: " + (await r.text()), { status: 502 });
       const tok = await r.json();
       await store(env).put(ttKey(stateEmail), tok.access_token);
-      await audit(env, stateEmail, "connected TickTick");
       return Response.redirect(env.SITE_URL + "?ticktick=connected", 302);
     }
 
@@ -88,7 +87,6 @@ export default {
       else if (!(await store(env).get("rt:" + email))) return new Response("Google didn't return a refresh token. Remove Next Up at myaccount.google.com/permissions and sign in again.", { status: 502 });
       const session = "nu_" + [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
       await store(env).put("sess:" + (await sha256(session)), { email, at: Date.now() }, { expirationTtl: SESSION_DAYS * 86400 });
-      await audit(env, email, "signed in", "stays signed in on this device");
       return Response.redirect(env.SITE_URL + "#nu_session=" + session, 302);
     }
     if (url.pathname === "/auth/token" || url.pathname === "/auth/logout") {
@@ -97,7 +95,7 @@ export default {
       const key = session && "sess:" + (await sha256(session));
       const sess = key && (await store(env).get(key));
       if (!sess) return fail(401, "session expired");
-      if (url.pathname === "/auth/logout") { await store(env).delete(key); await audit(env, sess.email, "signed out"); return json({ ok: true }); }
+      if (url.pathname === "/auth/logout") { await store(env).delete(key); return json({ ok: true }); }
       const rt = await store(env).get("rt:" + sess.email);
       const r = rt && (await fetch("https://oauth2.googleapis.com/token", {
         method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -137,14 +135,8 @@ export default {
         });
       }
 
-      if (url.pathname === "/log" && req.method === "GET") {
-        const all = (await (await relay(env).fetch("https://internal/log-get")).json()).log || [];
-        return json({ owner: who.owner, log: (who.owner ? all : all.filter((e) => e.email === who.email)).slice(-500).reverse() });
-      }
-
       if (url.pathname === "/settings" && req.method === "POST") {
         const body = await req.json();
-        await audit(env, who.email, "changed settings", ["sheetId", "questSheetId", "theme", "layout"].filter((k) => k in body).map((k) => ({ sheetId: "Time Tracker sheet", questSheetId: "XP sheet", theme: "theme", layout: "layout" })[k]).join(", "));
         const mine = (await store(env).get("user:" + who.email)) || {};
         for (const k of ["sheetId", "questSheetId"]) {
           if (!(k in body)) continue;
@@ -217,7 +209,6 @@ export default {
         const { projectId, taskId, title, list, tags } = await req.json();
         if (!/^[\w-]+$/.test(String(projectId)) || !/^[\w-]+$/.test(String(taskId))) return fail(400, "bad task id");
         await ticktick(token, `/project/${projectId}/task/${taskId}/complete`, { method: "POST" });
-        await audit(env, who.email, "completed a task", title ? `${title}${list ? " (" + list + ")" : ""}` : taskId);
         // The owner's completions are queued for the laptop relay, which marks the matching TODO
         // DONE in the org files.
         if (who.owner && title) {
@@ -268,12 +259,6 @@ function withCors(res, cors) {
 const relay = (env) => env.RELAY.get(env.RELAY.idFromName("relay"));
 
 // Small key-value store (TickTick token, sign-in state) kept in the same Durable Object.
-// Activity log: who did what and when (sign-ins, settings, TickTick, completed tasks). Kept in the
-// Durable Object, newest 2000 entries.
-async function audit(env, email, action, detail = "") {
-  try { await relay(env).fetch("https://internal/log-add", { method: "POST", body: JSON.stringify({ email, action, detail: String(detail).slice(0, 300) }) }); } catch {}
-}
-
 function store(env) {
   const op = async (body) => (await (await relay(env).fetch("https://internal/_kv", { method: "POST", body: JSON.stringify(body) })).json()).value;
   return {
@@ -304,12 +289,7 @@ export class Relay {
       return json({ value: e ? e.v : null });
     }
 
-    if (url.pathname === "/log-add" && req.method === "POST") {
-      const e = await req.json(); const log = (await st.get("log")) || [];
-      log.push({ at: now, email: String(e.email || ""), action: String(e.action || ""), detail: String(e.detail || "") });
-      await st.put("log", log.slice(-2000)); return json({ ok: true });
-    }
-    if (url.pathname === "/log-get") return json({ log: (await st.get("log")) || [] });
+    if (await st.get("log")) await st.delete("log"); // activity log removed: drop any stored entries
 
     if (url.pathname === "/relay/status") return json({ online: now - ((await st.get("seen")) || 0) < 30e3 });
 
