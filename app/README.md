@@ -16,6 +16,12 @@ The app has two tabs:
 - **Classic**: the website in a web view. Tasks, Track, Quest Log and Ask Claude live here, so changes
   to `docs/` show up without a new build.
 
+## Status
+
+- Done: Today tab (native), Classic tab (web view), native Google sign-in, timer notifications.
+- Not yet tried on a device: Today's sign-in and Worker calls (checked by tests and CI only).
+- Next: Board and Focus screens; a Flutter web version of the website (see the Roadmap in the main README).
+
 ## Install on Android
 
 Every push to `main` that touches `app/` builds a signed APK and attaches it to the

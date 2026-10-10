@@ -120,11 +120,16 @@ Pages is deployed by `.github/workflows/site.yml` (repo Settings → Pages → S
   targets with confetti. Blocks are stored as rows in a `Log` tab of the Time Tracker sheet, categories
   and targets in a `Categories` tab, so plan-vs-actual comes from tracked time.
 - **Zen garden focus mode** and a **website blocker** for a chosen number of hours.
-- **Flutter app**, later. The Worker, sheets, TickTick and relay stay as they are; Flutter replaces
-  `docs/`. Needs iOS and Android OAuth clients (the Worker would accept several client ids), a Mac
-  or a cloud macOS runner for iOS builds, and an Apple Developer account for TestFlight. Native
-  extras worth it: home-screen widget, notifications, lock-screen timer. An Apple Watch app would
-  be separate SwiftUI. Flutter's web build could replace this site too.
+- **Flutter**, in progress. The Worker, sheets, TickTick and relay stay as they are; Flutter replaces
+  the front end step by step.
+  - Done: the phone app has a native **Today** tab (countdown, overdue/today/this week/later, finish
+    a deadline), beside the old site as **Classic** (`app/`, merged in #3). The old website look is
+    archived in `design/2026-10-current-look/` (#2).
+  - Next: a Flutter web version of the website, published beside the current one so nothing breaks
+    until it is ready; then Board and Focus screens in the app.
+  - Still needed for the app: Android and iOS OAuth clients on the Worker, a Mac or cloud macOS
+    runner and an Apple Developer account for TestFlight. Native extras worth it: home-screen
+    widget, notifications, lock-screen timer. An Apple Watch app would be separate SwiftUI.
 
 ## What runs where
 
