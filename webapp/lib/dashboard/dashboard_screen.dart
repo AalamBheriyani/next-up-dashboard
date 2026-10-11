@@ -77,9 +77,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!_editing && old.layout != widget.layout) _layout = widget.layout;
   }
 
-  void _setLayout(BoardLayout l) {
-    setState(() => _layout = l);
-    widget.onLayout?.call(l);
+  List<String> _ids = const [];
+
+  /// [page] is this page's arrangement; it is merged into the account layout so other pages keep theirs.
+  void _setLayout(BoardLayout page) {
+    final full = _layout.withPage(page, _ids);
+    setState(() => _layout = full);
+    widget.onLayout?.call(full);
   }
 
   DateTime _now() => (widget.now ?? DateTime.now)();
@@ -189,6 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final now = _now();
     final items = _items(now);
+    _ids = [for (final i in items) i.id];
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _load,

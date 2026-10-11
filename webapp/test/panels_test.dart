@@ -9,8 +9,12 @@ import 'package:next_up_web/dashboard/heat_grid.dart';
 import 'fakes.dart';
 
 class _Anki implements AnkiSource {
+  int loads = 0;
   @override
-  Future<AnkiStats?> load() async => const AnkiStats(decks: [AnkiDeck('Chem', 5, 2, 10), AnkiDeck('Empty', 0, 0, 0)], days: {'2026-10-10': 40, '2026-10-09': 20});
+  Future<AnkiStats?> load() async {
+    loads++;
+    return const AnkiStats(decks: [AnkiDeck('Chem', 5, 2, 10), AnkiDeck('Empty', 0, 0, 0)], days: {'2026-10-10': 40, '2026-10-09': 20});
+  }
 }
 
 void main() {
@@ -37,5 +41,21 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: HabitsPanel(repo: FakeXp(log), now: () => now))));
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.textContaining('1 habit check-in on 1 days'), findsOneWidget);
+  });
+
+  testWidgets('Anki and Habits reload from their own refresh buttons', (tester) async {
+    final anki = _Anki();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AnkiPanel(source: anki, now: () => now))));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byTooltip('Refresh Anki'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(anki.loads, 2);
+
+    final xp = FakeXp();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: HabitsPanel(repo: xp, now: () => now))));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byTooltip('Refresh habits'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(xp.loads, 2);
   });
 }

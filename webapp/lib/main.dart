@@ -198,11 +198,11 @@ class _ShellState extends State<Shell> {
           ),
         );
       case 2:
-        return TrackScreen(services: _svc, config: _config);
+        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
       case 3:
-        return AdherenceScreen(services: _svc, config: _config);
+        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
       case 4:
-        return QuestScreen(services: _svc, config: _config);
+        return QuestScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
       default:
         return SettingsScreen(
           services: _svc,

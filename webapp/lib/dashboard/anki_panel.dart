@@ -17,7 +17,14 @@ class AnkiPanel extends StatefulWidget {
 }
 
 class _AnkiPanelState extends State<AnkiPanel> {
-  late final Future<AnkiStats?> _stats = widget.source.load();
+  late Future<AnkiStats?> _stats = widget.source.load();
+
+  void _reload() {
+    final next = widget.source.load();
+    setState(() {
+      _stats = next;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<AnkiStats?>(
@@ -25,12 +32,21 @@ class _AnkiPanelState extends State<AnkiPanel> {
         builder: (context, snap) {
           final s = snap.data;
           if (snap.connectionState != ConnectionState.done) return const Panel(title: 'Anki', child: Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
-          if (s == null) return Panel(title: 'Anki', child: Text('No Anki data yet. It appears when Anki is open on the laptop.', style: TextStyle(color: NextUpColors.muted)));
+          if (s == null) {
+            return Panel(
+              title: 'Anki',
+              trailing: IconButton(tooltip: 'Refresh Anki', onPressed: _reload, visualDensity: VisualDensity.compact, iconSize: 18, color: NextUpColors.muted, icon: const Icon(Icons.refresh_rounded)),
+              child: Text('No Anki data yet. It appears when Anki is open on the laptop.', style: TextStyle(color: NextUpColors.muted)),
+            );
+          }
           final today = (widget.now ?? DateTime.now)();
           final decks = s.decks.where((d) => d.due > 0).toList()..sort((a, b) => b.due.compareTo(a.due));
           return Panel(
             title: 'Anki',
-            trailing: s.at == null ? null : Text('updated ${DateFormat('MMM d, h:mm a').format(s.at!)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (s.at != null) Text('updated ${DateFormat('MMM d, h:mm a').format(s.at!)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+              IconButton(tooltip: 'Refresh Anki', onPressed: _reload, visualDensity: VisualDensity.compact, iconSize: 18, color: NextUpColors.muted, icon: const Icon(Icons.refresh_rounded)),
+            ]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Text('${s.totalDue}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800)),

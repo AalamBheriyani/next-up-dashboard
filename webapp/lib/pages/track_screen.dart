@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/theme.dart';
@@ -11,6 +12,8 @@ import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../board/page_board.dart';
+import '../board/widget_board.dart';
 import '../dashboard/panel.dart';
 import '../format.dart';
 import '../motion.dart';
@@ -31,10 +34,12 @@ Color colorFor(String cat, List<String> cats) {
 }
 
 class TrackScreen extends StatefulWidget {
-  const TrackScreen({super.key, required this.services, required this.config, this.now});
+  const TrackScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout});
   final Services services;
   final AppConfig config;
   final DateTime Function()? now; // for tests
+  final BoardLayout layout; // the account layout; Track reads and writes only its own panels
+  final ValueChanged<BoardLayout>? onLayout;
 
   @override
   State<TrackScreen> createState() => _TrackScreenState();
@@ -135,16 +140,17 @@ class _TrackScreenState extends State<TrackScreen> {
         if (_error != null)
           Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
         if (d == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
-        if (d != null) ...[
-          const SizedBox(height: 16),
-          Reveal(index: 1, child: _NowBar(data: d, now: now, onStop: () => _run(() => _repo.stop(d, _now())))),
-          const SizedBox(height: 12),
-          Reveal(index: 2, child: _Categories(data: d, onTap: _toggle)),
-          const SizedBox(height: 16),
-          Reveal(index: 3, child: _timeline(d, now)),
-          const SizedBox(height: 16),
-          Reveal(index: 4, child: _stats(d, now)),
-        ],
+        if (d != null)
+          PageBoard(
+            layout: widget.layout,
+            onLayout: widget.onLayout,
+            items: [
+              BoardItem(id: 'track-now', name: 'Now', span: 12, child: Reveal(index: 1, child: _NowBar(data: d, now: now, onStop: () => _run(() => _repo.stop(d, _now()))))),
+              BoardItem(id: 'track-cats', name: 'Start tracking', span: 12, child: Reveal(index: 2, child: _Categories(data: d, onTap: _toggle))),
+              BoardItem(id: 'track-day', name: 'Day', span: 8, child: Reveal(index: 3, child: _timeline(d, now))),
+              BoardItem(id: 'track-totals', name: 'Totals', span: 4, child: Reveal(index: 4, child: _stats(d, now))),
+            ],
+          ),
       ],
     );
   }
@@ -173,7 +179,9 @@ class _TrackScreenState extends State<TrackScreen> {
     final maxMs = [3600e3, ...cats.map((c) => (tot[c]?.inMilliseconds ?? 0).toDouble()), ...cats.map(target)].reduce((a, b) => a > b ? a : b);
     return Panel(
       title: 'Totals',
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+      trailing: TextButton(onPressed: () => _editTargets(d), child: const Text('Targets')),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Under the title, not beside it, so the panel still fits when it is a quarter of the page wide.
         SegmentedButton<bool>(
           showSelectedIcon: false,
           style: const ButtonStyle(visualDensity: VisualDensity.compact),
@@ -181,14 +189,12 @@ class _TrackScreenState extends State<TrackScreen> {
           selected: {_week},
           onSelectionChanged: (s) => setState(() => _week = s.first),
         ),
-        const SizedBox(width: 8),
-        TextButton(onPressed: () => _editTargets(d), child: const Text('Targets')),
+        const SizedBox(height: 8),
+        if (cats.isEmpty)
+          Text(_week ? 'Nothing tracked this week yet.' : 'Nothing tracked today yet.', style: TextStyle(color: NextUpColors.muted))
+        else
+          for (final c in cats) _statRow(d, c, tot[c] ?? Duration.zero, target(c), maxMs, from),
       ]),
-      child: cats.isEmpty
-          ? Text(_week ? 'Nothing tracked this week yet.' : 'Nothing tracked today yet.', style: TextStyle(color: NextUpColors.muted))
-          : Column(children: [
-              for (final c in cats) _statRow(d, c, tot[c] ?? Duration.zero, target(c), maxMs, from),
-            ]),
     );
   }
 

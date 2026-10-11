@@ -33,6 +33,19 @@ class BoardLayout {
         hidden: hidden.where(known.contains).toList(),
       );
 
+  /// This layout with the entries for [ids] (one page's panels) taken from [page]. Other pages' panels keep
+  /// what they had, so every page can save into the one account layout without erasing the rest.
+  BoardLayout withPage(BoardLayout page, List<String> ids) {
+    final mine = page.resolved(ids);
+    bool other(String x) => !ids.contains(x);
+    return BoardLayout(
+      order: [...order.where(other), ...mine.order],
+      span: {...span}..removeWhere((k, _) => !other(k))..addAll({for (final e in page.span.entries) if (ids.contains(e.key)) e.key: e.value}),
+      height: {...height}..removeWhere((k, _) => !other(k))..addAll({for (final e in page.height.entries) if (ids.contains(e.key)) e.key: e.value}),
+      hidden: [...hidden.where(other), ...mine.hidden],
+    );
+  }
+
   int spanOf(String id, int fallback) => span[id] ?? fallback;
   bool isHidden(String id) => hidden.contains(id);
 

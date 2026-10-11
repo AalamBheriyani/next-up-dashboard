@@ -3,12 +3,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../board/page_board.dart';
+import '../board/widget_board.dart';
 import '../dashboard/panel.dart';
 import '../motion.dart';
 import '../services.dart';
@@ -19,11 +22,13 @@ const _flame = Color(0xFFFF6B4A);
 const _combo = Color(0xFF4CC9F0);
 
 class QuestScreen extends StatefulWidget {
-  const QuestScreen({super.key, required this.services, required this.config, this.now, this.random});
+  const QuestScreen({super.key, required this.services, required this.config, this.now, this.random, this.layout = const BoardLayout(), this.onLayout});
   final Services services;
   final AppConfig config;
   final DateTime Function()? now;
   final math.Random? random;
+  final BoardLayout layout;
+  final ValueChanged<BoardLayout>? onLayout;
 
   @override
   State<QuestScreen> createState() => _QuestScreenState();
@@ -111,7 +116,9 @@ class _QuestScreenState extends State<QuestScreen> {
     final recent = _rows.reversed.take(8).toList();
     return ListView(padding: const EdgeInsets.all(24), children: [
       Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.questSheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open XP sheet'))),
-      Reveal(
+      if (_note != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: AnimatedSwitcher(duration: motionFast, child: Text(_note!, key: ValueKey(_note), style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
+      PageBoard(layout: widget.layout, onLayout: widget.onLayout, items: [
+      BoardItem(id: 'quest-level', name: 'Level', span: 12, child: Reveal(
         child: Panel(
           title: 'Level ${m.level}',
           accent: _gold,
@@ -127,9 +134,8 @@ class _QuestScreenState extends State<QuestScreen> {
             GrowBar(value: span == 0 ? 0 : (m.total - m.floor) / span, color: _gold),
           ]),
         ),
-      ),
-      const SizedBox(height: 16),
-      Reveal(
+      )),
+      BoardItem(id: 'quest-stats', name: 'Today and streak', span: 12, child: Reveal(
         index: 1,
         child: Wrap(spacing: 16, runSpacing: 16, children: [
           _Stat(title: 'Today', value: '${m.todayXp}', of: '/ ${_settings.dailyGoal.round()}', frac: m.todayXp / _settings.dailyGoal, color: NextUpColors.ok),
@@ -137,12 +143,12 @@ class _QuestScreenState extends State<QuestScreen> {
           _Stat(title: 'Streak', value: '${m.info.streak}', of: 'days${m.info.shields > 0 ? ' · ${m.info.shields} shield' : ''}', frac: m.info.todayMet ? 1 : 0, color: _flame, note: m.info.atRisk ? 'Hit today\'s goal to keep it' : 'Best ${m.info.best}'),
           _Stat(title: 'Combo', value: 'x${m.multiplier.toStringAsFixed(1)}', of: m.comboLevel > 0 ? '${(m.comboLeftMs / 60000).ceil()}m left' : 'log a quest', frac: m.comboLevel / 5, color: _combo),
         ]),
-      ),
-      if (_note != null) Padding(padding: const EdgeInsets.only(top: 12), child: AnimatedSwitcher(duration: motionFast, child: Text(_note!, key: ValueKey(_note), style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
-      const SizedBox(height: 16),
+      )),
       for (var i = 0; i < cats.length; i++)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+        BoardItem(
+          id: _catId(cats[i]),
+          name: cats[i],
+          span: 6,
           child: Reveal(
             index: 2 + i,
             child: Panel(
@@ -154,7 +160,7 @@ class _QuestScreenState extends State<QuestScreen> {
             ),
           ),
         ),
-      Panel(
+      BoardItem(id: 'quest-badges', name: 'Badges', span: 6, child: Panel(
         title: 'Badges',
         child: Wrap(spacing: 10, runSpacing: 10, children: [
           for (final b in badgeList)
@@ -168,9 +174,8 @@ class _QuestScreenState extends State<QuestScreen> {
               ),
             ),
         ]),
-      ),
-      const SizedBox(height: 16),
-      Panel(
+      )),
+      BoardItem(id: 'quest-recent', name: 'Recent', span: 12, child: Panel(
         title: 'Recent',
         trailing: recent.any((r) => r.kind != 'undo') ? TextButton(onPressed: _undo, child: const Text('Undo last')) : null,
         child: recent.isEmpty
@@ -186,9 +191,17 @@ class _QuestScreenState extends State<QuestScreen> {
                     ]),
                   ),
               ]),
-      ),
+      )),
+      ]),
     ]);
   }
+}
+
+/// A stable id for a category's panel, safe for the saved layout (letters, digits and dashes, at most 30).
+String _catId(String cat) {
+  final slug = cat.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+  final id = 'quest-c-$slug';
+  return id.length > 30 ? id.substring(0, 30) : id;
 }
 
 class _Stat extends StatelessWidget {

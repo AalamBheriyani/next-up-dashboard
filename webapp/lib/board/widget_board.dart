@@ -1,6 +1,8 @@
 // The widget board: panels on a 12-column grid that can be moved, resized and hidden, the same idea as the
 // current site's Customise mode. It works by touch and mouse (a drag handle plus plain buttons and menus),
 // and the saved layout is the same on every device: wide screens use the widths, narrow ones stack.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/theme.dart';
@@ -23,12 +25,68 @@ const boardGap = 16.0;
 /// Columns a panel takes at this width: as saved on a wide screen, at least half on a medium one, full on a phone.
 int effectiveSpan(int saved, double width) => width >= 1100 ? saved : (width >= 700 ? (saved < 6 ? 6 : saved) : 12);
 
-class WidgetBoard extends StatelessWidget {
+/// How fast (pixels per frame, negative = up) the page should scroll while a panel is dragged at [y], given the
+/// scrolling area's [top] and [bottom]. Zero in the middle; it speeds up as the pointer nears an edge.
+double autoScrollSpeed(double y, double top, double bottom, {double edge = 90, double max = 20}) {
+  if (y < top + edge) return -((top + edge - y) / edge).clamp(0.0, 1.0) * max;
+  if (y > bottom - edge) return ((y - (bottom - edge)) / edge).clamp(0.0, 1.0) * max;
+  return 0;
+}
+
+class WidgetBoard extends StatefulWidget {
   const WidgetBoard({super.key, required this.items, required this.layout, required this.editing, required this.onChanged});
   final List<BoardItem> items;
   final BoardLayout layout;
   final bool editing;
   final ValueChanged<BoardLayout> onChanged;
+
+  @override
+  State<WidgetBoard> createState() => _WidgetBoardState();
+}
+
+class _WidgetBoardState extends State<WidgetBoard> {
+  bool _dragging = false;
+  double _speed = 0;
+  Timer? _timer;
+
+  /// While a panel is being dragged near the top or bottom of the page, keep scrolling so it can reach far places.
+  void _follow(Offset global) {
+    final scroll = Scrollable.maybeOf(context);
+    final box = scroll?.context.findRenderObject();
+    if (!_dragging || scroll == null || box is! RenderBox) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    _speed = autoScrollSpeed(global.dy, top, top + box.size.height);
+    if (_speed == 0) {
+      _stop();
+    } else {
+      _timer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
+        final p = Scrollable.maybeOf(context)?.position;
+        if (p == null) return _stop();
+        p.jumpTo((p.pixels + _speed).clamp(p.minScrollExtent, p.maxScrollExtent));
+      });
+    }
+  }
+
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _drag(bool on) {
+    _dragging = on;
+    if (!on) _stop();
+  }
+
+  @override
+  void dispose() {
+    _stop();
+    super.dispose();
+  }
+
+  List<BoardItem> get items => widget.items;
+  BoardLayout get layout => widget.layout;
+  bool get editing => widget.editing;
+  ValueChanged<BoardLayout> get onChanged => widget.onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +97,11 @@ class WidgetBoard extends StatelessWidget {
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth;
       double widthFor(int cols) => ((w - boardGap * 11) / 12 * cols + boardGap * (cols - 1)).floorToDouble();
-      return Wrap(spacing: boardGap, runSpacing: boardGap, children: [
+      return Listener(
+        onPointerMove: (e) => _follow(e.position),
+        onPointerUp: (_) => _drag(false),
+        onPointerCancel: (_) => _drag(false),
+        child: Wrap(spacing: boardGap, runSpacing: boardGap, children: [
         for (final item in shown)
           AnimatedContainer(
             key: ValueKey(item.id),
@@ -54,15 +116,17 @@ class WidgetBoard extends StatelessWidget {
               span: l.spanOf(item.id, item.span),
               boardWidth: w,
               onChanged: onChanged,
+              onDrag: _drag,
             ),
           ),
-      ]);
+        ]),
+      );
     });
   }
 }
 
 class _Tile extends StatefulWidget {
-  const _Tile({required this.item, required this.layout, required this.editing, required this.visibleIds, required this.span, required this.boardWidth, required this.onChanged});
+  const _Tile({required this.item, required this.layout, required this.editing, required this.visibleIds, required this.span, required this.boardWidth, required this.onChanged, required this.onDrag});
   final BoardItem item;
   final BoardLayout layout;
   final bool editing;
@@ -70,6 +134,7 @@ class _Tile extends StatefulWidget {
   final int span;
   final double boardWidth;
   final ValueChanged<BoardLayout> onChanged;
+  final ValueChanged<bool> onDrag;
 
   @override
   State<_Tile> createState() => _TileState();
@@ -138,7 +203,7 @@ class _TileState extends State<_Tile> {
           ),
           padding: const EdgeInsets.all(4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            _Tools(item: widget.item, layout: widget.layout, visibleIds: widget.visibleIds, span: widget.span, onChanged: widget.onChanged),
+            _Tools(item: widget.item, layout: widget.layout, visibleIds: widget.visibleIds, span: widget.span, onChanged: widget.onChanged, onDrag: widget.onDrag),
             const SizedBox(height: 4),
             Stack(children: [
               IgnorePointer(child: body),
@@ -167,12 +232,13 @@ class _TileState extends State<_Tile> {
 
 /// The strip above a panel in edit mode: drag handle, earlier/later, width, height, hide.
 class _Tools extends StatelessWidget {
-  const _Tools({required this.item, required this.layout, required this.visibleIds, required this.span, required this.onChanged});
+  const _Tools({required this.item, required this.layout, required this.visibleIds, required this.span, required this.onChanged, required this.onDrag});
   final BoardItem item;
   final BoardLayout layout;
   final List<String> visibleIds;
   final int span;
   final ValueChanged<BoardLayout> onChanged;
+  final ValueChanged<bool> onDrag;
 
   @override
   Widget build(BuildContext context) {
@@ -186,6 +252,8 @@ class _Tools extends StatelessWidget {
         LongPressDraggable<String>(
           data: id,
           delay: const Duration(milliseconds: 120),
+          onDragStarted: () => onDrag(true),
+          onDragEnd: (_) => onDrag(false),
           feedback: Material(
             color: Colors.transparent,
             child: Container(

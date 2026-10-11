@@ -156,7 +156,7 @@ export default {
         for (const key of ["layout", "webLayout"]) {
           const src = body[key];
           if (!src || typeof src !== "object") continue;
-          const ids = (a) => (Array.isArray(a) ? a : []).map(String).filter((x) => /^[\w-]{1,30}$/.test(x)).slice(0, 30);
+          const ids = (a) => (Array.isArray(a) ? a : []).map(String).filter((x) => /^[\w-]{1,30}$/.test(x)).slice(0, 80);
           const span = {};
           for (const [k, v] of Object.entries(src.span || {})) if (/^[\w-]{1,30}$/.test(k) && [3, 4, 6, 8, 9, 12].includes(+v)) span[k] = +v;
           const h = {};
