@@ -186,6 +186,8 @@ class _ShellState extends State<Shell> {
           onSignIn: _signIn,
           layout: _layout,
           onLayout: _saveLayout,
+          wakeMinutes: _config.wakeMinutes,
+          windDownMinutes: _config.windDownMinutes,
           focus: _focus,
           ask: _ask,
           extras: [

@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/theme.dart';
-
-/// Wake and wind-down times; the site reads these from each person's profile, here they are fixed
-/// until a settings page exists.
-const dayStartHour = 7;
-const dayEndHour = 22;
+import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWindDownMinutes;
 
 class ClockHeader extends StatefulWidget {
-  const ClockHeader({super.key, this.now, this.events});
+  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes});
+  /// The waking day, as minutes after midnight (from the person's settings).
+  final int wakeMinutes, windDownMinutes;
   final List<CalendarEvent>? events; // today's calendar, for the "until free" bar
   final DateTime Function()? now; // for tests
 
@@ -39,9 +37,10 @@ class _ClockHeaderState extends State<ClockHeader> {
   @override
   Widget build(BuildContext context) {
     final now = _now();
-    final start = DateTime(now.year, now.month, now.day, dayStartHour);
-    final end = DateTime(now.year, now.month, now.day, dayEndHour);
-    final frac = (now.difference(start).inSeconds / end.difference(start).inSeconds).clamp(0.0, 1.0);
+    final start = DateTime(now.year, now.month, now.day, 0, widget.wakeMinutes);
+    final end = DateTime(now.year, now.month, now.day, 0, widget.windDownMinutes);
+    final span = end.difference(start).inSeconds;
+    final frac = span <= 0 ? 1.0 : (now.difference(start).inSeconds / span).clamp(0.0, 1.0);
     final left = end.difference(now);
     final label = left.isNegative ? 'Wind-down time. Rest up.' : '${_fmt(left)} left until wind-down';
     final free = freeBar(widget.events, now, start);
