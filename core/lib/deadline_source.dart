@@ -31,7 +31,8 @@ abstract class DeadlineEditor {
 
 /// Connecting TickTick: the Worker hands back the TickTick sign-in link, and returns to the site afterwards.
 abstract class TickTickConnector {
-  Future<String> connectUrl();
+  /// [back] is where TickTick sends the browser afterwards: null for the original site, 'beta' for /beta/.
+  Future<String> connectUrl({String? back});
 }
 
 /// Reads `/ticktick/tasks` and `/ticktick/complete` with a Google access token.
@@ -102,5 +103,5 @@ class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor, TickTickCo
       });
 
   @override
-  Future<String> connectUrl() async => '${(await _call('POST', '/ticktick/start', body: {}))['url']}';
+  Future<String> connectUrl({String? back}) async => '${(await _call('POST', '/ticktick/start', body: {'return': ?back}))['url']}';
 }
