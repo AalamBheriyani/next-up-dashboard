@@ -25,9 +25,15 @@ class _HabitsPanelState extends State<HabitsPanel> {
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  /// Reads the Quest Log again; the panel keeps showing the old squares until the new ones arrive.
+  void _load() {
     widget.repo.load().then((d) {
       if (mounted) {
         setState(() {
+          _error = null;
           _habits = d.quests.where((q) => RegExp('habit', caseSensitive: false).hasMatch(q.cat)).toList();
           _log = d.log;
         });
@@ -51,16 +57,18 @@ class _HabitsPanelState extends State<HabitsPanel> {
     }
     return Panel(
       title: 'Habits',
-      trailing: habits == null || habits.isEmpty
-          ? null
-          : DropdownButton<String>(
-              value: _pick,
-              underline: const SizedBox.shrink(),
-              isDense: true,
-              style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted),
-              onChanged: (v) => setState(() => _pick = v ?? ''),
-              items: [const DropdownMenuItem(value: '', child: Text('All habits')), for (final h in habits) DropdownMenuItem(value: h.id, child: Text(h.name))],
-            ),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (habits != null && habits.isNotEmpty)
+          DropdownButton<String>(
+            value: _pick,
+            underline: const SizedBox.shrink(),
+            isDense: true,
+            style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted),
+            onChanged: (v) => setState(() => _pick = v ?? ''),
+            items: [const DropdownMenuItem(value: '', child: Text('All habits')), for (final h in habits) DropdownMenuItem(value: h.id, child: Text(h.name))],
+          ),
+        IconButton(tooltip: 'Refresh habits', onPressed: _load, visualDensity: VisualDensity.compact, iconSize: 18, color: NextUpColors.muted, icon: const Icon(Icons.refresh_rounded)),
+      ]),
       child: _error != null
           ? Text(_error!, style: TextStyle(color: NextUpColors.muted))
           : habits == null

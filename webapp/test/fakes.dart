@@ -101,8 +101,12 @@ class FakeXp extends XpRepository {
   FakeXp([this.log = const []]) : super(FakeSheetsForHours(const [], const []));
   final List<XpRow> log;
   final appended = <XpRow>[];
+  int loads = 0;
   @override
-  Future<({List<Quest> quests, List<XpRow> log, XpSettings settings})> load() async => (quests: defaultQuests, log: log, settings: const XpSettings());
+  Future<({List<Quest> quests, List<XpRow> log, XpSettings settings})> load() async {
+    loads++;
+    return (quests: defaultQuests, log: log, settings: const XpSettings());
+  }
   @override
   Future<void> append(List<XpRow> rows, int dayStartHour) async => appended.addAll(rows);
 }

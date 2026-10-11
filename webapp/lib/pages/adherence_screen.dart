@@ -1,22 +1,27 @@
 // Adherence: how this week went against the plan, plus the blocks that still need a rating.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/hours.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../board/page_board.dart';
+import '../board/widget_board.dart';
 import '../dashboard/panel.dart';
 import '../motion.dart';
 import '../services.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 class AdherenceScreen extends StatefulWidget {
-  const AdherenceScreen({super.key, required this.services, required this.config, this.now});
+  const AdherenceScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout});
   final Services services;
   final AppConfig config;
   final DateTime Function()? now;
+  final BoardLayout layout;
+  final ValueChanged<BoardLayout>? onLayout;
 
   @override
   State<AdherenceScreen> createState() => _AdherenceScreenState();
@@ -74,6 +79,11 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
     }
   }
 
+  Widget _group(String title, List<HoursBar> bars, {String Function(HoursBar)? label}) => Panel(
+        title: title,
+        child: Column(children: [for (final b in bars) _BarRow(bar: b, today: label != null && b.label.replaceAll(RegExp(r'\s+'), ' ') == _todayLabel(_now()), unrated: label?.call(b))]),
+      );
+
   @override
   Widget build(BuildContext context) {
     final s = _summary;
@@ -90,30 +100,29 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
         if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
         if (s == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (s != null) ...[
-          const SizedBox(height: 16),
-          Reveal(index: 2, child: _Kpis(s: s)),
-          const SizedBox(height: 16),
-          LayoutBuilder(builder: (context, box) {
-            final cols = box.maxWidth >= 900 ? 3 : (box.maxWidth >= 600 ? 2 : 1);
-            final w = (box.maxWidth - 16 * (cols - 1)) / cols;
-            Widget group(int i, String title, List<HoursBar> bars, {String Function(HoursBar)? label}) => bars.isEmpty
-                ? const SizedBox.shrink()
-                : SizedBox(width: w, child: Reveal(index: 3 + i, child: Panel(title: title, child: Column(children: [for (final b in bars) _BarRow(bar: b, today: label != null && b.label.replaceAll(RegExp(r'\s+'), ' ') == _todayLabel(_now()), unrated: label?.call(b))]))));
-            return Wrap(spacing: 16, runSpacing: 16, children: [
-              group(0, 'Courses · done vs planned', s.courses),
-              group(1, 'By day · on plan vs planned', s.days, label: (b) => b.rated ? '${b.done.toStringAsFixed(1)}/${b.planned.toStringAsFixed(1)}h' : '${b.planned.toStringAsFixed(1)}h unrated'),
-              group(2, 'By type · done vs planned', s.types),
-            ]);
-          }),
-        ],
-        if (_blocks != null) ...[
-          const SizedBox(height: 16),
-          Reveal(index: 6, child: Panel(
-            title: 'Rate your blocks',
-            child: _blocks!.isEmpty
-                ? Text('All caught up. Every block from the last two days has a status.', style: TextStyle(color: NextUpColors.muted))
-                : Column(children: [for (final b in _blocks!.take(8)) _RateRow(key: ValueKey(b.row), block: b, now: _now(), busy: _rating.contains(b.row), note: _note[b.row], onRate: (st, h) => _rate(b, st, h))]),
-          )),
+          const SizedBox(height: 8),
+          PageBoard(
+            layout: widget.layout,
+            onLayout: widget.onLayout,
+            items: [
+              BoardItem(id: 'adh-kpis', name: 'Summary', span: 12, child: Reveal(index: 2, child: _Kpis(s: s))),
+              if (s.courses.isNotEmpty) BoardItem(id: 'adh-courses', name: 'Courses', span: 4, child: Reveal(index: 3, child: _group('Courses · done vs planned', s.courses))),
+              if (s.days.isNotEmpty) BoardItem(id: 'adh-days', name: 'By day', span: 4, child: Reveal(index: 4, child: _group('By day · on plan vs planned', s.days, label: (b) => b.rated ? '${b.done.toStringAsFixed(1)}/${b.planned.toStringAsFixed(1)}h' : '${b.planned.toStringAsFixed(1)}h unrated'))),
+              if (s.types.isNotEmpty) BoardItem(id: 'adh-types', name: 'By type', span: 4, child: Reveal(index: 5, child: _group('By type · done vs planned', s.types))),
+              if (_blocks != null)
+                BoardItem(
+                  id: 'adh-rate',
+                  name: 'Rate your blocks',
+                  span: 12,
+                  child: Reveal(index: 6, child: Panel(
+                    title: 'Rate your blocks',
+                    child: _blocks!.isEmpty
+                        ? Text('All caught up. Every block from the last two days has a status.', style: TextStyle(color: NextUpColors.muted))
+                        : Column(children: [for (final b in _blocks!.take(8)) _RateRow(key: ValueKey(b.row), block: b, now: _now(), busy: _rating.contains(b.row), note: _note[b.row], onRate: (st, h) => _rate(b, st, h))]),
+                  )),
+                ),
+            ],
+          ),
         ],
       ],
     );

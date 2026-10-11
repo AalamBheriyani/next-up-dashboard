@@ -32,4 +32,18 @@ void main() {
     expect(l.withHeight('b', null).height, isEmpty);
     expect(l.toggleHidden('c').hidden, isEmpty);
   });
+
+  test('saving one page keeps the other pages\' panels', () {
+    final full = const BoardLayout(order: ['a', 'b', 'x', 'y'], span: {'a': 6, 'x': 4}, hidden: ['y']);
+    final page = const BoardLayout(order: ['b', 'a'], span: {'b': 3}, hidden: ['a']);
+    final merged = full.withPage(page, ['a', 'b']);
+    expect(merged.order, ['x', 'y', 'b', 'a']);
+    expect(merged.span, {'x': 4, 'b': 3});
+    expect(merged.hidden, ['y', 'a']);
+    // resetting a page (empty layout) puts its panels back in their default order and drops its sizes
+    final reset = merged.withPage(const BoardLayout(), ['a', 'b']);
+    expect(reset.order, ['x', 'y', 'a', 'b']);
+    expect(reset.span, {'x': 4});
+    expect(reset.hidden, ['y']);
+  });
 }
