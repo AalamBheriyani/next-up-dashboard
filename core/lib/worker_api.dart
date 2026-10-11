@@ -6,8 +6,19 @@ import 'package:http/http.dart' as http;
 import 'board_layout.dart';
 import 'deadline_source.dart';
 
+const defaultWakeMinutes = 7 * 60;
+const defaultWindDownMinutes = 22 * 60;
+
+/// Minutes after midnight for a "HH:MM" text ("7:30" and "07:30" both work), or [fallback] when it isn't one.
+int clockMinutes(Object? text, int fallback) {
+  final m = RegExp(r'^\s*(\d{1,2}):(\d{2})\s*$').firstMatch('${text ?? ''}');
+  if (m == null) return fallback;
+  final h = int.parse(m[1]!), min = int.parse(m[2]!);
+  return h > 23 || min > 59 ? fallback : h * 60 + min;
+}
+
 class AppConfig {
-  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = ''});
+  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes});
   final String email;
   final bool owner;
   final String sheetId; // Weekly Time Tracker
@@ -18,11 +29,15 @@ class AppConfig {
   final bool claudeApi;
   final bool relay;
   final String profileName, profileRules; // from the server's PROFILE (owner only), used by Ask Claude
+  final int wakeMinutes, windDownMinutes; // the waking day, as minutes after midnight
   final BoardLayout? layout; // the arrangement of dashboard panels, shared by every device
 
   factory AppConfig.fromJson(Map<String, dynamic> j) {
     final profile = j['profile'] is Map ? j['profile'] as Map : const {};
     final theme = j['theme'] is Map ? j['theme'] as Map : const {};
+    // Hours the person chose themselves win over the owner's server profile; otherwise 7:00 and 22:00.
+    final hours = j['hours'] is Map ? j['hours'] as Map : const {};
+    int pick(String key, int fallback) => clockMinutes(hours[key], clockMinutes(profile[key], fallback));
     return AppConfig(
       email: '${j['email'] ?? ''}',
       owner: j['owner'] == true,
@@ -35,6 +50,8 @@ class AppConfig {
       relay: j['relay'] == true,
       profileName: '${profile['name'] ?? ''}',
       profileRules: '${profile['rules'] ?? ''}',
+      wakeMinutes: pick('wake', defaultWakeMinutes),
+      windDownMinutes: pick('windDown', defaultWindDownMinutes),
       layout: j['webLayout'] is Map ? BoardLayout.fromJson(j['webLayout']) : null,
     );
   }
@@ -42,7 +59,7 @@ class AppConfig {
 
 abstract class ConfigSource {
   Future<AppConfig> load();
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout});
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown});
 }
 
 class WorkerConfigSource implements ConfigSource {
@@ -76,11 +93,12 @@ class WorkerConfigSource implements ConfigSource {
   }
 
   @override
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout}) async {
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown}) async {
     final body = <String, Object?>{
       'sheetId': ?sheetId,
       'questSheetId': ?questSheetId,
       if (layout != null) 'webLayout': layout.toJson(),
+      if (wake != null || windDown != null) 'hours': {'wake': wake ?? '', 'windDown': windDown ?? ''},
       if (accent != null || redDeadlines != null) 'theme': {'accent': accent ?? '', 'redDeadlines': redDeadlines ?? true},
     };
     await _send((h) => http.post(Uri.parse('$workerUrl/settings'), headers: h, body: jsonEncode(body)));

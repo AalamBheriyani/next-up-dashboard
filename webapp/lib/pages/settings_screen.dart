@@ -21,6 +21,13 @@ String? sheetIdFrom(String input) {
   return m?[1];
 }
 
+/// "07:30" for the saved setting, and "7:30 AM" for people.
+String clockText(int minutes) => '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';
+String clockLabel(int minutes) {
+  final h = minutes ~/ 60, m = minutes % 60;
+  return '${h % 12 == 0 ? 12 : h % 12}:${m.toString().padLeft(2, '0')} ${h < 12 ? 'AM' : 'PM'}';
+}
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.services, required this.config, required this.onSaved, required this.onSignOut});
   final Services services;
@@ -38,6 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _msg;
   bool _bad = false;
   bool _saving = false;
+  late int _wake = widget.config.wakeMinutes, _windDown = widget.config.windDownMinutes;
   late String _accent = widget.config.accent;
   late bool _red = widget.config.redDeadlines;
 
@@ -55,6 +63,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } on SourceException catch (e) {
       if (mounted) setState(() => _msg = e.message);
     }
+  }
+
+  /// Your waking day drives the "left until wind-down" bar; it saves as soon as you pick a time.
+  Future<void> _saveHours({int? wake, int? windDown}) async {
+    setState(() {
+      _wake = wake ?? _wake;
+      _windDown = windDown ?? _windDown;
+    });
+    try {
+      await widget.services.config.save(wake: clockText(_wake), windDown: clockText(_windDown));
+      widget.onSaved(await widget.services.config.load());
+    } on SourceException catch (e) {
+      if (mounted) setState(() => _msg = e.message);
+    }
+  }
+
+  Future<void> _pick(int current, void Function(int) set) async {
+    final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: current ~/ 60, minute: current % 60));
+    if (t != null) set(t.hour * 60 + t.minute);
   }
 
   @override
@@ -156,6 +183,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                 ]),
                 Row(children: [const Expanded(child: Text('Show deadlines in red', style: TextStyle(fontSize: NextUpType.body))), Switch(value: _red, onChanged: (v) => _saveTheme(red: v))]),
+              ]))),
+              const SizedBox(height: 16),
+              Reveal(index: 3, child: Panel(title: 'Your day', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('The dashboard counts your day from waking up to wind-down.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
+                const SizedBox(height: 12),
+                Wrap(spacing: 12, runSpacing: 8, children: [
+                  OutlinedButton.icon(onPressed: () => _pick(_wake, (m) => _saveHours(wake: m)), icon: const Icon(Icons.wb_sunny_outlined, size: 16), label: Text('Wake ${clockLabel(_wake)}')),
+                  OutlinedButton.icon(onPressed: () => _pick(_windDown, (m) => _saveHours(windDown: m)), icon: const Icon(Icons.bedtime_outlined, size: 16), label: Text('Wind-down ${clockLabel(_windDown)}')),
+                ]),
               ]))),
               const SizedBox(height: 16),
               Reveal(index: 3, child: Panel(title: 'Account', child: Row(children: [

@@ -11,6 +11,7 @@ import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/theme.dart';
+import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWindDownMinutes;
 import 'package:next_up_core/today_screen.dart';
 
 import '../board/widget_board.dart';
@@ -34,6 +35,8 @@ class DashboardScreen extends StatefulWidget {
     this.now,
     this.extras = const [],
     this.layout = const BoardLayout(),
+    this.wakeMinutes = defaultWakeMinutes,
+    this.windDownMinutes = defaultWindDownMinutes,
     this.onLayout,
     this.focus,
     this.ask,
@@ -47,6 +50,7 @@ class DashboardScreen extends StatefulWidget {
   final List<BoardItem> extras;
   /// The saved arrangement of panels, and where to report a change (saved to the account by the shell).
   final BoardLayout layout;
+  final int wakeMinutes, windDownMinutes; // the waking day for the header's bars
   final ValueChanged<BoardLayout>? onLayout;
   /// The focus timer (owned by the shell so it keeps running between pages) and Ask Claude, when available.
   final FocusController? focus;
@@ -204,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: ClockHeader(now: widget.now, events: _events)),
+                Expanded(child: ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes)),
                 if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                 if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
                 IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),

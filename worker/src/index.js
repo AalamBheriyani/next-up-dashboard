@@ -128,6 +128,7 @@ export default {
           questSheetId: mine.questSheetId || (who.owner ? env.QUEST_SHEET_ID || "" : ""),
           links, profile,
           theme: mine.theme || null,
+          hours: mine.hours || null,
           layout: mine.layout || null,
           webLayout: mine.webLayout || null,
           claudeApi: !!env.ANTHROPIC_API_KEY,
@@ -150,6 +151,11 @@ export default {
           const a = String(body.theme.accent || "");
           if (a && !/^#[0-9a-f]{6}$/i.test(a)) return fail(400, "bad colour");
           mine.theme = { accent: a, redDeadlines: body.theme.redDeadlines !== false };
+        }
+        // Each person's waking day, for the progress bars: "HH:MM" wake and wind-down times.
+        if (body.hours && typeof body.hours === "object") {
+          const t = (v) => (/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(v || "")) ? String(v) : "");
+          mine.hours = { wake: t(body.hours.wake), windDown: t(body.hours.windDown) };
         }
         // Dashboard widget layout: order, widths, heights and hidden panels. The current site saves
         // `layout`; the Flutter site saves `webLayout`, so neither overwrites the other's arrangement.
