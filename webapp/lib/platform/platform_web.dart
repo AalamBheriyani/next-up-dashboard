@@ -1,0 +1,87 @@
+// Browser versions: localStorage and a Web Audio beep, through dart:js_interop (no extra packages).
+import 'dart:js_interop';
+
+import 'platform_base.dart';
+
+@JS('localStorage')
+external _Storage? get _storage;
+
+extension type _Storage._(JSObject _) implements JSObject {
+  external String? getItem(String key);
+  external void setItem(String key, String value);
+}
+
+/// localStorage can be missing or throw (private windows, blocked site data); then it behaves as memory.
+class _WebStore implements LocalStore {
+  final _fallback = MemoryStore();
+  @override
+  String? get(String key) {
+    try {
+      return _storage?.getItem(key) ?? _fallback.get(key);
+    } catch (_) {
+      return _fallback.get(key);
+    }
+  }
+
+  @override
+  void set(String key, String value) {
+    _fallback.set(key, value);
+    try {
+      _storage?.setItem(key, value);
+    } catch (_) {}
+  }
+}
+
+LocalStore openLocalStore() => _WebStore();
+
+@JS('AudioContext')
+extension type _Ctx._(JSObject _) implements JSObject {
+  external factory _Ctx();
+  external double get currentTime;
+  external JSObject get destination;
+  external _Osc createOscillator();
+  external _Gain createGain();
+  external JSPromise<JSAny?> resume();
+}
+
+extension type _Param._(JSObject _) implements JSObject {
+  external void setValueAtTime(double value, double time);
+  external void exponentialRampToValueAtTime(double value, double time);
+  external set value(double v);
+}
+
+extension type _Osc._(JSObject _) implements JSObject {
+  external set type(String v);
+  external _Param get frequency;
+  external void connect(JSObject node);
+  external void start(double when);
+  external void stop(double when);
+}
+
+extension type _Gain._(JSObject _) implements JSObject {
+  external _Param get gain;
+  external void connect(JSObject node);
+}
+
+_Ctx? _ctx;
+
+/// A few quick square-wave notes, like the current Quest Log. Browsers only allow sound after a click, which is
+/// always how this is reached; any failure is ignored because sound is a nicety.
+void playBeep(List<double> freqs) {
+  try {
+    final c = _ctx ??= _Ctx();
+    c.resume();
+    final t0 = c.currentTime;
+    for (var i = 0; i < freqs.length; i++) {
+      final o = c.createOscillator(), g = c.createGain();
+      o.type = 'square';
+      o.frequency.value = freqs[i];
+      g.gain.setValueAtTime(.05, t0 + i * .07);
+      g.gain.exponentialRampToValueAtTime(.001, t0 + i * .07 + .12);
+      o.connect(g);
+      g.connect(c.destination);
+      o.start(t0 + i * .07);
+      o.stop(t0 + i * .07 + .13);
+    }
+  } catch (_) {}
+}

@@ -9,6 +9,7 @@ import 'package:next_up_core/sheets.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
 
+import 'platform/platform.dart';
 import 'web_auth.dart';
 
 /// The original site, kept running as a backup while this one grows. It uses the same sign-in and sheets.
@@ -26,7 +27,9 @@ class Services {
     this.xpFactory,
     this.anki,
     this.askTransport,
-  });
+    LocalStore? store,
+    this.beep = _silent,
+  }) : store = store ?? MemoryStore();
 
   final ConfigSource config;
   final DeadlineSource deadlines;
@@ -39,6 +42,11 @@ class Services {
   final XpRepository Function(String sheetId)? xpFactory;
   final AnkiSource? anki;
   final AskTransport? askTransport;
+
+  /// Small things kept on this device only, and the sound the Quest Log makes (both silent/in-memory in tests).
+  final LocalStore store;
+  final void Function(List<double> freqs) beep;
+  static void _silent(List<double> _) {}
 
   TrackRepository? _trackCache;
   String _trackFor = '';
@@ -75,6 +83,8 @@ class Services {
       signIn: signIn,
       anki: WorkerAnkiSource(auth.token),
       askTransport: WorkerAskTransport(auth.token),
+      store: openLocalStore(),
+      beep: playBeep,
     );
     s._token = auth.token;
     return s;

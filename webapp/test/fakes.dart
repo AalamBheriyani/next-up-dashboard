@@ -7,6 +7,7 @@ import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/sheets.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
+import 'package:next_up_web/platform/platform_base.dart';
 import 'package:next_up_web/services.dart';
 
 class FakeDeadlines implements DeadlineSource {
@@ -86,7 +87,7 @@ class FakeSheetsForHours implements SheetsApi {
   Future<void> addTab(String title) async {}
 }
 
-Services fakeServices({bool signedIn = true, FakeTrack? track, HoursRepository? hours, XpRepository? xp, FakeConfig? config, List<Deadline> deadlines = const [], List<CalendarEvent> events = const []}) => Services(
+Services fakeServices({bool signedIn = true, FakeTrack? track, HoursRepository? hours, XpRepository? xp, FakeConfig? config, List<Deadline> deadlines = const [], List<CalendarEvent> events = const [], LocalStore? store, void Function(List<double>)? beep}) => Services(
       config: config ?? FakeConfig(),
       deadlines: FakeDeadlines(deadlines),
       calendar: FakeCalendar(events),
@@ -95,6 +96,8 @@ Services fakeServices({bool signedIn = true, FakeTrack? track, HoursRepository? 
       trackFactory: track == null ? null : (_) => track,
       hoursFactory: hours == null ? null : (_) => hours,
       xpFactory: xp == null ? null : (_) => xp,
+      store: store,
+      beep: beep ?? (_) {},
     );
 
 class FakeXp extends XpRepository {
