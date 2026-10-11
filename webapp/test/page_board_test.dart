@@ -47,7 +47,7 @@ void main() {
     await t.tap(find.byTooltip('Customise panels'));
     await t.pump(const Duration(seconds: 1));
     expect(scroll.offset, 0);
-    final g = await t.startGesture(t.getCenter(find.byIcon(Icons.drag_indicator_rounded).first));
+    final g = await t.startGesture(t.getCenter(find.text('P1').first));
     await t.pump(const Duration(milliseconds: 300));
     await g.moveTo(const Offset(500, 490));
     for (var i = 0; i < 10; i++) {

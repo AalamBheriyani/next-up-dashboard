@@ -228,7 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 BoardBar(items: items, layout: _layout.resolved([for (final i in items) i.id]), onChanged: _setLayout, onReset: () => _setLayout(const BoardLayout()), onDone: () => setState(() => _editing = false)),
                 const SizedBox(height: 16),
               ],
-              WidgetBoard(items: items, layout: _layout, editing: _editing, onChanged: _setLayout),
+              WidgetBoard(items: items, layout: _layout, editing: _editing, onChanged: _setLayout, onEdit: () => setState(() => _editing = true)),
             ],
           );
         }),

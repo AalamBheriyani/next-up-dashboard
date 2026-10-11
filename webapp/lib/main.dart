@@ -23,6 +23,7 @@ import 'dashboard/habits_panel.dart';
 import 'pages/lists_screen.dart';
 import 'pages/quest_screen.dart';
 import 'motion.dart';
+import 'scale.dart';
 import 'pages/adherence_screen.dart';
 import 'pages/settings_screen.dart';
 import 'pages/track_screen.dart';
@@ -48,6 +49,7 @@ class NextUpWeb extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: buildNextUpTheme(),
           themeMode: ThemeMode.dark,
+          builder: (context, child) => ScaleToScreen(child: child!),
           home: const Shell(),
         ),
       );

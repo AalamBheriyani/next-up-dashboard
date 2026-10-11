@@ -18,10 +18,13 @@ void main() {
     }
 
     await show(22 * 60);
-    expect(find.text('2h 0m left until wind-down'), findsOneWidget);
+    expect(find.text('2h 0m until wind-down'), findsOneWidget);
     await show(21 * 60);
-    expect(find.text('1h 0m left until wind-down'), findsOneWidget);
+    expect(find.text('1h 0m until wind-down'), findsOneWidget);
+    expect(find.text('Work time left today'), findsOneWidget);
+    expect(find.text('Wake 7:00 AM'), findsOneWidget);
+    expect(find.text('Wind-down 9:00 PM'), findsOneWidget);
     await show(19 * 60);
-    expect(find.text('Wind-down time. Rest up.'), findsOneWidget);
+    expect(find.text('Wind-down time. Log XP and rest.'), findsOneWidget);
   });
 }

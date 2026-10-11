@@ -7,6 +7,8 @@ import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWindDownMinutes;
 
+import '../motion.dart';
+
 class ClockHeader extends StatefulWidget {
   const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes});
   /// The waking day, as minutes after midnight (from the person's settings).
@@ -42,31 +44,34 @@ class _ClockHeaderState extends State<ClockHeader> {
     final span = end.difference(start).inSeconds;
     final frac = span <= 0 ? 1.0 : (now.difference(start).inSeconds / span).clamp(0.0, 1.0);
     final left = end.difference(now);
-    final label = left.isNegative ? 'Wind-down time. Rest up.' : '${_fmt(left)} left until wind-down';
     final free = freeBar(widget.events, now, start);
+    final muted = TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body);
+    // The same arrangement as the current site: a bold clock with the date on its baseline, then small cards
+    // with a label, a value on the right, a bar and the day's anchors.
     return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 32,
       runSpacing: 12,
       children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(DateFormat('h:mm').format(now) + DateFormat(' a').format(now).toLowerCase(),
-              style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
-          const SizedBox(height: 4),
-          Text(DateFormat('EEEE, MMMM d').format(now), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
+        Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+          Text(DateFormat('h:mm a').format(now), style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
+          const SizedBox(width: 14),
+          Text(DateFormat('EEEE, MMMM d').format(now), style: muted),
         ]),
         ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 240, maxWidth: 380),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          constraints: const BoxConstraints(minWidth: 260, maxWidth: 420),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (free != null) ...[
-              Text(free.label, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
+              _Card(label: free.title, value: free.value, fraction: free.fraction),
               const SizedBox(height: 8),
-              _Bar(free.fraction),
-              const SizedBox(height: 14),
             ],
-            Text(label, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body)),
-            const SizedBox(height: 8),
-            _Bar(frac),
+            _Card(
+              label: 'Work time left today',
+              value: left.isNegative ? 'Wind-down time. Log XP and rest.' : '${_fmt(left)} until wind-down',
+              fraction: frac,
+              from: 'Wake ${_hm(start)}',
+              to: 'Wind-down ${_hm(end)}',
+            ),
           ]),
         ),
       ],
@@ -74,32 +79,52 @@ class _ClockHeaderState extends State<ClockHeader> {
   }
 }
 
+String _hm(DateTime t) => DateFormat('h:mm a').format(t);
+
 String _fmt(Duration d) {
   final h = d.inHours, m = d.inMinutes % 60;
   return h == 0 ? '${m}m' : '${h}h ${m}m';
 }
 
-/// One progress bar, the same look for every indicator in the header.
-class _Bar extends StatelessWidget {
-  const _Bar(this.value);
-  final double value;
+/// A small card: label on the left, value on the right, a progress bar and optional anchors under it.
+class _Card extends StatelessWidget {
+  const _Card({required this.label, required this.value, required this.fraction, this.from, this.to});
+  final String label, value;
+  final double fraction;
+  final String? from, to;
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(value: value, minHeight: 8, backgroundColor: NextUpColors.raised, color: NextUpColors.accent),
-      );
+  Widget build(BuildContext context) {
+    final small = TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: NextUpColors.raised, borderRadius: BorderRadius.circular(10)),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+          Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: small)),
+          const SizedBox(width: 12),
+          Expanded(child: Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w600, fontFeatures: monoFeatures))),
+        ]),
+        const SizedBox(height: 8),
+        GrowBar(value: fraction, color: NextUpColors.accent, height: 8, track: NextUpColors.line),
+        if (from != null) ...[
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(from!, style: small), Text(to ?? '', style: small)]),
+        ],
+      ]),
+    );
+  }
 }
 
 /// The time until you are free: while an event is on, how far through it you are; while free, how far
 /// through the gap before the next event. Null when there is nothing left on today's calendar.
-({String label, double fraction})? freeBar(List<CalendarEvent>? events, DateTime now, DateTime dayStart) {
+({String title, String value, double fraction})? freeBar(List<CalendarEvent>? events, DateTime now, DateTime dayStart) {
   if (events == null) return null;
   final day = DaySchedule(events, now);
   final cur = day.current;
   if (cur != null) {
     final f = (now.difference(cur.start).inSeconds / cur.length.inSeconds).clamp(0.0, 1.0);
-    return (label: '${_fmt(cur.end.difference(now))} until free, ${cur.title} ends ${DateFormat('h:mm a').format(cur.end)}', fraction: f);
+    return (title: 'Until free', value: '${_fmt(cur.end.difference(now))} · ${cur.title} ends ${DateFormat('h:mm a').format(cur.end)}', fraction: f);
   }
   final next = day.next;
   if (next == null) return null;
@@ -110,5 +135,5 @@ class _Bar extends StatelessWidget {
   if (from.isAfter(now)) from = now;
   final span = next.start.difference(from).inSeconds;
   final f = span <= 0 ? 0.0 : (now.difference(from).inSeconds / span).clamp(0.0, 1.0);
-  return (label: 'Free for ${_fmt(next.start.difference(now))} until ${next.title}', fraction: f);
+  return (title: 'Free until ${next.title}', value: _fmt(next.start.difference(now)), fraction: f);
 }
