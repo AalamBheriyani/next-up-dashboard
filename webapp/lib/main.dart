@@ -20,6 +20,7 @@ import 'dashboard/focus_controller.dart';
 import 'board/widget_board.dart';
 import 'dashboard/anki_panel.dart';
 import 'dashboard/habits_panel.dart';
+import 'pages/lists_screen.dart';
 import 'pages/quest_screen.dart';
 import 'motion.dart';
 import 'pages/adherence_screen.dart';
@@ -198,10 +199,12 @@ class _ShellState extends State<Shell> {
           ),
         );
       case 2:
-        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+        return ListsScreen(services: _svc, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null);
       case 3:
-        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
       case 4:
+        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+      case 5:
         return QuestScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
       default:
         return SettingsScreen(
@@ -228,6 +231,7 @@ class _ShellState extends State<Shell> {
     const destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),
       (Icons.flight_takeoff_rounded, 'DEADLINES'),
+      (Icons.checklist_rounded, 'LISTS'),
       (Icons.timer_outlined, 'TRACK'),
       (Icons.insights_outlined, 'ADHERENCE'),
       (Icons.military_tech_outlined, 'QUESTS'),
