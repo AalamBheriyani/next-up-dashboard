@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/worker_api.dart';
+import 'package:next_up_web/platform/platform_base.dart';
 import 'package:next_up_web/pages/quest_screen.dart';
 
 import 'fakes.dart';
@@ -10,11 +12,11 @@ import 'fakes.dart';
 void main() {
   final now = DateTime(2026, 10, 10, 15);
 
-  Future<void> pump(WidgetTester t, FakeXp xp, {String sheet = 'xp'}) async {
+  Future<void> pump(WidgetTester t, FakeXp xp, {String sheet = 'xp', LocalStore? store, void Function(List<double>)? beep}) async {
     t.view.physicalSize = const Size(1300, 1800);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
-    await t.pumpWidget(MaterialApp(home: Scaffold(body: QuestScreen(services: fakeServices(xp: xp), config: AppConfig(sheetId: 's', questSheetId: sheet), now: () => now, random: Random(1)))));
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: QuestScreen(services: fakeServices(xp: xp, store: store, beep: beep), config: AppConfig(sheetId: 's', questSheetId: sheet), now: () => now, random: Random(1)))));
     await t.pump(const Duration(seconds: 1));
   }
 
@@ -34,5 +36,31 @@ void main() {
   testWidgets('asks for the XP sheet when none is set', (tester) async {
     await pump(tester, FakeXp(), sheet: '');
     expect(find.textContaining('XP Tracker sheet'), findsOneWidget);
+  });
+
+  testWidgets('a quest makes a sound, undo is silent, and the sound switch is remembered', (tester) async {
+    final beeps = <List<double>>[];
+    final store = MemoryStore();
+    await pump(tester, FakeXp(), store: store, beep: beeps.add);
+    await tester.tap(find.text('Daily Planning done').first);
+    await tester.pump(const Duration(seconds: 1));
+    expect(beeps, hasLength(1));
+    await tester.tap(find.text('Undo last'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(beeps, hasLength(1));
+    await tester.tap(find.byTooltip('Turn sound off'));
+    await tester.pump();
+    expect(store.get('nu.web.mute'), '1');
+    await tester.tap(find.text('Daily Planning done').first);
+    await tester.pump(const Duration(seconds: 1));
+    expect(beeps, hasLength(1));
+  });
+
+  testWidgets('crossing the daily goal shows a toast', (tester) async {
+    final earlier = XpRow(t: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch, q: 'other', name: 'Earlier', base: 50, mult: 1, xp: 50, kind: 'quest');
+    await pump(tester, FakeXp([earlier]));
+    await tester.tap(find.text('Daily Planning done').first);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Daily goal hit. Streak is safe.'), findsOneWidget);
   });
 }

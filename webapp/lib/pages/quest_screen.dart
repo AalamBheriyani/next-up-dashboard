@@ -17,6 +17,7 @@ import '../motion.dart';
 import '../services.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
+const _muteKey = 'nu.web.mute';
 const _gold = Color(0xFFFFC53D);
 const _flame = Color(0xFFFF6B4A);
 const _combo = Color(0xFF4CC9F0);
@@ -40,6 +41,8 @@ class _QuestScreenState extends State<QuestScreen> {
   XpSettings _settings = const XpSettings();
   bool _loaded = false;
   String? _error, _note;
+  late bool _muted = widget.services.store.get(_muteKey) == '1';
+  int _shake = 0; // bumped on a crit so the page gives a short shake
 
   DateTime _now() => (widget.now ?? DateTime.now)();
   late final math.Random _rng = widget.random ?? math.Random();
@@ -72,15 +75,32 @@ class _QuestScreenState extends State<QuestScreen> {
     }
   }
 
-  Future<void> _log(XpRow r, {String? note}) async {
-    final before = _model.level;
+  void _beep(List<double> freqs) {
+    if (!_muted) widget.services.beep(freqs);
+  }
+
+  void _toast(String text) => ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text), duration: const Duration(milliseconds: 2600)));
+
+  Future<void> _log(XpRow r, {String? note, bool crit = false}) async {
+    final was = _model;
     setState(() {
       _rows = [..._rows, r];
       _note = note;
     });
-    if (_model.level > before) {
+    final now = _model;
+    final gain = r.xp > 0 && r.kind != 'undo';
+    if (crit && !reduceMotion(context)) _shake++;
+    if (now.level > was.level) {
       showConfetti(context);
-      _note = 'Level up! You are now ${titleFor(_model.level)}.';
+      _note = 'Level up! You are now ${titleFor(now.level)}.';
+      _beep([523, 659, 784, 1047]);
+    } else if (gain) {
+      _beep(crit ? [880, 1175, 1568] : [660, 880]);
+      if (was.todayXp < _settings.dailyGoal && now.todayXp >= _settings.dailyGoal) {
+        _toast('Daily goal hit. Streak is safe.');
+      } else if (was.weekXp < _settings.weeklyGoal && now.weekXp >= _settings.weeklyGoal) {
+        _toast('Weekly goal hit.');
+      }
     }
     try {
       await _repo.append([r], _settings.dayStartHour);
@@ -92,12 +112,14 @@ class _QuestScreenState extends State<QuestScreen> {
   void _do(Quest q) {
     final m = _model;
     if ((m.counts[q.id] ?? 0) >= q.cap) {
-      setState(() => _note = 'That quest is maxed for today. It resets at ${_settings.dayStartHour}:00.');
+      final text = 'That quest is maxed for today. It resets at ${_settings.dayStartHour}:00.';
+      setState(() => _note = text);
+      _toast(text);
       return;
     }
     final crit = _rng.nextDouble() < _settings.critChance;
     final r = questRow(q, m, _now().millisecondsSinceEpoch, crit: crit);
-    _log(r, note: '${crit ? 'CRIT! ' : ''}+${r.xp} XP');
+    _log(r, note: '${crit ? 'CRIT! ' : ''}+${r.xp} XP', crit: crit);
   }
 
   void _undo() {
@@ -114,8 +136,23 @@ class _QuestScreenState extends State<QuestScreen> {
     final cats = [for (final c in categoryOrder) if (_quests.any((q) => q.cat == c)) c, ..._quests.map((q) => q.cat).where((c) => !categoryOrder.contains(c)).toSet()];
     final badges = earnedBadges(_rows, m.byDay, m.info, _settings.weeklyGoal);
     final recent = _rows.reversed.take(8).toList();
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.questSheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open XP sheet'))),
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(_shake),
+      tween: Tween(begin: _shake == 0 ? 1 : 0, end: 1),
+      duration: const Duration(milliseconds: 350),
+      builder: (context, t, child) => Transform.translate(offset: Offset(math.sin(t * math.pi * 6) * (1 - t) * 6, 0), child: child),
+      child: ListView(padding: const EdgeInsets.all(24), children: [
+      Align(alignment: Alignment.centerRight, child: Row(mainAxisSize: MainAxisSize.min, children: [
+        IconButton(
+          tooltip: _muted ? 'Turn sound on' : 'Turn sound off',
+          icon: Icon(_muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20),
+          onPressed: () {
+            setState(() => _muted = !_muted);
+            widget.services.store.set(_muteKey, _muted ? '1' : '0');
+          },
+        ),
+        TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.questSheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open XP sheet')),
+      ])),
       if (_note != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: AnimatedSwitcher(duration: motionFast, child: Text(_note!, key: ValueKey(_note), style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
       PageBoard(layout: widget.layout, onLayout: widget.onLayout, items: [
       BoardItem(id: 'quest-level', name: 'Level', span: 12, child: Reveal(
@@ -193,7 +230,7 @@ class _QuestScreenState extends State<QuestScreen> {
               ]),
       )),
       ]),
-    ]);
+    ]));
   }
 }
 

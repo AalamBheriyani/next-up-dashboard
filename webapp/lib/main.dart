@@ -70,7 +70,7 @@ class _ShellState extends State<Shell> {
   Timer? _layoutTimer;
   // The focus timer lives here so it keeps running while you move between pages, and so a finished session
   // can earn XP and a running one can track your time.
-  late final FocusController _focus = FocusController(hooks: FocusHooks(onFinished: _timerFinished, onFocusRunning: _followTimer));
+  late final FocusController _focus = FocusController(store: _svc.store, hooks: FocusHooks(onFinished: _timerFinished, onFocusRunning: _followTimer));
   int _page = 0;
   // Bumped on sign-in or out so every page reloads.
   int _session = 0;
@@ -78,6 +78,7 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    _focus.restore();
     if (_svc.signedIn()) _loadConfig();
   }
 
@@ -110,7 +111,9 @@ class _ShellState extends State<Shell> {
     final q = defaultQuests.firstWhere((x) => x.id == (focus ? 'timer' : 'break'));
     final row = XpRow(t: DateTime.now().millisecondsSinceEpoch, q: q.id, name: q.name, base: q.xp.toDouble(), mult: 1, xp: q.xp, kind: 'auto');
     try {
-      await _svc.xpFor(_config.questSheetId).append([row], const XpSettings().dayStartHour);
+      final repo = _svc.xpFor(_config.questSheetId);
+      // The day starts at the hour in the person's own XP sheet settings, so the row lands on the right day.
+      await repo.append([row], (await repo.load()).settings.dayStartHour);
       if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('+${q.xp} XP · ${q.name}')));
     } catch (_) {
       // XP is a bonus; a failed write must never interrupt the timer.
@@ -183,6 +186,8 @@ class _ShellState extends State<Shell> {
           onSignIn: _signIn,
           layout: _layout,
           onLayout: _saveLayout,
+          wakeMinutes: _config.wakeMinutes,
+          windDownMinutes: _config.windDownMinutes,
           focus: _focus,
           ask: _ask,
           extras: [
