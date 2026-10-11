@@ -17,6 +17,7 @@ import 'package:next_up_core/today_screen.dart';
 import '../board/widget_board.dart';
 import 'calendar_panel.dart';
 import 'ask_panel.dart';
+import 'deadline_box.dart';
 import 'deadline_editor.dart';
 import 'do_now.dart';
 import 'focus_controller.dart';
@@ -257,7 +258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final all = _deadlines ?? const <Deadline>[];
     final g = DeadlineGroups(all, now);
     final next = g.next;
-    BoardItem list(String id, String title, Color color, List<Deadline> items, {String? hint, bool showDate = false, int? limit}) => BoardItem(
+    BoardItem list(String id, String title, Color color, List<Deadline> items, {String? hint, bool showDate = false}) => BoardItem(
           id: id,
           name: title,
           span: 6,
@@ -265,9 +266,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: title,
             accent: color,
             trailing: hint == null ? null : Text(hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
-            child: items.isEmpty
-                ? Text('Nothing here.', style: TextStyle(color: NextUpColors.muted))
-                : DeadlineSection(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, limit: limit, bare: true, onEdit: widget.deadlines is DeadlineEditor ? _edit : null),
+            child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null),
           ),
         );
     return [
@@ -286,7 +285,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (g.overdue.isNotEmpty || _editing) list('overdue', 'Overdue', NextUpColors.deadline, g.overdue, hint: 'Oldest first', showDate: true),
         if (g.today(now).any((d) => d != next) || _editing) list('today', 'Today', NextUpColors.accent, g.today(now).where((d) => d != next).toList()),
         if (g.thisWeek(now).isNotEmpty || _editing) list('thisweek', 'This week', NextUpColors.accent, g.thisWeek(now), showDate: true),
-        if (g.later(now).isNotEmpty || _editing) list('later', 'Later', NextUpColors.muted, g.later(now), showDate: true, limit: 10),
+        if (g.later(now).isNotEmpty || _editing) list('later', 'Later', NextUpColors.muted, g.later(now), showDate: true),
       ],
       ...widget.extras,
     ];
