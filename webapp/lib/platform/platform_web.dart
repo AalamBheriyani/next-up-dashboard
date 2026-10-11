@@ -85,3 +85,27 @@ void playBeep(List<double> freqs) {
     }
   } catch (_) {}
 }
+
+extension type _Location._(JSObject _) implements JSObject {
+  external String get hash;
+  external String get pathname;
+  external String get search;
+  external set href(String v);
+}
+
+extension type _History._(JSObject _) implements JSObject {
+  external void replaceState(JSAny? state, String title, String url);
+}
+
+@JS('location')
+external _Location get _location;
+
+@JS('history')
+external _History get _history;
+
+String currentHash() => _location.hash;
+
+/// Removes `#...` from the address without reloading, so a session token doesn't linger in the address bar.
+void clearHash() => _history.replaceState(null, '', _location.pathname + _location.search);
+
+void navigateTo(String url) => _location.href = url;

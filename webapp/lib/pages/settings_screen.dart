@@ -170,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   OutlinedButton(
                     onPressed: () async {
                       try {
-                        await launchUrl(Uri.parse(await (widget.services.deadlines as TickTickConnector).connectUrl()), webOnlyWindowName: '_self');
+                        await launchUrl(Uri.parse(await (widget.services.deadlines as TickTickConnector).connectUrl(back: 'beta')), webOnlyWindowName: '_self');
                       } on SourceException catch (e) {
                         if (mounted) setState(() => _msg = e.message);
                       }

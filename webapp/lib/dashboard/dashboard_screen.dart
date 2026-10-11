@@ -153,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final c = widget.deadlines;
     if (c is! TickTickConnector) return;
     try {
-      await launchUrl(Uri.parse(await (c as TickTickConnector).connectUrl()), webOnlyWindowName: '_self');
+      await launchUrl(Uri.parse(await (c as TickTickConnector).connectUrl(back: 'beta')), webOnlyWindowName: '_self');
     } on SourceException catch (e) {
       if (mounted) setState(() => _deadlineError = e.message);
     }

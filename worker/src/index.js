@@ -35,6 +35,8 @@ export default {
       const stateEmail = state && (await store(env).get("tt_state:" + state));
       if (!code || !stateEmail) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
       await store(env).delete("tt_state:" + state);
+      const back = (await store(env).get("tt_ret:" + state)) === "beta" ? "beta/" : "";
+      await store(env).delete("tt_ret:" + state);
       const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callbackUrl(url), scope: "tasks:read tasks:write" });
       const r = await fetch(TT_TOKEN, {
         method: "POST",
@@ -44,7 +46,7 @@ export default {
       if (!r.ok) return new Response("TickTick didn't accept the sign-in: " + (await r.text()), { status: 502 });
       const tok = await r.json();
       await store(env).put(ttKey(stateEmail), tok.access_token);
-      return Response.redirect(env.SITE_URL + "?ticktick=connected", 302);
+      return Response.redirect(env.SITE_URL + back + "?ticktick=connected", 302);
     }
 
     // The laptop relay script authenticates with the RELAY_TOKEN secret instead of Google.
@@ -62,6 +64,8 @@ export default {
       const state = crypto.randomUUID();
       const client = webClientId(env, url.searchParams.get("client"));
       await store(env).put("au_state:" + state, client, { expirationTtl: 600 });
+      // The Flutter site at /beta/ asks to come back there instead of the original site.
+      if (url.searchParams.get("return") === "beta") await store(env).put("au_ret:" + state, "beta", { expirationTtl: 600 });
       const q = new URLSearchParams({
         client_id: client, redirect_uri: url.origin + "/auth/callback", response_type: "code",
         scope: GOOGLE_SCOPES, access_type: "offline", prompt: "consent", include_granted_scopes: "true", state,
@@ -73,6 +77,8 @@ export default {
       const client = state && (await store(env).get("au_state:" + state));
       if (!code || !client) return new Response("Link expired. Start again from the dashboard.", { status: 400 });
       await store(env).delete("au_state:" + state);
+      const back = (await store(env).get("au_ret:" + state)) === "beta" ? "beta/" : "";
+      await store(env).delete("au_ret:" + state);
       const r = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ code, client_id: client, client_secret: String(env.GOOGLE_CLIENT_SECRET || "").trim(), redirect_uri: url.origin + "/auth/callback", grant_type: "authorization_code" }),
@@ -87,7 +93,7 @@ export default {
       else if (!(await store(env).get("rt:" + email))) return new Response("Google didn't return a refresh token. Remove Next Up at myaccount.google.com/permissions and sign in again.", { status: 502 });
       const session = "nu_" + [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
       await store(env).put("sess:" + (await sha256(session)), { email, at: Date.now() }, { expirationTtl: SESSION_DAYS * 86400 });
-      return Response.redirect(env.SITE_URL + "#nu_session=" + session, 302);
+      return Response.redirect(env.SITE_URL + back + "#nu_session=" + session, 302);
     }
     if (url.pathname === "/auth/token" || url.pathname === "/auth/logout") {
       const h = req.headers.get("Authorization") || "";
@@ -183,6 +189,8 @@ export default {
       if (url.pathname === "/ticktick/start" && req.method === "POST") {
         const state = crypto.randomUUID();
         await store(env).put("tt_state:" + state, who.email, { expirationTtl: 600 });
+        const body = await req.json().catch(() => ({}));
+        if (body.return === "beta") await store(env).put("tt_ret:" + state, "beta", { expirationTtl: 600 });
         const q = new URLSearchParams({ client_id: String(env.TICKTICK_CLIENT_ID || "").trim(), scope: "tasks:read tasks:write", state, redirect_uri: callbackUrl(url), response_type: "code" });
         return json({ url: `${TT_AUTH}?${q}` });
       }
