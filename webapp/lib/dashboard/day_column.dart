@@ -59,7 +59,10 @@ class _DayColumnState extends State<DayColumn> {
               height: widget.height,
               child: SingleChildScrollView(
                 controller: _scroll,
-                child: SizedBox(
+                child: LayoutBuilder(builder: (context, box) {
+                  final lanes = dayLanes(_timed);
+                  final laneW = box.maxWidth - 56;
+                  return SizedBox(
                   height: total,
                   child: Stack(children: [
                     for (var h = h0; h < h1; h++)
@@ -75,8 +78,9 @@ class _DayColumnState extends State<DayColumn> {
                     for (final e in _timed)
                       Positioned(
                         top: _y(e.start, h0).clamp(0, total),
-                        left: 52,
-                        right: 4,
+                        // Events that overlap share the width side by side.
+                        left: 52 + laneW * lanes[e]!.$1 / lanes[e]!.$2,
+                        width: laneW / lanes[e]!.$2 - 2,
                         height: (_y(e.end, h0) - _y(e.start, h0) - 2).clamp(18, total),
                         child: Tooltip(
                           message: '${hm.format(e.start)} to ${hm.format(e.end)} ${e.title}',
@@ -93,11 +97,44 @@ class _DayColumnState extends State<DayColumn> {
                       ]),
                     ),
                   ]),
-                ),
+                );
+                }),
               ),
             ),
     );
   }
+}
+
+/// Which side-by-side lane each event sits in, and how many lanes its group of overlapping events needs.
+Map<CalendarEvent, (int, int)> dayLanes(List<CalendarEvent> events) {
+  final sorted = [...events]..sort((a, b) => a.start.compareTo(b.start));
+  final out = <CalendarEvent, (int, int)>{};
+  var group = <CalendarEvent>[];
+  var laneEnds = <DateTime>[];
+  var groupEnd = DateTime(0);
+  void close() {
+    for (final e in group) {
+      out[e] = (out[e]!.$1, laneEnds.length);
+    }
+    group = [];
+    laneEnds = [];
+  }
+
+  for (final e in sorted) {
+    if (group.isNotEmpty && !e.start.isBefore(groupEnd)) close();
+    var lane = laneEnds.indexWhere((end) => !end.isAfter(e.start));
+    if (lane < 0) {
+      lane = laneEnds.length;
+      laneEnds.add(e.end);
+    } else {
+      laneEnds[lane] = e.end;
+    }
+    out[e] = (lane, 1);
+    group.add(e);
+    if (group.length == 1 || e.end.isAfter(groupEnd)) groupEnd = e.end;
+  }
+  if (group.isNotEmpty) close();
+  return out;
 }
 
 class _Block extends StatelessWidget {

@@ -28,6 +28,8 @@ class FocusController extends ChangeNotifier {
 
   int focusMin, shortMin, longMin, every;
   bool autoContinue;
+  /// The old site's Time Timer face (a red disc for the minutes left, out of an hour); off is a thin ring.
+  bool classicFace = true;
   FocusHooks hooks;
 
   /// Where the timer is remembered on this device, so a reload does not lose it.
@@ -44,7 +46,9 @@ class FocusController extends ChangeNotifier {
   Timer? _tick;
 
   bool get running => _tick != null;
-  Duration get total => _duration(mode);
+  // A length picked on the dial (or by Ask Claude) for this one session; null means the mode's usual length.
+  Duration? _custom;
+  Duration get total => _custom ?? _duration(mode);
   Duration get left => running ? _endsAt!.difference(_now()).isNegative ? Duration.zero : _endsAt!.difference(_now()) : _left;
   double get fraction => total.inMilliseconds == 0 ? 0 : (1 - left.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0);
 
@@ -54,6 +58,7 @@ class FocusController extends ChangeNotifier {
     _halt();
     mode = m;
     label = '';
+    _custom = null;
     _left = _duration(m);
     _save();
     notifyListeners();
@@ -82,14 +87,15 @@ class FocusController extends ChangeNotifier {
   /// Changes the lengths (minutes, 1 to 60 or 90 for a long break), the long-break rhythm and auto-start, and
   /// keeps them on this device like the old site's timer settings. A timer that hasn't started yet takes the
   /// new length at once.
-  void setSettings({int? focus, int? short, int? long, int? every, bool? auto}) {
+  void setSettings({int? focus, int? short, int? long, int? every, bool? auto, bool? classic}) {
     final fresh = !running && _left == _duration(mode);
     focusMin = (focus ?? focusMin).clamp(1, 60);
     shortMin = (short ?? shortMin).clamp(1, 60);
     longMin = (long ?? longMin).clamp(1, 90);
     this.every = (every ?? this.every).clamp(2, 12);
     autoContinue = auto ?? autoContinue;
-    store?.set(settingsKey, jsonEncode({'focus': focusMin, 'short': shortMin, 'long': longMin, 'every': this.every, 'auto': autoContinue}));
+    classicFace = classic ?? classicFace;
+    store?.set(settingsKey, jsonEncode({'focus': focusMin, 'short': shortMin, 'long': longMin, 'every': this.every, 'auto': autoContinue, 'classic': classicFace}));
     if (fresh) _left = _duration(mode);
     _save();
     notifyListeners();
@@ -105,6 +111,7 @@ class FocusController extends ChangeNotifier {
       longMin = n('long', longMin, 90);
       every = n('every', every, 12).clamp(2, 12);
       if (j['auto'] is bool) autoContinue = j['auto'] as bool;
+      if (j['classic'] is bool) classicFace = j['classic'] as bool;
       _left = _duration(mode);
     } catch (_) {
       // Damaged settings fall back to the defaults.
@@ -119,6 +126,7 @@ class FocusController extends ChangeNotifier {
     if (wasFocus) hooks.onFocusRunning?.call(false, label);
     mode = wasFocus ? ((done + 1) % every == 0 ? FocusMode.longBreak : FocusMode.shortBreak) : FocusMode.focus;
     label = '';
+    _custom = null;
     _left = _duration(mode);
     _save();
     notifyListeners();
@@ -128,6 +136,7 @@ class FocusController extends ChangeNotifier {
   void nudge(int minutes) {
     final m = ((left.inSeconds + 59) ~/ 60 + minutes).clamp(1, 60);
     _left = Duration(minutes: m);
+    if (_left > total) _custom = _left;
     if (running) _endsAt = _now().add(_left);
     _save();
     notifyListeners();
@@ -141,8 +150,17 @@ class FocusController extends ChangeNotifier {
     mode = FocusMode.focus;
     label = text;
     _left = Duration(minutes: m);
+    _custom = _left;
     start();
     return m;
+  }
+
+  /// Sets this session to [minutes] (1 to 60) and starts it, as letting go of the dial does.
+  void pickAndStart(int minutes) {
+    _halt();
+    _left = Duration(minutes: minutes.clamp(1, 60));
+    _custom = _left;
+    start();
   }
 
   void _step() {
@@ -161,6 +179,7 @@ class FocusController extends ChangeNotifier {
       mode = FocusMode.focus;
     }
     label = '';
+    _custom = null;
     _left = _duration(mode);
     _save();
     notifyListeners();
@@ -168,7 +187,7 @@ class FocusController extends ChangeNotifier {
   }
 
   void _save() {
-    store?.set(storeKey, jsonEncode({'mode': mode.name, 'label': label, 'done': done, 'leftMs': left.inMilliseconds, 'endsAt': running ? _endsAt!.millisecondsSinceEpoch : null}));
+    store?.set(storeKey, jsonEncode({'mode': mode.name, 'label': label, 'done': done, 'leftMs': left.inMilliseconds, 'totalMs': _custom?.inMilliseconds, 'endsAt': running ? _endsAt!.millisecondsSinceEpoch : null}));
   }
 
   /// Puts back what [_save] kept. A timer that was running and has not run out carries on; one that ran out
@@ -183,7 +202,9 @@ class FocusController extends ChangeNotifier {
       done = (j['done'] as num?)?.toInt() ?? 0;
       final ends = (j['endsAt'] as num?)?.toInt();
       final remaining = ends == null ? Duration(milliseconds: (j['leftMs'] as num?)?.toInt() ?? 0) : DateTime.fromMillisecondsSinceEpoch(ends).difference(_now());
-      _left = remaining > Duration.zero && remaining <= const Duration(minutes: 90) ? remaining : _duration(mode);
+      final t = (j['totalMs'] as num?)?.toInt();
+      _custom = t == null ? null : Duration(milliseconds: t);
+      _left = remaining > Duration.zero && remaining <= const Duration(minutes: 90) ? remaining : total;
       if (ends != null && remaining > Duration.zero) {
         _endsAt = _now().add(remaining);
         _tick = Timer.periodic(const Duration(milliseconds: 250), (_) => _step());
