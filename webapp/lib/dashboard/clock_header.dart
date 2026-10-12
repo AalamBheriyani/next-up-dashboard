@@ -60,10 +60,16 @@ class _ClockHeaderState extends State<ClockHeader> {
       Text(DateFormat('h:mm a').format(now), style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
       Padding(padding: const EdgeInsets.only(bottom: 6), child: Text([DateFormat('EEEE, MMMM d').format(now), if (widget.place.isNotEmpty) widget.place].join('  ·  '), style: muted)),
     ]);
-    final head = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [time, if (widget.tools != null) ...[const SizedBox(height: 4), widget.tools!]]);
-    final clock = widget.jump == null
-        ? head
-        : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [head, const SizedBox(height: 8), ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: widget.jump!)]);
+    // The time, the date and the page's buttons share one card, like the panels around it.
+    final head = Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 10, 8),
+      decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [time, if (widget.tools != null) ...[const SizedBox(height: 6), Transform.translate(offset: const Offset(-4, 0), child: widget.tools!)]]),
+    );
+    final clock = SizedBox(
+      width: 460,
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [head, if (widget.jump != null) ...[const SizedBox(height: 12), widget.jump!]]),
+    );
     final work = _Card(
       label: 'Work time left today',
       value: left.isNegative ? 'Wind-down time. Log XP and rest.' : '${_fmt(left)} until wind-down',
