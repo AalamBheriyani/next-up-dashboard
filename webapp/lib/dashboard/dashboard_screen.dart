@@ -27,6 +27,7 @@ import 'clock_header.dart';
 import 'focus_timer.dart';
 import 'panel.dart';
 import 'week_strip.dart';
+import '../motion.dart';
 import '../refresh.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -220,7 +221,12 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final now = _now();
     final items = _items(now);
     _ids = [for (final i in items) i.id];
+    final phone = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
+      // On a phone Ask Claude is far down the page; this button goes straight to it, as on the old site.
+      floatingActionButton: phone && widget.ask != null && !_layout.isHidden('ask') && !_editing
+          ? FloatingActionButton.extended(onPressed: _toAsk, icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Claude'))
+          : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: LayoutBuilder(builder: (context, box) {
@@ -279,6 +285,13 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
   final _askKey = GlobalKey<AskPanelState>();
 
   void _startOn(Deadline d) => _focus.startFocus(25, d.title);
+
+  Future<void> _toAsk() async {
+    final c = _askKey.currentContext;
+    if (c == null) return;
+    await Scrollable.ensureVisible(c, duration: motionBase, curve: motionCurve, alignment: 0.1);
+    _askKey.currentState?.focusInput();
+  }
 
   void _firstStep(Deadline d) => _askKey.currentState?.send('Break "${d.title}" into a 2-minute first step');
 
