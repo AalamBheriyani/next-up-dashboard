@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/theme.dart';
 
@@ -31,6 +32,78 @@ double autoScrollSpeed(double y, double top, double bottom, {double edge = 90, d
   if (y < top + edge) return -((top + edge - y) / edge).clamp(0.0, 1.0) * max;
   if (y > bottom - edge) return ((y - (bottom - edge)) / edge).clamp(0.0, 1.0) * max;
   return 0;
+}
+
+/// Splits panels of these column [spans] into rows that each fit in 12 columns, keeping their order.
+List<List<int>> boardRows(List<int> spans) {
+  final rows = <List<int>>[];
+  var used = 12;
+  for (var i = 0; i < spans.length; i++) {
+    if (used + spans[i] > 12) {
+      rows.add([]);
+      used = 0;
+    }
+    rows.last.add(i);
+    used += spans[i];
+  }
+  return rows;
+}
+
+/// A row whose children all take the height of the tallest one. Each child is laid out at its natural height
+/// first, then again at the row's height; unlike IntrinsicHeight this works with panels built by LayoutBuilder.
+class EqualHeightRow extends MultiChildRenderObjectWidget {
+  const EqualHeightRow({super.key, this.gap = 0, required super.children});
+  final double gap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => RenderEqualRow(gap);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderEqualRow renderObject) => renderObject.gap = gap;
+}
+
+class _RowData extends ContainerBoxParentData<RenderBox> {}
+
+class RenderEqualRow extends RenderBox with ContainerRenderObjectMixin<RenderBox, _RowData>, RenderBoxContainerDefaultsMixin<RenderBox, _RowData> {
+  RenderEqualRow(this._gap);
+  double _gap;
+  set gap(double v) {
+    if (v == _gap) return;
+    _gap = v;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _RowData) child.parentData = _RowData();
+  }
+
+  @override
+  void performLayout() {
+    final loose = BoxConstraints(maxWidth: constraints.maxWidth);
+    var tallest = 0.0;
+    for (var c = firstChild; c != null; c = childAfter(c)) {
+      c.layout(loose, parentUsesSize: true);
+      if (c.size.height > tallest) tallest = c.size.height;
+    }
+    var x = 0.0, h = tallest;
+    for (var c = firstChild; c != null; c = childAfter(c)) {
+      final w = c.size.width;
+      // A minimum rather than a fixed height: a child given tight constraints becomes a relayout boundary and
+      // would later grow (say, on entering customise mode) without telling the row.
+      c.layout(BoxConstraints(minWidth: w, maxWidth: w, minHeight: tallest), parentUsesSize: true);
+      (c.parentData as _RowData).offset = Offset(x, 0);
+      x += w + _gap;
+      if (c.size.height > h) h = c.size.height;
+    }
+    size = constraints.constrain(Size(constraints.maxWidth, h));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) => defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) => defaultHitTestChildren(result, position: position);
 }
 
 class WidgetBoard extends StatefulWidget {
@@ -114,13 +187,7 @@ class _WidgetBoardState extends State<WidgetBoard> {
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth;
       double widthFor(int cols) => ((w - boardGap * 11) / 12 * cols + boardGap * (cols - 1)).floorToDouble();
-      return Listener(
-        onPointerMove: (e) => _follow(e.position),
-        onPointerUp: (_) => _drag(false),
-        onPointerCancel: (_) => _drag(false),
-        child: Wrap(spacing: boardGap, runSpacing: boardGap, children: [
-        for (final item in shown)
-          AnimatedContainer(
+      Widget tile(BoardItem item) => AnimatedContainer(
             key: ValueKey(item.id),
             duration: reduceMotion(context) ? Duration.zero : motionBase,
             curve: motionCurve,
@@ -136,7 +203,19 @@ class _WidgetBoardState extends State<WidgetBoard> {
               onHover: _hover,
               onEdit: widget.onEdit,
             ),
-          ),
+          );
+      // Panels are packed into rows of 12 columns, and every panel in a row is as tall as the tallest one, so
+      // edges line up across the board instead of leaving ragged gaps.
+      final rows = boardRows([for (final i in shown) effectiveSpan(l.spanOf(i.id, i.span), w)]);
+      return Listener(
+        onPointerMove: (e) => _follow(e.position),
+        onPointerUp: (_) => _drag(false),
+        onPointerCancel: (_) => _drag(false),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (var r = 0; r < rows.length; r++) ...[
+            if (r > 0) const SizedBox(height: boardGap),
+            EqualHeightRow(gap: boardGap, children: [for (final k in rows[r]) tile(shown[k])]),
+          ],
         ]),
       );
     });

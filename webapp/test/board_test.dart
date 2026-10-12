@@ -126,4 +126,32 @@ void resizeTests() {
     await t.pump(const Duration(seconds: 1));
     expect(saved.last.height['a'], isNotNull);
   });
+
+  test('panels pack into rows of 12 columns, in order', () {
+    expect(boardRows([4, 4, 4, 8, 4, 6, 12, 6]), [[0, 1, 2], [3, 4], [5], [6], [7]]);
+  });
+
+  testWidgets('panels in a row are as tall as the tallest one', (t) async {
+    t.view.physicalSize = const Size(1400, 1000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: WidgetBoard(
+            layout: const BoardLayout(),
+            editing: false,
+            onChanged: (_) {},
+            items: const [
+              BoardItem(id: 'a', name: 'A', span: 6, child: ColoredBox(key: Key('panel-a'), color: Colors.red, child: SizedBox(height: 100))),
+              BoardItem(id: 'b', name: 'B', span: 6, child: ColoredBox(key: Key('panel-b'), color: Colors.red, child: SizedBox(height: 300))),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await t.pump(const Duration(seconds: 1));
+    expect(t.getSize(find.byKey(const Key('panel-a'))).height, 300);
+    expect(t.getSize(find.byKey(const Key('panel-b'))).height, 300);
+  });
 }
