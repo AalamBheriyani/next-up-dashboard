@@ -18,4 +18,16 @@ void main() {
     final own = AppConfig.fromJson({'profile': {'wake': '06:30'}, 'hours': {'wake': '08:00', 'windDown': ''}});
     expect((own.wakeMinutes, own.windDownMinutes), (480, 1320));
   });
+
+  test('the owner\'s links keep only https ones', () {
+    final c = AppConfig.fromJson({
+      'links': [
+        {'name': 'Notion', 'url': 'https://notion.so', 'note': 'archive'},
+        {'name': 'Bad', 'url': 'javascript:alert(1)'},
+        {'url': 'https://example.com'},
+        'nonsense',
+      ],
+    });
+    expect([for (final l in c.links) '${l.name} ${l.url} ${l.note}'], ['Notion https://notion.so archive', 'Link https://example.com ']);
+  });
 }

@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/deadline.dart';
@@ -20,8 +21,10 @@ import 'dashboard/focus_controller.dart';
 import 'board/widget_board.dart';
 import 'dashboard/anki_panel.dart';
 import 'dashboard/habits_panel.dart';
+import 'dashboard/links_panel.dart';
 import 'pages/lists_screen.dart';
 import 'pages/quest_screen.dart';
+import 'format.dart';
 import 'motion.dart';
 import 'platform/platform.dart';
 import 'scale.dart';
@@ -87,6 +90,11 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     _focus.restore();
+    _focus.addListener(_showTimerInTab);
+    // Flutter resets the address as it starts; put the page's name back once it has.
+    WidgetsBinding.instance.addPostFrameCallback((_) => Timer(const Duration(milliseconds: 300), () {
+          if (mounted) setHash(pageHashes[_page]);
+        }));
     if (_svc.signedIn()) _loadConfig();
   }
 
@@ -182,6 +190,15 @@ class _ShellState extends State<Shell> {
         _session++;
       });
 
+  // While the focus timer runs, the browser tab shows the time left, so it can be seen from another tab.
+  String _tab = '';
+  void _showTimerInTab() {
+    final t = _focus.running ? '${clockDuration(_focus.left)} ${focusLabels[_focus.mode]} · Next Up' : 'Next Up';
+    if (t == _tab) return;
+    _tab = t;
+    SystemChrome.setApplicationSwitcherDescription(ApplicationSwitcherDescription(label: t, primaryColor: 0xFF000000));
+  }
+
   void _go(int i) {
     setState(() => _page = i);
     setHash(pageHashes[i]);
@@ -206,12 +223,13 @@ class _ShellState extends State<Shell> {
           extras: [
             if (_config.questSheetId.isNotEmpty) BoardItem(id: 'habits', name: 'Habits', span: 12, child: HabitsPanel(repo: _svc.xpFor(_config.questSheetId))),
             if (_config.owner && _svc.anki != null) BoardItem(id: 'anki', name: 'Anki', span: 12, child: AnkiPanel(source: _svc.anki!)),
+            if (_svc.signedIn()) BoardItem(id: 'links', name: 'Jump to', span: 12, child: LinksPanel(links: quickLinks(_config))),
           ],
         );
       case 1:
         return Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
+            constraints: const BoxConstraints(maxWidth: 900),
             child: TodayScreen(source: _svc.deadlines, signedIn: _svc.signedIn, onSignIn: _signIn, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null),
           ),
         );

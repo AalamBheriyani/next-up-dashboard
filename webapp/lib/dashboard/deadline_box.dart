@@ -8,7 +8,8 @@ import 'package:next_up_core/today_screen.dart';
 const deadlineBoxHeight = 340.0;
 
 class DeadlineBox extends StatefulWidget {
-  const DeadlineBox({super.key, required this.title, required this.color, required this.items, required this.now, required this.onFinish, this.showDate = false, this.onEdit, this.empty = 'Nothing here.', this.height = deadlineBoxHeight});
+  const DeadlineBox({super.key, required this.title, required this.color, required this.items, required this.now, required this.onFinish, this.showDate = false, this.onEdit, this.empty = 'Nothing here.', this.height = deadlineBoxHeight, this.showList = true});
+  final bool showList;
   final String title;
   final Color color;
   final List<Deadline> items;
@@ -42,7 +43,7 @@ class _DeadlineBoxState extends State<DeadlineBox> {
               controller: _scroll,
               child: SingleChildScrollView(
                 controller: _scroll,
-                child: DeadlineSection(title: widget.title, color: widget.color, items: widget.items, now: widget.now, onFinish: widget.onFinish, showDate: widget.showDate, bare: true, onEdit: widget.onEdit),
+                child: DeadlineSection(title: widget.title, color: widget.color, items: widget.items, now: widget.now, onFinish: widget.onFinish, showDate: widget.showDate, bare: true, onEdit: widget.onEdit, showList: widget.showList),
               ),
             ),
     );

@@ -2,6 +2,7 @@
 // Build it with `flutter build web -t lib/demo/demo_main.dart`; the real site never imports this file.
 import 'package:flutter/material.dart';
 import 'package:next_up_core/anki.dart';
+import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
@@ -83,7 +84,7 @@ void main() {
       for (var k = 0; k < (d * 7) % 5; k++) ['${at(-d, 9 + k).millisecondsSinceEpoch}', '', defaultQuests[(d + k) % defaultQuests.length].id, defaultQuests[(d + k) % defaultQuests.length].name, '${defaultQuests[(d + k) % defaultQuests.length].xp}', '1', '${defaultQuests[(d + k) % defaultQuests.length].xp}', 'quest'],
   ];
   final xpSheets = _Sheets({'Quests!A2': [], 'Log!A2': xpLog, 'Settings!A2': []});
-  final config = _Config(const AppConfig(email: 'demo@example.com', owner: true, sheetId: 'demo', questSheetId: 'demo-xp', ticktick: true));
+  final config = _Config(const AppConfig(email: 'demo@example.com', owner: true, sheetId: 'demo', questSheetId: 'demo-xp', ticktick: true, claudeApi: true));
   final services = Services(
     config: config,
     deadlines: deadlines,
@@ -93,6 +94,7 @@ void main() {
     trackFactory: (_) => track,
     hoursFactory: (_) => HoursRepository(hoursSheets),
     xpFactory: (_) => XpRepository(xpSheets),
+    askTransport: _Ask(),
     anki: _Anki(AnkiStats(
       decks: const [AnkiDeck('Chemistry', 12, 3, 40), AnkiDeck('Spanish', 20, 0, 15), AnkiDeck('Biology', 0, 2, 8)],
       days: {for (var d = 0; d < 120; d++) ymd(now.subtract(Duration(days: d))): (d * 37) % 90},
@@ -152,6 +154,7 @@ class _Config implements ConfigSource {
       accent: accent ?? config.accent,
       redDeadlines: redDeadlines ?? config.redDeadlines,
       ticktick: config.ticktick,
+      claudeApi: config.claudeApi,
       layout: layout ?? config.layout,
       wakeMinutes: wake == null ? config.wakeMinutes : clockMinutes(wake, config.wakeMinutes),
       windDownMinutes: windDown == null ? config.windDownMinutes : clockMinutes(windDown, config.windDownMinutes),
@@ -216,4 +219,25 @@ class _Anki implements AnkiSource {
   final AnkiStats stats;
   @override
   Future<AnkiStats?> load() async => stats;
+}
+
+/// Answers every question with a short canned reply, after a moment, like a real round trip.
+class _Ask implements AskTransport {
+  @override
+  Future<Map<String, dynamic>> claude(Map<String, dynamic> body) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    return {
+      'stop_reason': 'end_turn',
+      'content': [
+        {'type': 'text', 'text': 'Start with the Chem quiz revision: it is due in three hours. Do 25 minutes on the hardest topic first, then a 5 minute break.'},
+      ],
+    };
+  }
+
+  @override
+  Future<bool> relayOnline() async => false;
+  @override
+  Future<String> relayAsk(String prompt) async => '';
+  @override
+  Future<Map<String, dynamic>> relayAnswer(String id) async => const {};
 }
