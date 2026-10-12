@@ -93,7 +93,7 @@ void main() {
       for (var k = 0; k < (d * 7) % 5; k++) ['${at(-d, 9 + k).millisecondsSinceEpoch}', '', defaultQuests[(d + k) % defaultQuests.length].id, defaultQuests[(d + k) % defaultQuests.length].name, '${defaultQuests[(d + k) % defaultQuests.length].xp}', '1', '${defaultQuests[(d + k) % defaultQuests.length].xp}', 'quest'],
   ];
   final xpSheets = _Sheets({'Quests!A2': [], 'Log!A2': xpLog, 'Settings!A2': []});
-  final config = _Config(const AppConfig(email: 'demo@example.com', owner: true, sheetId: 'demo', questSheetId: 'demo-xp', ticktick: true, claudeApi: true));
+  final config = _Config(const AppConfig(email: 'demo@example.com', owner: true, sheetId: 'demo', questSheetId: 'demo-xp', ticktick: true, claudeApi: true, profilePlace: 'Home', sleepMinutes: 23 * 60));
   final services = Services(
     config: config,
     deadlines: deadlines,
@@ -170,6 +170,8 @@ class _Config implements ConfigSource {
       ticktick: config.ticktick,
       claudeApi: config.claudeApi,
       layout: layout ?? config.layout,
+      profilePlace: config.profilePlace,
+      sleepMinutes: config.sleepMinutes,
       wakeMinutes: wake == null ? config.wakeMinutes : clockMinutes(wake, config.wakeMinutes),
       windDownMinutes: windDown == null ? config.windDownMinutes : clockMinutes(windDown, config.windDownMinutes),
     );

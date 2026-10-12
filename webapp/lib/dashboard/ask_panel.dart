@@ -1,4 +1,6 @@
 // Ask Claude: a small chat that sees your deadlines and calendar, and can tick tasks off or start the timer.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -15,7 +17,7 @@ import 'panel.dart';
 
 /// What Claude is shown about today: the rest of the calendar, the next deadlines (ids in brackets so it can
 /// complete one), and the timer. The same facts the current site sends.
-String askSnapshot({required DateTime now, required List<Deadline> deadlines, required List<CalendarEvent> events, required FocusController focus}) {
+String askSnapshot({required DateTime now, required List<Deadline> deadlines, required List<CalendarEvent> events, required FocusController focus, String? hours}) {
   String t(DateTime d) => DateFormat('h:mm a').format(d);
   String day(DateTime d) => DateFormat('EEE, MMM d').format(d);
   String left(Duration d) {
@@ -29,7 +31,7 @@ String askSnapshot({required DateTime now, required List<Deadline> deadlines, re
   final sorted = [...deadlines]..sort((a, b) => a.due.compareTo(b.due));
   final ts = sorted.take(20).map((d) => '- [${d.id}] ${d.title} | list: ${d.list} | personal deadline ${day(d.due)}${d.allDay ? '' : ' ${t(d.due)}'} (${left(d.due.difference(now))}${d.isLate(now) ? '' : ' from now'}) | priority ${d.priority}${d.realDeadline == null ? '' : ' | real deadline ${d.realDeadline}'}${d.notes.isEmpty ? '' : ' | notes: ${_short(d.notes)}'}').join('\n');
   final timer = focus.running ? '${focusLabels[focus.mode]}, ${focus.left.inMinutes}m left' : 'not running';
-  return 'Current time: $now\n\nCalendar, rest of today:\n${evs.isEmpty ? '(none loaded)' : evs}\n\nOpen TickTick tasks (overdue and next 7 days), soonest first:\n${ts.isEmpty ? '(none loaded)' : ts}\n\nFocus timer: $timer';
+  return 'Current time: $now\n\nCalendar, rest of today:\n${evs.isEmpty ? '(none loaded)' : evs}\n\nOpen TickTick tasks (overdue and next 7 days), soonest first:\n${ts.isEmpty ? '(none loaded)' : ts}${hours == null ? '' : '\n\nHours this week (Time Tracker): $hours'}\n\nFocus timer: $timer';
 }
 
 // Notes on one line and capped, so a long agenda doesn't crowd out the rest of the day.
@@ -41,9 +43,10 @@ String _short(String s) {
 const _quick = ['What should I do right now?', 'Break my most urgent task into a 2-minute first step', "I'm procrastinating. Help me start.", 'Plan the rest of today'];
 
 class _Msg {
-  _Msg(this.kind, this.text);
+  _Msg(this.kind, this.text, {this.pending = false});
   final String kind; // me, claude, note
   String text;
+  final bool pending; // the "Thinking…" bubble
 }
 
 class AskPanel extends StatefulWidget {
@@ -80,6 +83,17 @@ class AskPanelState extends State<AskPanel> {
         if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: motionFast, curve: motionCurve);
       });
 
+  String _progress(int s) {
+    if (s < 3) return 'Thinking…';
+    final who = widget.service.mode == AskMode.relay ? (s < 20 ? 'Your laptop is thinking' : 'Still working on it, your laptop is reading your day') : 'Thinking';
+    return '$who… ${s}s';
+  }
+
+  void _clear() => setState(() {
+        _msgs.clear();
+        _history.clear();
+      });
+
   /// Sends [raw] as if typed (the dashboard uses this for the "2-minute first step" button).
   Future<void> send(String raw) => _send(raw);
 
@@ -87,12 +101,17 @@ class AskPanelState extends State<AskPanel> {
     final q = raw.trim();
     if (q.isEmpty || _busy) return;
     _text.clear();
-    final bubble = _Msg('claude', 'Thinking…');
+    final bubble = _Msg('claude', _progress(0), pending: true);
     setState(() {
       _busy = true;
       _msgs.addAll([_Msg('me', q), bubble]);
     });
     _scrollDown();
+    // The laptop relay can take a while; a ticking count shows it hasn't stalled.
+    final started = DateTime.now();
+    final tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => bubble.text = _progress(DateTime.now().difference(started).inSeconds));
+    });
     try {
       final r = await widget.service.ask(q, List.of(_history.length > 11 ? _history.sublist(_history.length - 11) : _history), widget.snapshot(), widget.tools);
       if (!mounted) return;
@@ -115,6 +134,7 @@ class AskPanelState extends State<AskPanel> {
     } catch (_) {
       if (mounted) setState(() => _msgs..remove(bubble)..add(_Msg('note', 'Claude could not answer. Try again.')));
     } finally {
+      tick.cancel();
       if (mounted) setState(() => _busy = false);
       _scrollDown();
     }
@@ -124,7 +144,9 @@ class AskPanelState extends State<AskPanel> {
   Widget build(BuildContext context) {
     return Panel(
       title: 'Ask Claude',
-      trailing: Text('sees your tasks + calendar', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+      trailing: _msgs.isEmpty || _busy
+          ? Text('sees your tasks + calendar', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label))
+          : TextButton(onPressed: _clear, child: const Text('New chat')),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final q in _quick) ActionChip(label: Text(q, style: const TextStyle(fontSize: NextUpType.caption)), onPressed: _busy ? null : () => _send(q)),
@@ -137,20 +159,31 @@ class AskPanelState extends State<AskPanel> {
             shrinkWrap: true,
             children: [
               _Bubble(kind: 'note', text: _intro),
-              for (final m in _msgs) _Bubble(kind: m.kind, text: m.text),
+              for (final m in _msgs) _Bubble(kind: m.kind, text: m.text, pending: m.pending),
             ],
           ),
         ),
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(
-            child: TextField(
+            // Enter sends and Shift+Enter starts a new line, as on the old site.
+            child: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: (node, e) {
+                if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
+                  _send(_text.text);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
               controller: _text,
               minLines: 1,
               maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: _send,
+              textInputAction: TextInputAction.newline,
               decoration: const InputDecoration(hintText: 'Type a question…', isDense: true),
+            ),
             ),
           ),
           const SizedBox(width: 8),
@@ -162,8 +195,9 @@ class AskPanelState extends State<AskPanel> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.kind, required this.text});
+  const _Bubble({required this.kind, required this.text, this.pending = false});
   final String kind, text;
+  final bool pending;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +209,23 @@ class _Bubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         constraints: const BoxConstraints(maxWidth: 520),
         decoration: BoxDecoration(color: me ? NextUpColors.accent.withValues(alpha: .3) : (note ? Colors.transparent : NextUpColors.raised), borderRadius: BorderRadius.circular(12)),
-        child: SelectableText(text, style: TextStyle(fontSize: note ? NextUpType.caption : NextUpType.body, color: note ? NextUpColors.muted : Colors.white)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          SelectableText(text, style: TextStyle(fontSize: note ? NextUpType.caption : NextUpType.body, color: note ? NextUpColors.muted : Colors.white)),
+          if (kind == 'claude' && !pending)
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                tooltip: 'Copy',
+                visualDensity: VisualDensity.compact,
+                iconSize: 16,
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: text));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied'), duration: Duration(seconds: 2)));
+                },
+                icon: Icon(Icons.copy_rounded, color: NextUpColors.muted),
+              ),
+            ),
+        ]),
       ),
     );
   }

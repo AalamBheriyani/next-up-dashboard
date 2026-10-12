@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
+import 'package:next_up_web/platform/platform_base.dart';
 import 'package:next_up_web/dashboard/deadline_box.dart';
 import 'package:next_up_web/pages/lists_screen.dart';
 
@@ -58,6 +60,33 @@ void main() {
     await t.tap(find.widgetWithText(FilterChip, 'Home'));
     await t.pump();
     expect(find.text('Laundry'), findsOneWidget);
+    expect(find.text('Essay'), findsNothing);
+  });
+
+  testWidgets('the Calendar view puts to-dos and events under their day, and remembers itself', (t) async {
+    t.view.physicalSize = const Size(1300, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final store = MemoryStore();
+    final ev = CalendarEvent(id: 'e', title: 'Lab', start: now.add(const Duration(days: 1, hours: 2)), end: now.add(const Duration(days: 1, hours: 3)), allDay: false);
+    Widget page() => MaterialApp(home: Scaffold(body: ListsScreen(services: fakeServices(deadlines: [d('Essay', const Duration(days: 1), 3)], events: [ev], store: store), now: () => now)));
+    await t.pumpWidget(page());
+    await t.pump(const Duration(seconds: 1));
+    await t.tap(find.text('Calendar'));
+    await t.pump(const Duration(seconds: 1));
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Essay'), findsOneWidget);
+    await t.pump();
+    expect(find.text('Lab'), findsOneWidget);
+    await t.tap(find.text('Hide to-dos'));
+    await t.pump(const Duration(seconds: 1));
+    expect(find.text('Essay'), findsNothing);
+    expect(find.text('Lab'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pumpWidget(page());
+    await t.pump(const Duration(seconds: 1));
+    await t.pump();
+    expect(find.text('Lab'), findsOneWidget, reason: 'the view and the hidden to-dos are remembered');
     expect(find.text('Essay'), findsNothing);
   });
 }

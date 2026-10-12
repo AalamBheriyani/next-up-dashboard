@@ -10,6 +10,7 @@ import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
+import 'package:next_up_core/hours.dart' show HoursSummary;
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWindDownMinutes;
 import 'package:next_up_core/today_screen.dart';
@@ -40,9 +41,12 @@ class DashboardScreen extends StatefulWidget {
     this.layout = const BoardLayout(),
     this.wakeMinutes = defaultWakeMinutes,
     this.windDownMinutes = defaultWindDownMinutes,
+    this.place = '',
+    this.sleepMinutes,
     this.onLayout,
     this.focus,
     this.ask,
+    this.hours,
   });
   final DeadlineSource deadlines;
   final CalendarSource calendar;
@@ -54,10 +58,14 @@ class DashboardScreen extends StatefulWidget {
   /// The saved arrangement of panels, and where to report a change (saved to the account by the shell).
   final BoardLayout layout;
   final int wakeMinutes, windDownMinutes; // the waking day for the header's bars
+  final String place;
+  final int? sleepMinutes;
   final ValueChanged<BoardLayout>? onLayout;
   /// The focus timer (owned by the shell so it keeps running between pages) and Ask Claude, when available.
   final FocusController? focus;
   final AskService? ask;
+  /// This week's adherence from the Time Tracker sheet, for Ask Claude (when a sheet is set).
+  final Future<HoursSummary> Function()? hours;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -69,6 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
 
   List<Deadline>? _deadlines;
   List<CalendarEvent>? _events;
+  HoursSummary? _hours;
   String? _deadlineError, _calendarError;
   bool _needsSignIn = false;
   bool _notConnected = false;
@@ -131,8 +140,16 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     await Future.wait([
       _guard(widget.deadlines.load(), (d) => _deadlines = d, (m) => _deadlineError = m, 'Deadlines failed to load.'),
       _guard(widget.calendar.load(start, start.add(const Duration(days: 7))), (c) => _events = c, (m) => _calendarError = m, 'Calendar failed to load.'),
+      if (widget.hours != null) _loadHours(),
     ]);
     if (mounted) setState(() => _loading = false);
+  }
+
+  // Only Ask Claude reads this, so a failure just leaves it out.
+  Future<void> _loadHours() async {
+    try {
+      _hours = await widget.hours!();
+    } catch (_) {}
   }
 
   /// Runs one panel's load; a failure shows in that panel only.
@@ -213,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               Builder(builder: (context) {
-                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes);
+                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes);
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                   if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
@@ -292,7 +309,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
           id: 'ask',
           name: 'Ask Claude',
           span: 4,
-          child: AskPanel(key: _askKey, service: widget.ask!, tools: _tools, snapshot: () => askSnapshot(now: _now(), deadlines: _deadlines ?? const [], events: _events ?? const [], focus: _focus)),
+          child: AskPanel(key: _askKey, service: widget.ask!, tools: _tools, snapshot: () => askSnapshot(now: _now(), deadlines: _deadlines ?? const [], events: _events ?? const [], focus: _focus, hours: _hours?.forAsk)),
         ),
       BoardItem(id: 'day', name: 'Today hour by hour', span: 8, child: DayColumn(events: _events, now: now)),
       BoardItem(id: 'week', name: 'Next 7 days', span: 12, child: WeekStrip(deadlines: [...all], events: [...?_events], now: now)),

@@ -10,9 +10,11 @@ import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWi
 import '../motion.dart';
 
 class ClockHeader extends StatefulWidget {
-  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes});
+  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.place = '', this.sleepMinutes});
   /// The waking day, as minutes after midnight (from the person's settings).
   final int wakeMinutes, windDownMinutes;
+  final String place;
+  final int? sleepMinutes;
   final List<CalendarEvent>? events; // today's calendar, for the "until free" bar
   final DateTime Function()? now; // for tests
 
@@ -55,7 +57,7 @@ class _ClockHeaderState extends State<ClockHeader> {
       children: [
         Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 14, runSpacing: 4, children: [
           Text(DateFormat('h:mm a').format(now), style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
-          Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(DateFormat('EEEE, MMMM d').format(now), style: muted)),
+          Padding(padding: const EdgeInsets.only(bottom: 6), child: Text([DateFormat('EEEE, MMMM d').format(now), if (widget.place.isNotEmpty) widget.place].join('  ·  '), style: muted)),
         ]),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -69,7 +71,7 @@ class _ClockHeaderState extends State<ClockHeader> {
               value: left.isNegative ? 'Wind-down time. Log XP and rest.' : '${_fmt(left)} until wind-down',
               fraction: frac,
               from: 'Wake ${_hm(start)}',
-              to: 'Wind-down ${_hm(end)}',
+              to: ['Wind-down ${_hm(end)}', if (widget.sleepMinutes != null) 'Sleep ${_hm(DateTime(now.year, now.month, now.day, 0, widget.sleepMinutes!))}'].join('  ·  '),
             ),
           ]),
         ),

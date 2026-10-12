@@ -21,4 +21,9 @@ void main() {
   test('an answer without JSON is an error', () {
     expect(() => parseRatings('I could not tell.', blocks), throwsA(isA<SourceException>()));
   });
+
+  test('the week in one line for Ask Claude', () {
+    const h = HoursSummary(timeAdherence: 72.4, blocksDone: 80, hoursMissed: 3.5, uniDone: 12, uniPlanned: 20);
+    expect(h.forAsk, 'time adherence 72%, block completion 80%, 3.5 planned hours missed or skipped, university hours done 12 of 20 planned.');
+  });
 }
