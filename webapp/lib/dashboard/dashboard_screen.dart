@@ -274,7 +274,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: title,
             accent: color,
             trailing: hint == null ? null : Text(hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
-            child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null),
+            child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null,
+                // On a phone the panels stack, so a short list needn't keep the shared height.
+                height: MediaQuery.sizeOf(context).width < 600 ? (items.length * 56.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
           ),
         );
     return [
