@@ -291,7 +291,6 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               Builder(builder: (context) {
-                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes);
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
                   if (!_loading) UpdatedStamp(at: _updatedAt),
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
@@ -308,9 +307,15 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
                   IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
                   IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
                 ]);
-                // On a phone the buttons take their own line so the clock and date are never squeezed.
-                if (w < 600) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Align(alignment: Alignment.centerRight, child: tools), clock]);
-                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: clock), tools]);
+                // The stamp and buttons sit under the time, so the cards get the whole width beside the clock.
+                return ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes,
+                    tools: tools,
+                    jump: widget.jump,
+                    // The next deadline sits beside the clock, as on the old site; Jump to goes under the buttons.
+                    centre: Builder(builder: (context) {
+                      final next = DeadlineGroups(_deadlines ?? const [], now).next;
+                      return _board(now, onStart: () => next == null ? null : _startOn(next));
+                    }));
               }),
               const SizedBox(height: 20),
               AnimatedSize(duration: motionFast, alignment: Alignment.topLeft, child: _searching ? _searchBar() : const SizedBox(width: double.infinity)),
@@ -403,8 +408,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final f = !_searching || (q.isEmpty && _lists.isEmpty)
         ? g
         : DeadlineGroups([for (final d in all) if ((_lists.isEmpty || _lists.contains(d.list)) && (q.isEmpty || '${d.title} ${d.list} ${d.notes}'.toLowerCase().contains(q))) d], now);
-    // The panels follow the old site: a top row with now and next, the next deadline (with Jump to under it)
-    // and today hour by hour; then Deadlines, Ask Claude and the focus timer side by side; then the rest.
+    // The panels follow the old site: now and next beside today hour by hour (the next deadline is in the
+    // header); then Deadlines, Ask Claude and the focus timer side by side; then the rest.
     final sections = [
       ('Overdue', NextUpColors.deadline, f.overdue, 'Oldest first'),
       ('Today', NextUpColors.accent, f.today(now).where((d) => d != next).toList(), null),
@@ -413,20 +418,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     ];
     return [
       // "Use it on" suggests the oldest late task first, as Do this first does.
-      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: (g.overdue.isNotEmpty ? g.overdue.first : next)?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
-      BoardItem(
-        id: 'next',
-        name: 'Next deadline',
-        span: 4,
-        child: widget.jump == null
-            ? _board(now, onStart: () => next == null ? null : _startOn(next))
-            : Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _board(now, onStart: () => next == null ? null : _startOn(next)),
-                const SizedBox(height: boardGap),
-                widget.jump!,
-              ]),
-      ),
-      BoardItem(id: 'day', name: 'Today hour by hour', span: 4, child: DayColumn(events: _events, now: now)),
+      BoardItem(id: 'calendar', name: 'Now and next', span: 6, child: CalendarPanel(events: _events, now: now, useOn: (g.overdue.isNotEmpty ? g.overdue.first : next)?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
+      BoardItem(id: 'day', name: 'Today hour by hour', span: 6, child: DayColumn(events: _events, now: now)),
       // Without Ask Claude the list takes its place so the row stays full.
       BoardItem(
         id: 'deadlines',
