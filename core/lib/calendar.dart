@@ -6,13 +6,20 @@ import 'package:http/http.dart' as http;
 import 'deadline_source.dart';
 
 class CalendarEvent {
-  CalendarEvent({required this.id, required this.title, required this.start, required this.end, required this.allDay, this.location = ''});
+  CalendarEvent({required this.id, required this.title, required this.start, required this.end, required this.allDay, this.location = '', this.description = ''});
   final String id;
   final String title;
   final DateTime start;
   final DateTime end; // exclusive for all-day events, like Google's API
   final bool allDay;
   final String location;
+  /// The event's notes as plain text (Google sends simple HTML).
+  final String description;
+
+  /// "First step: ..." and "Done when: ..." lines in the notes, which planned blocks carry.
+  String? get firstStep => _line('First step');
+  String? get doneWhen => _line('Done when');
+  String? _line(String name) => RegExp('$name:\\s*([^\\n]+)', caseSensitive: false).firstMatch(description)?.group(1)?.trim();
 
   /// Null for cancelled events and ones the person declined.
   static CalendarEvent? fromJson(Map<String, dynamic> e) {
@@ -26,8 +33,21 @@ class CalendarEvent {
     final start = _parse(s), end = _parse(en);
     if (start == null || end == null) return null;
     final title = '${e['summary'] ?? ''}'.trim();
-    return CalendarEvent(id: '${e['id']}', title: title.isEmpty ? '(no title)' : title, start: start, end: end, allDay: allDay, location: '${e['location'] ?? ''}');
+    return CalendarEvent(id: '${e['id']}', title: title.isEmpty ? '(no title)' : title, start: start, end: end, allDay: allDay, location: '${e['location'] ?? ''}', description: plainNotes('${e['description'] ?? ''}'));
   }
+
+  /// Google's notes HTML as text: line breaks kept, tags dropped, the common entities decoded.
+  static String plainNotes(String html) => html
+      .replaceAll(RegExp(r'<br\s*/?>|</p>|</div>|</li>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<[^>]+>'), '')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&amp;', '&')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
 
   static DateTime? _parse(Map m) {
     final dt = m['dateTime'];

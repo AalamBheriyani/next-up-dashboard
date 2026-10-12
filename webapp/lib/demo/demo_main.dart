@@ -43,6 +43,15 @@ void main() {
     CalendarEvent(id: 'c', title: 'Maths tutoring', start: at(0, 15), end: at(0, 16), allDay: false),
     CalendarEvent(id: 'd', title: 'Piano', start: at(0, 18), end: at(0, 19), allDay: false),
     CalendarEvent(id: 'e', title: 'Mum’s birthday', start: at(0, 0), end: at(1, 0), allDay: true),
+    // A planned block happening now, so the Now card and its notes show.
+    CalendarEvent(
+      id: 'f',
+      title: 'History essay block',
+      start: DateTime.now().subtract(const Duration(minutes: 20)),
+      end: DateTime.now().add(const Duration(minutes: 25)),
+      allDay: false,
+      description: 'First step: reread the question and list three points\nDone when: intro paragraph drafted\nSources are in the History folder.',
+    ),
   ];
   final track = _Track(TrackData(
     blocks: [
