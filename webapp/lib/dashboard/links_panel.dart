@@ -13,6 +13,8 @@ List<QuickLink> quickLinks(AppConfig c) => [
       const QuickLink('Calendar', 'https://calendar.google.com/calendar/r/day', note: "today's blocks"),
       if (c.sheetId.isNotEmpty) QuickLink('Time Tracker', sheetLinkFor(c.sheetId), note: 'plan vs actual'),
       if (c.questSheetId.isNotEmpty) QuickLink('XP Tracker', sheetLinkFor(c.questSheetId), note: 'Quest Log sheet'),
+      // The owner's GitHub, as on the old site's list.
+      if (c.owner) const QuickLink('GitHub', 'https://github.com/AalamBheriyani', note: 'your repos'),
       ...c.links,
     ];
 

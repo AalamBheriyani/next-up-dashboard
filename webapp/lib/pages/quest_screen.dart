@@ -1,4 +1,5 @@
 // Quest Log: log what you got done, earn XP, keep the streak. Same rules and sheet as the old Quest Log page.
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,7 +16,9 @@ import '../board/widget_board.dart';
 import '../dashboard/panel.dart';
 import '../dashboard/tile_row.dart';
 import '../motion.dart';
+import '../refresh.dart';
 import '../services.dart';
+import '../xp_queue.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 const _muteKey = 'nu.web.mute';
@@ -36,7 +39,15 @@ class QuestScreen extends StatefulWidget {
   State<QuestScreen> createState() => _QuestScreenState();
 }
 
-class _QuestScreenState extends State<QuestScreen> {
+class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
+  // Coming back after half a minute reloads, as the old Quest page did; a slow tick keeps the combo
+  // countdown, the multiplier and the day rollover current in between.
+  @override
+  Duration get refreshAfter => const Duration(seconds: 30);
+  @override
+  Future<void> refreshData() => _load();
+  Timer? _tick;
+
   final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   List<Quest> _quests = defaultQuests;
   List<XpRow> _rows = [];
@@ -49,12 +60,17 @@ class _QuestScreenState extends State<QuestScreen> {
   DateTime _now() => (widget.now ?? DateTime.now)();
   late final math.Random _rng = widget.random ?? math.Random();
   XpRepository get _repo => widget.services.xpFor(widget.config.questSheetId);
+  late final _queue = XpQueue(widget.services.store);
+  int _unsaved = 0; // rows still waiting on this device
   QuestModel get _model => QuestModel(_rows, _settings, _now().millisecondsSinceEpoch);
 
   @override
   void initState() {
     super.initState();
     _load();
+    _tick = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted && _loaded) setState(() {});
+    });
   }
 
   Future<void> _load() async {
@@ -65,15 +81,34 @@ class _QuestScreenState extends State<QuestScreen> {
     try {
       final d = await _repo.load();
       if (!mounted) return;
+      // Rows still waiting on this device count too, so nothing earned offline disappears from the page.
+      final have = {for (final r in d.log) '${r.t}|${r.q}'};
+      final waiting = [for (final r in _queue.pending) if (!have.contains('${r.t}|${r.q}')) r];
       setState(() {
         _quests = d.quests;
-        _rows = d.log;
+        _rows = [...d.log, ...waiting];
+        _unsaved = waiting.length;
         _settings = d.settings;
         _loaded = true;
         _error = null;
       });
+      if (waiting.isNotEmpty) _retry();
     } on SourceException catch (e) {
       if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  Future<void> _retry() async {
+    try {
+      await _queue.flush(_repo, _settings.dayStartHour);
+      if (mounted) setState(() => _unsaved = 0);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _unsaved = _queue.pending.length;
+          _note = 'Not saved yet: ${e is SourceException ? e.message : 'no connection'}';
+        });
+      }
     }
   }
 
@@ -96,6 +131,7 @@ class _QuestScreenState extends State<QuestScreen> {
       showConfetti(context);
       _note = 'Level up! You are now ${titleFor(now.level)}.';
       _beep([523, 659, 784, 1047]);
+      _levelCard(now.level);
     } else if (gain) {
       _beep(crit ? [880, 1175, 1568] : [660, 880]);
       if (was.todayXp < _settings.dailyGoal && now.todayXp >= _settings.dailyGoal) {
@@ -104,12 +140,38 @@ class _QuestScreenState extends State<QuestScreen> {
         _toast('Weekly goal hit.');
       }
     }
-    try {
-      await _repo.append([r], _settings.dayStartHour);
-    } on SourceException catch (e) {
-      if (mounted) setState(() => _note = 'Could not save: ${e.message}');
-    }
+    _queue.add([r]);
+    await _retry();
   }
+
+  // The old page's level-up card: the new level, its title and one button to carry on.
+  void _levelCard(int level) => showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Level up',
+        transitionDuration: motionBase,
+        transitionBuilder: (context, a, _, child) => ScaleTransition(scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack), child: FadeTransition(opacity: a, child: child)),
+        pageBuilder: (context, _, _) => Center(
+          child: Material(
+            color: NextUpColors.panel,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 320,
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: _gold, width: 1.5)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('LEVEL UP', style: TextStyle(color: _gold, fontSize: NextUpType.label, fontWeight: FontWeight.w800, letterSpacing: 2)),
+                const SizedBox(height: 8),
+                Text('$level', style: const TextStyle(fontSize: 72, fontWeight: FontWeight.w900, height: 1, color: _gold)),
+                const SizedBox(height: 8),
+                Text(titleFor(level), style: const TextStyle(fontSize: NextUpType.title, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 20),
+                FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Keep going')),
+              ]),
+            ),
+          ),
+        ),
+      );
 
   void _do(Quest q) {
     final m = _model;
@@ -132,6 +194,7 @@ class _QuestScreenState extends State<QuestScreen> {
   @override
   void dispose() {
     _editing.dispose();
+    _tick?.cancel();
     super.dispose();
   }
 
@@ -155,6 +218,11 @@ class _QuestScreenState extends State<QuestScreen> {
         const SizedBox(width: 16),
         // The last XP gained shows beside the title, so the page doesn't jump down when it appears.
         Expanded(child: AnimatedSwitcher(duration: motionFast, child: _note == null ? const SizedBox.shrink() : Text(_note!, key: ValueKey(_note), overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
+        if (_unsaved > 0)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: ActionChip(avatar: const Icon(Icons.cloud_off_rounded, size: 16), label: Text('$_unsaved not saved yet · Retry'), onPressed: _retry),
+          ),
         IconButton(
           tooltip: _muted ? 'Turn sound on' : 'Turn sound off',
           icon: Icon(_muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20),
@@ -215,6 +283,11 @@ class _QuestScreenState extends State<QuestScreen> {
             ),
           ),
         ),
+      BoardItem(id: 'quest-week', name: 'This week', span: 6, child: Panel(
+        title: 'This week',
+        trailing: Text('${m.weekXp} of ${_settings.weeklyGoal.round()} XP', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+        child: _WeekBars(byDay: m.byDay, today: m.today, goal: _settings.dailyGoal),
+      )),
       BoardItem(id: 'quest-badges', name: 'Badges', span: 6, child: Panel(
         title: 'Badges',
         child: Wrap(spacing: 10, runSpacing: 10, children: [
@@ -234,13 +307,20 @@ class _QuestScreenState extends State<QuestScreen> {
         title: 'Recent',
         trailing: recent.any((r) => r.kind != 'undo') ? TextButton(onPressed: _undo, child: const Text('Undo last')) : null,
         child: recent.isEmpty
-            ? Text('Nothing logged yet.', style: TextStyle(color: NextUpColors.muted))
+            ? Text('No quests logged yet. Tap "Started a planned block" to earn your first +10.', style: TextStyle(color: NextUpColors.muted))
             : Column(children: [
                 for (final r in recent)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(children: [
                       SizedBox(width: 92, child: Text(DateFormat('E h:mm a').format(DateTime.fromMillisecondsSinceEpoch(r.t)), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
+                      if (r.kind == 'auto' || (r.mult >= 2 && r.kind != 'undo'))
+                        Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(color: (r.kind == 'auto' ? NextUpColors.accent : _gold).withValues(alpha: 0.18), borderRadius: BorderRadius.circular(4)),
+                          child: Text(r.kind == 'auto' ? 'TIMER' : 'CRIT', style: TextStyle(color: r.kind == 'auto' ? NextUpColors.accent : _gold, fontSize: NextUpType.label, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                        ),
                       Expanded(child: Text(r.kind == 'undo' ? 'Undid: ${r.name}' : r.name, style: const TextStyle(fontSize: NextUpType.body))),
                       Text('${r.xp < 0 ? '−' : '+'}${r.xp.abs()}', style: TextStyle(color: r.xp < 0 ? NextUpColors.deadline : _gold, fontWeight: FontWeight.w700, fontFeatures: monoFeatures)),
                     ]),
@@ -248,7 +328,56 @@ class _QuestScreenState extends State<QuestScreen> {
               ]),
       )),
       ]),
+      Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Text('Day rolls over at ${_settings.dayStartHour}:00. Edit quests and goals in the sheet.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+      ),
     ]));
+  }
+}
+
+/// Monday to Sunday: each day's XP against the daily goal, today outlined, as on the old Quest page.
+class _WeekBars extends StatelessWidget {
+  const _WeekBars({required this.byDay, required this.today, required this.goal});
+  final Map<String, int> byDay;
+  final String today;
+  final double goal;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = weekStartKey(today);
+    final keys = [for (var i = 0; i < 7; i++) addDays(start, i)];
+    final vals = [for (final k in keys) byDay[k] ?? 0];
+    final top = math.max(goal * 1.5, vals.fold<int>(0, math.max).toDouble());
+    const names = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return SizedBox(
+      height: 130,
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        for (var i = 0; i < 7; i++)
+          Expanded(
+            child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Text(vals[i] == 0 ? '' : '${vals[i]}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label, fontFeatures: monoFeatures)),
+              const SizedBox(height: 4),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: math.max(3, vals[i] / top * 84)),
+                duration: motionBase,
+                curve: motionCurve,
+                builder: (context, h, _) => Container(
+                  width: 22,
+                  height: h,
+                  decoration: BoxDecoration(
+                    color: vals[i] >= goal ? _gold : (vals[i] > 0 ? _gold.withValues(alpha: 0.45) : NextUpColors.line),
+                    borderRadius: BorderRadius.circular(4),
+                    border: keys[i] == today ? Border.all(color: Colors.white, width: 1.5) : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(names[i], style: TextStyle(color: keys[i] == today ? Colors.white : NextUpColors.muted, fontSize: NextUpType.caption, fontWeight: keys[i] == today ? FontWeight.w800 : FontWeight.w400)),
+            ]),
+          ),
+      ]),
+    );
   }
 }
 
@@ -307,12 +436,19 @@ class _QuestButton extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: maxed ? NextUpColors.line : _gold.withValues(alpha: .35))),
             child: Row(children: [
-              Expanded(child: Text(q.name, style: TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600, color: maxed ? NextUpColors.muted : Colors.white))),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(q.name, style: TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600, color: maxed ? NextUpColors.muted : Colors.white)),
+                  const SizedBox(height: 2),
+                  // The old page's count line: "2 of 3 today", "Once a day", and which quests the timer logs.
+                  Text(
+                    '${q.cap > 1 ? '$done of ${q.cap} today' : (done > 0 ? 'Done today' : 'Once a day')}${q.id == 'timer' || q.id == 'break' ? ' · logs itself from the timer' : ''}',
+                    style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label),
+                  ),
+                ]),
+              ),
               const SizedBox(width: 8),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('+${(q.xp * mult).round()}', style: const TextStyle(color: _gold, fontWeight: FontWeight.w800)),
-                Text('$done/${q.cap}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
-              ]),
+              Text(maxed ? 'Done' : '+${(q.xp * mult).round()}', style: TextStyle(color: maxed ? NextUpColors.muted : _gold, fontWeight: FontWeight.w800)),
             ]),
           ),
         ),

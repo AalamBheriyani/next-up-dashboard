@@ -67,7 +67,8 @@ void main() {
       d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59)),
     ]);
     await pump(t, s);
-    expect(find.text('School · Real: Tue 9am · High priority'), findsOneWidget);
+    expect(find.text('Mon Oct 12, 9:00 AM · School · Real: Tue 9am · High priority'), findsOneWidget);
+    expect(find.text('Boarding'), findsWidgets, reason: 'each row carries the old board\'s status pill');
     expect(find.text('Real deadline: Tue 9am. Chapters 3 and 4.'), findsNothing);
     await t.tap(find.text('Chem quiz').last);
     await t.pumpAndSettle();

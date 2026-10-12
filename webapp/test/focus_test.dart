@@ -128,10 +128,11 @@ void main() {
   test('timer settings change the lengths, apply to a fresh timer and come back after a reload', () {
     final store = MemoryStore();
     final a = FocusController(store: store);
-    a.setSettings(focus: 50, short: 10, every: 3, auto: false);
+    a.setSettings(focus: 50, short: 10, every: 3, auto: false, focusColor: 0xFF3E8EF7);
     expect(a.left, const Duration(minutes: 50));
     final b = FocusController(store: store)..restore();
     expect((b.focusMin, b.shortMin, b.every, b.autoContinue), (50, 10, 3, false));
+    expect((b.focusColor, b.breakColor), (0xFF3E8EF7, 0), reason: 'a chosen colour is kept; 0 is the default');
     expect(b.left, const Duration(minutes: 50));
     a.dispose();
     b.dispose();

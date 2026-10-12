@@ -6,6 +6,7 @@ import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/urgency.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../dashboard/panel.dart';
 import '../motion.dart';
@@ -191,7 +192,10 @@ class _Todo extends StatelessWidget {
     return Material(
       color: NextUpColors.raised,
       borderRadius: BorderRadius.circular(8),
-      child: InkWell(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: d.color == 0 ? null : BoxDecoration(border: Border(left: BorderSide(color: Color(d.color), width: 3))),
+        child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onEdit == null ? null : () => onEdit!(d),
         child: Padding(
@@ -208,6 +212,7 @@ class _Todo extends StatelessWidget {
           ]),
         ),
       ),
+      ),
     );
   }
 }
@@ -221,7 +226,7 @@ class _Event extends StatelessWidget {
   Widget build(BuildContext context) {
     final past = !e.end.isAfter(now);
     final hm = DateFormat('h:mm a');
-    return Opacity(
+    final card = Opacity(
       opacity: past ? 0.5 : 1,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -235,6 +240,11 @@ class _Event extends StatelessWidget {
           Text(e.allDay ? 'all day' : '${hm.format(e.start)}–${hm.format(e.end)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
         ]),
       ),
+    );
+    if (e.link.isEmpty) return card;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: () => launchUrl(Uri.parse(e.link), webOnlyWindowName: '_blank'), child: Tooltip(message: 'Open in Google Calendar', waitDuration: const Duration(milliseconds: 600), child: card)),
     );
   }
 }

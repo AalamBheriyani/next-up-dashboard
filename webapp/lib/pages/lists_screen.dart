@@ -138,6 +138,10 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
             if ({for (final d in all) d.list}.length > 1)
               for (final l in ({for (final d in all) if (d.list.isNotEmpty) d.list}.toList()..sort()))
                 FilterChip(
+                  avatar: () {
+                    final c = all.firstWhere((d) => d.list == l).color;
+                    return c == 0 ? null : Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle));
+                  }(),
                   label: Text(l),
                   selected: _lists.contains(l),
                   onSelected: (on) => setState(() => on ? _lists.add(l) : _lists.remove(l)),
@@ -177,7 +181,7 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
                       if (groups[i].hint.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(groups[i].hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
                       DeadlineBox(title: groups[i].title, color: _tone(_view, i), items: groups[i].items, now: now, onFinish: _finish, onEdit: widget.onEdit, showDate: true, showList: _view != ListViewKind.list,
                           // Side by side the boxes share one height; in a single column a short list doesn't leave a gap.
-                          height: cols == 1 ? (groups[i].items.length * 56.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
+                          height: cols == 1 ? (groups[i].items.length * 64.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
                     ]),
                   ),
                 ),

@@ -109,11 +109,15 @@ class FakeXp extends XpRepository {
   final List<XpRow> log;
   final appended = <XpRow>[];
   int loads = 0;
+  bool offline = false; // appends fail, as with no connection
   @override
   Future<({List<Quest> quests, List<XpRow> log, XpSettings settings})> load() async {
     loads++;
     return (quests: defaultQuests, log: log, settings: const XpSettings());
   }
   @override
-  Future<void> append(List<XpRow> rows, int dayStartHour) async => appended.addAll(rows);
+  Future<void> append(List<XpRow> rows, int dayStartHour) async {
+    if (offline) throw SourceException('Offline.');
+    appended.addAll(rows);
+  }
 }

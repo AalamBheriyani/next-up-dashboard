@@ -1,4 +1,6 @@
 // Today: the next deadline as a big countdown, then what is overdue, due today and coming up.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -128,7 +130,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final g = DeadlineGroups(items, now);
     final next = g.next;
     return [
-      if (next != null) Padding(padding: const EdgeInsets.only(top: 8), child: NextBoard(deadline: next, now: widget.now)),
+      if (next != null) Padding(padding: const EdgeInsets.only(top: 8), child: NextBoard(deadline: next, now: widget.now, overdue: g.overdue.length)),
       const SizedBox(height: 8),
       DeadlineSection(title: 'Overdue', hint: 'Oldest first', color: NextUpColors.deadline, items: g.overdue, now: now, onFinish: _finish, showDate: true, onEdit: widget.onEdit),
       DeadlineSection(title: 'Today', color: NextUpColors.accent, items: g.today(now).where((d) => d != next).toList(), now: now, onFinish: _finish, onEdit: widget.onEdit),
@@ -139,8 +141,9 @@ class _TodayScreenState extends State<TodayScreen> {
 }
 
 class NextBoard extends StatelessWidget {
-  const NextBoard({super.key, required this.deadline, this.now, this.onStart});
+  const NextBoard({super.key, required this.deadline, this.now, this.onStart, this.overdue = 0});
   final Deadline deadline;
+  final int overdue; // how many others are already late, said under the title as the old banner did
   final DateTime Function()? now;
   /// When set, a Start button begins work on this deadline (the site starts a focus session on it).
   final VoidCallback? onStart;
@@ -161,7 +164,11 @@ class NextBoard extends StatelessWidget {
         Text('NEXT DEADLINE', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
         const SizedBox(height: 10),
         Text(deadline.title, style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800, height: 1.1)),
-        if (deadline.list.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(deadline.list, style: TextStyle(color: NextUpColors.muted))),
+        Builder(builder: (context) {
+          final real = deadline.realDeadline;
+          final line = [if (deadline.list.isNotEmpty) deadline.list, if (real != null) 'real deadline $real', if (overdue > 0) '$overdue overdue'].join(' · ');
+          return line.isEmpty ? const SizedBox.shrink() : Padding(padding: const EdgeInsets.only(top: 4), child: Text(line, style: TextStyle(color: NextUpColors.muted)));
+        }),
         const SizedBox(height: 16),
         FlapCountdown(target: deadline.due, now: now),
         const SizedBox(height: 12),
@@ -242,7 +249,6 @@ class _RowState extends State<_Row> {
   @override
   Widget build(BuildContext context) {
     final d = widget.d, now = widget.now, onFinish = widget.onFinish, onEdit = widget.onEdit;
-    final late = d.isLate(now);
     final real = d.realDeadline;
     final meta = [if (widget.showList && d.list.isNotEmpty) d.list, if (real != null) 'Real: $real', if (d.priority >= 5) 'High priority'].join(' · ');
     return Dismissible(
@@ -256,10 +262,17 @@ class _RowState extends State<_Row> {
         decoration: BoxDecoration(color: NextUpColors.ok.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(12)),
         child: const Icon(Icons.check_rounded, color: NextUpColors.ok),
       ),
-      child: Container(
-        margin: const EdgeInsets.only(top: 8),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
         padding: const EdgeInsets.fromLTRB(4, 4, 14, 4),
-        decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(12)),
+        // The list's colour as a stripe down the left, as on the old site; clipped so it stays straight.
+        decoration: BoxDecoration(
+          color: NextUpColors.panel,
+          border: d.color == 0 ? null : Border(left: BorderSide(color: Color(d.color), width: 3)),
+        ),
         child: Row(children: [
           IconButton(
             tooltip: 'Finish ${d.title}',
@@ -276,7 +289,7 @@ class _RowState extends State<_Row> {
                   Flexible(child: Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600))),
                   if (d.notes.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 6), child: Icon(_open ? Icons.expand_less_rounded : Icons.notes_rounded, size: 14, color: NextUpColors.muted)),
                 ]),
-                if (meta.isNotEmpty) Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+                _StatusLine(d: d, now: now, meta: meta),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 180),
                   alignment: Alignment.topLeft,
@@ -286,14 +299,113 @@ class _RowState extends State<_Row> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            _relative(d, now, widget.showDate),
-            style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : (urgencyOf(d, now) == Urgency.week || urgencyOf(d, now) == Urgency.later ? NextUpColors.muted : urgencyColor(urgencyOf(d, now)))),
-          ),
+          _RowClock(d: d, now: now, showDate: widget.showDate),
           if (onEdit != null) IconButton(tooltip: 'Edit ${d.title}', icon: const Icon(Icons.edit_outlined, size: 18), color: NextUpColors.muted, visualDensity: VisualDensity.compact, onPressed: () => onEdit(d)),
         ]),
       ),
+      ),
+      ),
     );
+  }
+}
+
+/// The old board's status words: how close a departure is.
+(String, Color) boardStatus(Duration left) {
+  if (left.isNegative) return ('Overdue', NextUpColors.deadline);
+  if (left < const Duration(days: 1)) return ('Final call', NextUpColors.soon);
+  if (left < const Duration(days: 3)) return ('Boarding', NextUpColors.accent);
+  return ('On time', NextUpColors.muted);
+}
+
+/// "2d 3h 05m", "4h 12m 09s" (seconds inside the last day), as on the old board.
+String boardCountdown(Duration left) {
+  final x = left.abs();
+  final d = x.inDays, h = x.inHours % 24, m = x.inMinutes % 60, sec = x.inSeconds % 60;
+  String two(int n) => n.toString().padLeft(2, '0');
+  var out = d > 0 ? '${d}d ${h}h ${two(m)}m' : (h > 0 ? '${h}h ${two(m)}m' : '${m}m');
+  if (d == 0 && !left.isNegative) out += ' ${two(sec)}s';
+  return left.isNegative ? '$out late' : out;
+}
+
+/// A row's live countdown, its due date and its status pill. Ticks every second inside the last day and
+/// every half minute otherwise, counting on from the time the list was drawn.
+class _RowClock extends StatefulWidget {
+  const _RowClock({required this.d, required this.now, required this.showDate});
+  final Deadline d;
+  final DateTime now;
+  final bool showDate;
+
+  @override
+  State<_RowClock> createState() => _RowClockState();
+}
+
+class _RowClockState extends State<_RowClock> {
+  Timer? _timer;
+  final _since = Stopwatch()..start();
+
+  DateTime get _at => widget.now.add(_since.elapsed);
+
+  void _schedule() {
+    _timer?.cancel();
+    final left = widget.d.due.difference(_at);
+    final fast = !left.isNegative && left < const Duration(days: 1);
+    _timer = Timer.periodic(Duration(seconds: fast ? 1 : 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule();
+  }
+
+  @override
+  void didUpdateWidget(_RowClock old) {
+    super.didUpdateWidget(old);
+    if (old.now != widget.now || old.d.due != widget.d.due) {
+      _since.reset();
+      _schedule();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.d, at = _at;
+    final left = d.due.difference(at);
+    final u = urgencyOf(d, at);
+    final cd = left.isNegative ? _relative(d, at, true) : boardCountdown(left);
+    return Text(cd, style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: left.isNegative ? NextUpColors.deadline : (u == Urgency.week || u == Urgency.later ? NextUpColors.muted : urgencyColor(u))));
+  }
+}
+
+/// The status pill and the due date, at the start of a row's second line.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.d, required this.now, required this.meta});
+  final Deadline d;
+  final DateTime now;
+  final String meta;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, tone) = boardStatus(d.due.difference(now));
+    final small = TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption);
+    final when = d.allDay ? DateFormat('EEE MMM d').format(d.due) : DateFormat('EEE MMM d, h:mm a').format(d.due);
+    return Row(children: [
+      Container(
+        margin: const EdgeInsets.only(right: 6, top: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(color: tone.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(99)),
+        child: Text(label, style: TextStyle(color: tone, fontSize: NextUpType.label, fontWeight: FontWeight.w700)),
+      ),
+      Flexible(child: Text([when, if (meta.isNotEmpty) meta].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: small)),
+    ]);
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'panel.dart';
 
@@ -84,7 +85,9 @@ class _DayColumnState extends State<DayColumn> {
                         height: (_y(e.end, h0) - _y(e.start, h0) - 2).clamp(18, total),
                         child: Tooltip(
                           message: '${hm.format(e.start)} to ${hm.format(e.end)} ${e.title}',
-                          child: _Block(event: e, now: now),
+                          child: e.link.isEmpty
+                              ? _Block(event: e, now: now)
+                              : MouseRegion(cursor: SystemMouseCursors.click, child: GestureDetector(onTap: () => launchUrl(Uri.parse(e.link), webOnlyWindowName: '_blank'), child: _Block(event: e, now: now))),
                         ),
                       ),
                     Positioned(

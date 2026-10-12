@@ -137,6 +137,14 @@ void askNotifyPermission() {
   } catch (_) {}
 }
 
+/// A short buzz on phones that allow it, like the old site's timer alert.
+void vibrate() {
+  try {
+    final nav = globalContext['navigator'] as JSObject?;
+    if (nav != null && nav.has('vibrate')) nav.callMethod('vibrate'.toJS, [200, 100, 200].map((n) => n.toJS).toList().toJS);
+  } catch (_) {}
+}
+
 /// A system notification, only when the tab is in the background (on screen, the page itself shows it).
 void notify(String title, String body) {
   try {

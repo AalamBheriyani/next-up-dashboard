@@ -61,6 +61,7 @@ class AskPanel extends StatefulWidget {
 
 class AskPanelState extends State<AskPanel> {
   final _text = TextEditingController();
+  final _input = FocusNode();
   final _scroll = ScrollController();
   final _msgs = <_Msg>[];
   final _history = <ChatTurn>[];
@@ -69,6 +70,7 @@ class AskPanelState extends State<AskPanel> {
   @override
   void dispose() {
     _text.dispose();
+    _input.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -93,6 +95,9 @@ class AskPanelState extends State<AskPanel> {
         _msgs.clear();
         _history.clear();
       });
+
+  /// Puts the cursor in the question box (the phone's Ask Claude button scrolls here first).
+  void focusInput() => _input.requestFocus();
 
   /// Sends [raw] as if typed (the dashboard uses this for the "2-minute first step" button).
   Future<void> send(String raw) => _send(raw);
@@ -179,6 +184,7 @@ class AskPanelState extends State<AskPanel> {
               },
               child: TextField(
               controller: _text,
+              focusNode: _input,
               minLines: 1,
               maxLines: 4,
               textInputAction: TextInputAction.newline,

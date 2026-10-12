@@ -19,5 +19,8 @@ void setHash(String hash) {}
 /// Asks once for permission to show "timer done" notifications; nothing outside the browser.
 void askNotifyPermission() {}
 
+/// A short buzz on phones that allow it.
+void vibrate() {}
+
 /// A system notification, shown only while the page is in the background.
 void notify(String title, String body) {}

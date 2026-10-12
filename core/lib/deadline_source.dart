@@ -71,15 +71,20 @@ class WorkerDeadlineSource implements DeadlineSource, DeadlineEditor, TickTickCo
       for (final p in (data['projects'] as List? ?? const []))
         '${(p as Map)['id']}': '${p['name'] ?? ''}',
     };
+    final hex = <String, String>{
+      for (final p in (data['projects'] as List? ?? const []))
+        if ((p as Map)['color'] is String) '${p['id']}': p['color'] as String,
+    };
+    final colors = listColors(names, hex);
     return [
       for (final t in (data['tasks'] as List? ?? const []))
-        ?Deadline.fromTask(t as Map<String, dynamic>, names),
+        ?Deadline.fromTask(t as Map<String, dynamic>, names, colors),
     ];
   }
 
   @override
   Future<void> complete(Deadline d) =>
-      _call('POST', '/ticktick/complete', body: {'projectId': d.projectId, 'taskId': d.id, 'title': d.title, 'list': d.list});
+      _call('POST', '/ticktick/complete', body: {'projectId': d.projectId, 'taskId': d.id, 'title': d.title, 'list': d.list, 'tags': d.tags});
 
   @override
   Future<void> update(Deadline d, {String? title, DateTime? day, int? priority}) => _call('POST', '/ticktick/update', body: {
