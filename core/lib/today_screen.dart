@@ -17,8 +17,11 @@ class TodayScreen extends StatefulWidget {
     required this.onSignIn,
     this.now,
     this.onEdit,
+    this.heading,
   });
 
+  /// A page title over the date (the website's Deadlines page); the app shows only the date.
+  final String? heading;
   final void Function(Deadline)? onEdit; // when set, each row gets an edit button
   final DeadlineSource source;
   final bool Function() signedIn;
@@ -92,7 +95,13 @@ class _TodayScreenState extends State<TodayScreen> {
     final items = _items;
     return Scaffold(
       appBar: AppBar(
-        title: Text(DateFormat('EEEE, MMM d').format(now), style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
+        toolbarHeight: widget.heading == null ? null : 72,
+        title: widget.heading == null
+            ? Text(DateFormat('EEEE, MMM d').format(now), style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted))
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.heading!, style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
+                Text(DateFormat('EEEE, MMM d').format(now), style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
+              ]),
         actions: [
           if (_loading)
             const Padding(padding: EdgeInsets.only(right: 16), child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),

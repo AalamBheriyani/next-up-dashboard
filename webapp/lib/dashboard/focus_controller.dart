@@ -45,7 +45,7 @@ class FocusController extends ChangeNotifier {
   bool get running => _tick != null;
   Duration get total => _duration(mode);
   Duration get left => running ? _endsAt!.difference(_now()).isNegative ? Duration.zero : _endsAt!.difference(_now()) : _left;
-  double get fraction => total.inMilliseconds == 0 ? 0 : 1 - left.inMilliseconds / total.inMilliseconds;
+  double get fraction => total.inMilliseconds == 0 ? 0 : (1 - left.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0);
 
   Duration _duration(FocusMode m) => Duration(minutes: switch (m) { FocusMode.focus => focusMin, FocusMode.shortBreak => shortMin, FocusMode.longBreak => longMin });
 
@@ -77,6 +77,15 @@ class FocusController extends ChangeNotifier {
   }
 
   void reset() => setMode(mode);
+
+  /// Moves the time left by whole minutes (1 to 60), as the arrow keys on the old site's dial did.
+  void nudge(int minutes) {
+    final m = ((left.inSeconds + 59) ~/ 60 + minutes).clamp(1, 60);
+    _left = Duration(minutes: m);
+    if (running) _endsAt = _now().add(_left);
+    _save();
+    notifyListeners();
+  }
 
   /// Starts a pomodoro of [minutes] (1 to 60), as Ask Claude does when you agree to start.
   int startFocus(int minutes, [String text = '']) {

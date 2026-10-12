@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:next_up_web/dashboard/focus_controller.dart';
+import 'package:next_up_web/dashboard/focus_timer.dart';
 import 'package:next_up_web/platform/platform_base.dart';
 
 void main() {
@@ -68,6 +71,45 @@ void main() {
     final store = MemoryStore()..set(FocusController.storeKey, '{nope');
     final c = FocusController(store: store)..restore();
     expect(c.mode, FocusMode.focus);
+    c.dispose();
+  });
+
+  test('nudging moves the time left by whole minutes, between 1 and 60', () {
+    final c = FocusController();
+    c.nudge(1);
+    expect(c.left, const Duration(minutes: 26));
+    c.nudge(-40);
+    expect(c.left, const Duration(minutes: 1));
+    c.nudge(100);
+    expect(c.left, const Duration(minutes: 60));
+    expect(c.fraction, 0);
+    c.dispose();
+  });
+
+  testWidgets('the arrow keys and space work the timer, and fullscreen opens and closes', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = FocusController();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: SizedBox(width: 360, child: FocusTimer(controller: c))))));
+    Focus.of(tester.element(find.text('Start'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(find.text('26:00'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(c.running, isTrue);
+    await tester.tap(find.byTooltip('Fullscreen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byTooltip('Exit fullscreen'), findsOneWidget);
+    expect(find.text('Pause'), findsNWidgets(2)); // the panel and the fullscreen view
+    await tester.tap(find.byTooltip('Exit fullscreen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byTooltip('Exit fullscreen'), findsNothing);
+    c.pause();
     c.dispose();
   });
 }

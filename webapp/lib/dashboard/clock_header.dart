@@ -104,7 +104,7 @@ class _Card extends StatelessWidget {
           final v = Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w600, fontFeatures: monoFeatures));
           if (box.maxWidth < 330) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: small), const SizedBox(height: 2), v]);
           return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-            Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: small)),
+            Flexible(flex: 3, child: Text(label, overflow: TextOverflow.ellipsis, style: small)),
             const SizedBox(width: 12),
             Flexible(flex: 2, child: v),
           ]);

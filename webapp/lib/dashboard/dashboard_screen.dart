@@ -243,6 +243,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _board(DateTime now, {VoidCallback? onStart}) {
     final items = _deadlines;
+    if (items == null && _needsSignIn) {
+      return Panel(title: 'Next deadline', child: Text('Sign in to see your next deadline.', style: TextStyle(color: NextUpColors.muted)));
+    }
     if (items == null) {
       return const Panel(title: 'Next deadline', child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
     }
@@ -276,7 +279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
     return [
       BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
-      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, error: _calendarError, onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
+      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
       BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
       if (widget.ask != null)
         BoardItem(

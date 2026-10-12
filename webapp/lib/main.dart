@@ -230,7 +230,7 @@ class _ShellState extends State<Shell> {
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),
-            child: TodayScreen(source: _svc.deadlines, signedIn: _svc.signedIn, onSignIn: _signIn, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null),
+            child: TodayScreen(heading: 'Deadlines', source: _svc.deadlines, signedIn: _svc.signedIn, onSignIn: _signIn, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null),
           ),
         );
       case 2:
