@@ -27,6 +27,15 @@ class _ListsScreenState extends State<ListsScreen> {
   List<Deadline>? _all;
   String? _error;
   ListViewKind _view = ListViewKind.matrix;
+  // Search and list filter, as on the old Departures board.
+  String _query = '';
+  final Set<String> _lists = {};
+
+  bool _shows(Deadline d) {
+    if (_lists.isNotEmpty && !_lists.contains(d.list)) return false;
+    final q = _query.trim().toLowerCase();
+    return q.isEmpty || d.title.toLowerCase().contains(q) || d.notes.toLowerCase().contains(q) || d.list.toLowerCase().contains(q);
+  }
 
   DateTime _now() => (widget.now ?? DateTime.now)();
 
@@ -95,6 +104,25 @@ class _ListsScreenState extends State<ListsScreen> {
             padding: const EdgeInsets.only(top: 8),
             child: Text('Urgent means late or due within 2 days. Important means medium or high priority in TickTick.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
           ),
+        if (all != null && all.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            SizedBox(
+              width: 260,
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                decoration: const InputDecoration(isDense: true, prefixIcon: Icon(Icons.search_rounded, size: 18), hintText: 'Search deadlines', border: OutlineInputBorder()),
+              ),
+            ),
+            if ({for (final d in all) d.list}.length > 1)
+              for (final l in ({for (final d in all) if (d.list.isNotEmpty) d.list}.toList()..sort()))
+                FilterChip(
+                  label: Text(l),
+                  selected: _lists.contains(l),
+                  onSelected: (on) => setState(() => on ? _lists.add(l) : _lists.remove(l)),
+                ),
+          ]),
+        ],
         const SizedBox(height: 16),
         if (_error != null && all == null) Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted))),
         if (all == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
@@ -102,7 +130,7 @@ class _ListsScreenState extends State<ListsScreen> {
           LayoutBuilder(builder: (context, box) {
             final cols = box.maxWidth >= 1000 ? 3 : (box.maxWidth >= 600 ? 2 : 1);
             final w = (box.maxWidth - 16 * (cols - 1)) / cols;
-            final groups = groupsFor(_view, all, now);
+            final groups = groupsFor(_view, all.where(_shows).toList(), now);
             return Wrap(spacing: 16, runSpacing: 16, children: [
               for (var i = 0; i < groups.length; i++)
                 SizedBox(

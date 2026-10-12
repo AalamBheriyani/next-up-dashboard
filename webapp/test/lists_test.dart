@@ -46,4 +46,18 @@ void main() {
     await t.pump(const Duration(seconds: 1));
     expect(find.text('Essay'), findsNothing);
   });
+
+  testWidgets('search and the list chips narrow the boxes', (t) async {
+    final home = Deadline(id: 'h', projectId: 'q', title: 'Laundry', due: now.add(const Duration(hours: 5)), allDay: false, priority: 0, list: 'Home');
+    await pump(t, [d('Essay', const Duration(hours: 3), 5), d('Plan year', const Duration(days: 9), 3), home]);
+    await t.enterText(find.byType(TextField), 'ess');
+    await t.pump();
+    expect(find.text('Essay'), findsOneWidget);
+    expect(find.text('Plan year'), findsNothing);
+    await t.enterText(find.byType(TextField), '');
+    await t.tap(find.widgetWithText(FilterChip, 'Home'));
+    await t.pump();
+    expect(find.text('Laundry'), findsOneWidget);
+    expect(find.text('Essay'), findsNothing);
+  });
 }

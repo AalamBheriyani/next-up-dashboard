@@ -17,4 +17,11 @@ void main() {
   test('a new all-day deadline is formatted the way TickTick expects', () {
     expect(newDueText(DateTime(2026, 10, 9), allDay: true), '2026-10-09T00:00:00+0000');
   });
+
+  test('notes come through, with the real deadline read out of them', () {
+    final d = Deadline.fromTask({'id': 'a', 'projectId': 'p', 'title': 'x', 'dueDate': '2026-10-12T13:30:00+0000', 'content': 'Real deadline: Fri 3pm. Bring the form.'}, {})!;
+    expect(d.notes, 'Real deadline: Fri 3pm. Bring the form.');
+    expect(d.realDeadline, 'Fri 3pm');
+    expect(Deadline.fromTask({'id': 'b', 'projectId': 'p', 'title': 'y', 'dueDate': '2026-10-12T13:30:00+0000'}, {})!.realDeadline, isNull);
+  });
 }
