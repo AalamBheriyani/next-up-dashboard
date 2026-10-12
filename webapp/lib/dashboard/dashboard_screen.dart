@@ -231,11 +231,23 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final phone = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
       // On a phone Ask Claude is far down the page; this button goes straight to it, as on the old site.
+      // It shrinks to an icon once the page scrolls and steps aside while the chat itself is on screen.
       floatingActionButton: phone && widget.ask != null && !_layout.isHidden('ask') && !_editing
-          ? FloatingActionButton.extended(onPressed: _toAsk, icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Claude'))
+          ? AnimatedScale(
+              scale: _askInView ? 0 : 1,
+              duration: motionFast,
+              child: _scrolled
+                  ? FloatingActionButton(tooltip: 'Ask Claude', onPressed: _toAsk, child: const Icon(Icons.auto_awesome_rounded))
+                  : FloatingActionButton.extended(onPressed: _toAsk, icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Claude')),
+            )
           : null,
       body: RefreshIndicator(
         onRefresh: _load,
+        child: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (n) {
+          if (n.depth == 0) _onScroll(n.metrics.pixels);
+          return false;
+        },
         child: LayoutBuilder(builder: (context, box) {
           final w = box.maxWidth;
           return ListView(
@@ -272,6 +284,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             ],
           );
         }),
+        ),
       ),
     );
   }
@@ -293,6 +306,29 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
   final _askKey = GlobalKey<AskPanelState>();
 
   void _startOn(Deadline d) => _focus.startFocus(25, d.title);
+
+  bool _scrolled = false, _askInView = false;
+
+  // Measured after the frame, once the scrolled panels have moved.
+  void _onScroll(double px) => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _measureAsk(px);
+      });
+
+  void _measureAsk(double px) {
+    final box = _askKey.currentContext?.findRenderObject() as RenderBox?;
+    var inView = false;
+    if (box != null && box.attached) {
+      final top = box.localToGlobal(Offset.zero).dy;
+      inView = top < MediaQuery.sizeOf(context).height - 120 && top + box.size.height > 80;
+    }
+    final scrolled = px > 40;
+    if (scrolled != _scrolled || inView != _askInView) {
+      setState(() {
+        _scrolled = scrolled;
+        _askInView = inView;
+      });
+    }
+  }
 
   Future<void> _toAsk() async {
     final c = _askKey.currentContext;
