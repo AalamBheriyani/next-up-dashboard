@@ -22,6 +22,13 @@ class HoursSummary {
   final double uniDone, uniPlanned;
   final List<HoursBar> courses, days, types;
 
+  /// One line for Ask Claude, the same words the current site sends.
+  String get forAsk {
+    String p(double? v) => v == null ? '–' : '${v.round()}%';
+    String h(double v) => v == v.roundToDouble() ? '${v.round()}' : v.toStringAsFixed(1);
+    return 'time adherence ${p(timeAdherence)}, block completion ${p(blocksDone)}, ${hoursMissed == null ? '–' : h(hoursMissed!)} planned hours missed or skipped, university hours done ${h(uniDone)} of ${h(uniPlanned)} planned.';
+  }
+
   static double? _pct(String v) => double.tryParse(v.replaceAll('%', '').trim());
   static double _h(String v) => double.tryParse(v) ?? 0;
 

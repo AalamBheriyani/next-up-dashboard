@@ -228,6 +228,7 @@ class _ShellState extends State<Shell> {
           sleepMinutes: _config.sleepMinutes,
           focus: _focus,
           ask: _ask,
+          hours: _config.sheetId.isNotEmpty && _svc.signedIn() ? _svc.hoursFor(_config.sheetId).summary : null,
           extras: [
             if (_config.sheetId.isNotEmpty && _svc.signedIn()) BoardItem(id: 'track', name: 'Track', span: 12, child: TrackPanel(repo: _svc.trackFor(_config.sheetId))),
             if (_config.questSheetId.isNotEmpty) BoardItem(id: 'habits', name: 'Habits', span: 12, child: HabitsPanel(repo: _svc.xpFor(_config.questSheetId))),
