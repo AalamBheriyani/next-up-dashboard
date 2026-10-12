@@ -27,13 +27,14 @@ const _flame = Color(0xFFFF6B4A);
 const _combo = Color(0xFF4CC9F0);
 
 class QuestScreen extends StatefulWidget {
-  const QuestScreen({super.key, required this.services, required this.config, this.now, this.random, this.layout = const BoardLayout(), this.onLayout});
+  const QuestScreen({super.key, required this.services, required this.config, this.now, this.random, this.layout = const BoardLayout(), this.onLayout, this.onSettings});
   final Services services;
   final AppConfig config;
   final DateTime Function()? now;
   final math.Random? random;
   final BoardLayout layout;
   final ValueChanged<BoardLayout>? onLayout;
+  final VoidCallback? onSettings; // opens Settings, where the sheet is added
 
   @override
   State<QuestScreen> createState() => _QuestScreenState();
@@ -200,7 +201,7 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load);
+    if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load, onSettings: widget.config.questSheetId.isEmpty ? widget.onSettings : null);
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final m = _model;
     final span = m.next - m.floor;
@@ -296,7 +297,11 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
               message: b.$3,
               child: Chip(
                 avatar: Icon(badges.contains(b.$1) ? Icons.military_tech_rounded : Icons.lock_outline_rounded, size: 16, color: badges.contains(b.$1) ? _gold : NextUpColors.muted),
-                label: Text(b.$2, style: TextStyle(fontSize: NextUpType.caption, color: badges.contains(b.$1) ? Colors.white : NextUpColors.muted)),
+                // The description shows under the name, as on the old page; a tooltip is hard to find on a phone.
+                label: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(b.$2, style: TextStyle(fontSize: NextUpType.caption, color: badges.contains(b.$1) ? Colors.white : NextUpColors.muted)),
+                  Text(b.$3, style: TextStyle(fontSize: NextUpType.label, color: NextUpColors.muted)),
+                ]),
                 backgroundColor: NextUpColors.raised,
                 side: BorderSide.none,
               ),
@@ -458,9 +463,9 @@ class _QuestButton extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message(this.text, {this.onRetry});
+  const _Message(this.text, {this.onRetry, this.onSettings});
   final String text;
-  final VoidCallback? onRetry;
+  final VoidCallback? onRetry, onSettings;
 
   // The same title and "Heads up" card as the other pages, so an empty Quest Log doesn't look broken.
   @override
@@ -472,6 +477,7 @@ class _Message extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(text, style: TextStyle(color: NextUpColors.muted)),
             if (onRetry != null) Padding(padding: const EdgeInsets.only(top: 8), child: OutlinedButton(onPressed: onRetry, child: const Text('Try again'))),
+            if (onSettings != null) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: onSettings, child: const Text('Add it in Settings'))),
           ]),
         ),
       ]);

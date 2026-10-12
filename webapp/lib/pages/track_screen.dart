@@ -36,12 +36,13 @@ Color colorFor(String cat, List<String> cats) {
 }
 
 class TrackScreen extends StatefulWidget {
-  const TrackScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout});
+  const TrackScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout, this.onSettings});
   final Services services;
   final AppConfig config;
   final DateTime Function()? now; // for tests
   final BoardLayout layout; // the account layout; Track reads and writes only its own panels
   final ValueChanged<BoardLayout>? onLayout;
+  final VoidCallback? onSettings; // opens Settings, where the sheet is added
 
   @override
   State<TrackScreen> createState() => _TrackScreenState();
@@ -158,7 +159,7 @@ class _TrackScreenState extends State<TrackScreen> with RefreshOnReturn {
           if (d != null) CustomiseButton(editing: _editing),
         ])),
         if (_error != null)
-          Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
+          Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_error!, style: TextStyle(color: NextUpColors.muted)), if (widget.onSettings != null && widget.config.sheetId.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.onSettings, child: const Text('Add it in Settings')))]))),
         if (d == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (d != null)
           PageBoard(

@@ -264,11 +264,11 @@ class _ShellState extends State<Shell> {
       case 2:
         return ListsScreen(services: _svc, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null);
       case 3:
-        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, onSettings: () => _go(6));
       case 4:
-        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, ask: _ask?.mode == AskMode.app ? null : _ask);
+        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, ask: _ask?.mode == AskMode.app ? null : _ask, onSettings: () => _go(6));
       case 5:
-        return QuestScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+        return QuestScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, onSettings: () => _go(6));
       default:
         return SettingsScreen(
           services: _svc,

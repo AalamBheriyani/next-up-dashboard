@@ -73,5 +73,7 @@ void main() {
     expect(find.text('25:00'), findsNothing);
     await tester.tap(find.text('Pause'));
     await tester.pump();
+    expect(find.text('Resume'), findsOneWidget, reason: 'a paused timer says it will carry on');
+    expect(find.textContaining('Paused'), findsOneWidget);
   });
 }
