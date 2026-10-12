@@ -30,6 +30,8 @@ class FocusController extends ChangeNotifier {
   bool autoContinue;
   /// The old site's Time Timer face (a red disc for the minutes left, out of an hour); off is a thin ring.
   bool classicFace = true;
+  /// Colours chosen for focus and for breaks (ARGB); 0 keeps the default red or accent, and green.
+  int focusColor = 0, breakColor = 0;
   FocusHooks hooks;
 
   /// Where the timer is remembered on this device, so a reload does not lose it.
@@ -87,7 +89,7 @@ class FocusController extends ChangeNotifier {
   /// Changes the lengths (minutes, 1 to 60 or 90 for a long break), the long-break rhythm and auto-start, and
   /// keeps them on this device like the old site's timer settings. A timer that hasn't started yet takes the
   /// new length at once.
-  void setSettings({int? focus, int? short, int? long, int? every, bool? auto, bool? classic}) {
+  void setSettings({int? focus, int? short, int? long, int? every, bool? auto, bool? classic, int? focusColor, int? breakColor}) {
     final fresh = !running && _left == _duration(mode);
     focusMin = (focus ?? focusMin).clamp(1, 60);
     shortMin = (short ?? shortMin).clamp(1, 60);
@@ -95,7 +97,9 @@ class FocusController extends ChangeNotifier {
     this.every = (every ?? this.every).clamp(2, 12);
     autoContinue = auto ?? autoContinue;
     classicFace = classic ?? classicFace;
-    store?.set(settingsKey, jsonEncode({'focus': focusMin, 'short': shortMin, 'long': longMin, 'every': this.every, 'auto': autoContinue, 'classic': classicFace}));
+    this.focusColor = focusColor ?? this.focusColor;
+    this.breakColor = breakColor ?? this.breakColor;
+    store?.set(settingsKey, jsonEncode({'focus': focusMin, 'short': shortMin, 'long': longMin, 'every': this.every, 'auto': autoContinue, 'classic': classicFace, 'focusColor': this.focusColor, 'breakColor': this.breakColor}));
     if (fresh) _left = _duration(mode);
     _save();
     notifyListeners();
@@ -112,6 +116,8 @@ class FocusController extends ChangeNotifier {
       every = n('every', every, 12).clamp(2, 12);
       if (j['auto'] is bool) autoContinue = j['auto'] as bool;
       if (j['classic'] is bool) classicFace = j['classic'] as bool;
+      if (j['focusColor'] is int) focusColor = j['focusColor'] as int;
+      if (j['breakColor'] is int) breakColor = j['breakColor'] as int;
       _left = _duration(mode);
     } catch (_) {
       // Damaged settings fall back to the defaults.

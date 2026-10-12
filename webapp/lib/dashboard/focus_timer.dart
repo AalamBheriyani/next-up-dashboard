@@ -102,7 +102,7 @@ class _TimerBodyState extends State<TimerBody> {
     final left = _pick == null ? c.left : Duration(minutes: _pick!);
     final mm = left.inSeconds ~/ 60, ss = left.inSeconds % 60;
     final k = dial / 170;
-    final tone = c.mode == FocusMode.focus ? (c.classicFace ? NextUpColors.deadline : NextUpColors.accent) : NextUpColors.ok;
+    final tone = timerTone(c);
     const modes = [(FocusMode.focus, 'Focus'), (FocusMode.shortBreak, 'Break'), (FocusMode.longBreak, 'Long')];
     final time = Text('${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}', style: TextStyle(fontSize: (c.classicFace ? NextUpType.title : NextUpType.display) * k, fontWeight: FontWeight.w800, fontFeatures: monoFeatures));
     return Column(mainAxisSize: MainAxisSize.min, children: [
@@ -163,6 +163,56 @@ class _TimerBodyState extends State<TimerBody> {
   }
 }
 
+/// The colour of the dial: the person's own choice, else red on the Time Timer face (accent on the ring) and
+/// green for breaks.
+Color timerTone(FocusController c) => c.mode == FocusMode.focus
+    ? (c.focusColor != 0 ? Color(c.focusColor) : (c.classicFace ? NextUpColors.deadline : NextUpColors.accent))
+    : (c.breakColor != 0 ? Color(c.breakColor) : NextUpColors.ok);
+
+const _swatches = [0xFFE5484D, 0xFFF76B15, 0xFFFFC53D, 0xFF46A758, 0xFF12A594, 0xFF3E8EF7, 0xFF8E4EC6, 0xFFD6409F];
+
+/// A row of colour dots; the first, empty one means the default.
+class _Swatches extends StatelessWidget {
+  const _Swatches(this.label, this.value, this.onPick);
+  final String label;
+  final int value;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(int argb) {
+      final on = argb == value;
+      return Tooltip(
+        message: argb == 0 ? 'Default' : '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
+        child: InkResponse(
+          onTap: () => onPick(argb),
+          radius: 18,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: argb == 0 ? Colors.transparent : Color(argb),
+              border: Border.all(color: on ? Colors.white : NextUpColors.line, width: on ? 2.5 : 1),
+            ),
+            child: argb == 0 ? Icon(Icons.block_rounded, size: 14, color: NextUpColors.muted) : null,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, runSpacing: 8, children: [dot(0), for (final s in _swatches) dot(s)]),
+      ]),
+    );
+  }
+}
+
 /// The timer's lengths, the long-break rhythm and auto-start. Each change applies and is kept at once.
 class TimerSettings extends StatelessWidget {
   const TimerSettings({super.key, required this.controller});
@@ -185,10 +235,12 @@ class TimerSettings extends StatelessWidget {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Time Timer face'),
-              subtitle: const Text('A red disc for the minutes left; off shows a thin ring'),
+              subtitle: const Text('A filled disc for the minutes left; off shows a thin ring'),
               value: c.classicFace,
               onChanged: (v) => c.setSettings(classic: v),
             ),
+            _Swatches('Focus colour', c.focusColor, (v) => c.setSettings(focusColor: v)),
+            _Swatches('Break colour', c.breakColor, (v) => c.setSettings(breakColor: v)),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Start the next session by itself'),
