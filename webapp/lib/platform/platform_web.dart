@@ -1,5 +1,6 @@
 // Browser versions: localStorage and a Web Audio beep, through dart:js_interop (no extra packages).
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'platform_base.dart';
 
@@ -112,3 +113,35 @@ void navigateTo(String url) => _location.href = url;
 
 /// Shows [hash] after the '#' in the address without reloading or adding a history entry.
 void setHash(String hash) => _history.replaceState(null, '', _location.pathname + _location.search + (hash.isEmpty ? '' : '#$hash'));
+
+@JS('Notification')
+extension type _Notification._(JSObject _) implements JSObject {
+  external factory _Notification(String title, JSObject options);
+  external static String get permission;
+  external static JSPromise<JSString> requestPermission();
+}
+
+extension type _Doc._(JSObject _) implements JSObject {
+  external String get visibilityState;
+}
+
+@JS('document')
+external _Doc get _document;
+
+bool get _canNotify => globalContext.has('Notification');
+
+/// Asks once (the browser remembers the answer); called as a timer starts, so it follows a click.
+void askNotifyPermission() {
+  try {
+    if (_canNotify && _Notification.permission == 'default') _Notification.requestPermission();
+  } catch (_) {}
+}
+
+/// A system notification, only when the tab is in the background (on screen, the page itself shows it).
+void notify(String title, String body) {
+  try {
+    if (!_canNotify || _Notification.permission != 'granted' || _document.visibilityState == 'visible') return;
+    final options = JSObject()..['body'] = body.toJS..['tag'] = 'nextup-timer'.toJS;
+    _Notification(title, options);
+  } catch (_) {}
+}
