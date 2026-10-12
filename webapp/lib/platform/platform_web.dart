@@ -1,4 +1,5 @@
 // Browser versions: localStorage and a Web Audio beep, through dart:js_interop (no extra packages).
+import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -152,4 +153,34 @@ void notify(String title, String body) {
     final options = JSObject()..['body'] = body.toJS..['tag'] = 'nextup-timer'.toJS;
     _Notification(title, options);
   } catch (_) {}
+}
+
+// Inside the Android/iOS app (app/), Google won't sign in inside a web view, so the app does it natively: the
+// page posts {"type":"signin"} to the NextUpNative channel and the app answers with window.nextUpNativeAuth.
+// The same channel schedules a native "timer done" notification. The old site uses this exact protocol.
+@JS('NextUpNative')
+external _Native? get _native;
+
+extension type _Native._(JSObject _) implements JSObject {
+  external void postMessage(String message);
+}
+
+bool get inNativeApp {
+  try {
+    return _native != null && (_native as JSObject).has('postMessage');
+  } catch (_) {
+    return false;
+  }
+}
+
+void postNative(Map<String, Object?> msg) {
+  try {
+    _native?.postMessage(jsonEncode(msg));
+  } catch (_) {}
+}
+
+void onNativeAuth(void Function(String? token, int expiresIn, String? error) handler) {
+  globalContext['nextUpNativeAuth'] = ((JSAny? token, JSAny? expiresIn, JSAny? error) {
+    handler((token as JSString?)?.toDart, (expiresIn as JSNumber?)?.toDartInt ?? 0, (error as JSString?)?.toDart);
+  }).toJS;
 }

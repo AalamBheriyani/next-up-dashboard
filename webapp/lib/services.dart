@@ -12,8 +12,6 @@ import 'package:next_up_core/worker_api.dart';
 import 'platform/platform.dart';
 import 'web_auth.dart';
 
-/// The original site, kept running as a backup while this one grows. It uses the same sign-in and sheets.
-const classicSite = String.fromEnvironment('CLASSIC_URL', defaultValue: 'https://aalambheriyani.github.io/next-up-dashboard/');
 
 class Services {
   Services({

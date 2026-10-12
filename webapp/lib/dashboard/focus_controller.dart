@@ -48,6 +48,8 @@ class FocusController extends ChangeNotifier {
   Timer? _tick;
 
   bool get running => _tick != null;
+  /// When the running session ends (for the app's native notification); null while stopped.
+  DateTime? get endsAt => running ? _endsAt : null;
   // A length picked on the dial (or by Ask Claude) for this one session; null means the mode's usual length.
   Duration? _custom;
   Duration get total => _custom ?? _duration(mode);

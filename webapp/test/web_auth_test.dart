@@ -66,7 +66,7 @@ void main() {
     final a = auth();
     a.signIn(); // never completes: the page leaves
     await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(navigated, ['https://w/auth/start?return=beta']);
+    expect(navigated, ['https://w/auth/start']);
   });
 
   test('signing out forgets the session and tells the Worker', () async {
@@ -76,5 +76,22 @@ void main() {
     expect(a.signedIn, isFalse);
     expect(store.get('nu.web.session'), '');
     expect(calls, contains('POST /auth/logout'));
+  });
+
+  test('inside the phone app, sign-in is done natively and the token comes back from the app', () async {
+    final posted = <Map<String, Object?>>[];
+    void Function(String?, int, String?)? answer;
+    final a = WebAuth(store: store, server: worker(), readHash: () => '', navigate: navigated.add, native: true, post: posted.add, listen: (h) => answer = h);
+    final done = a.signIn();
+    expect(posted, [{'type': 'signin'}]);
+    expect(navigated, isEmpty, reason: 'Google refuses sign-in inside a web view, so the page never goes to it');
+    answer!('ya29.native', 3300, null);
+    await done;
+    expect(await a.token(), 'ya29.native');
+    final failed = a.signIn();
+    answer!(null, 0, 'Sign-in was cancelled.');
+    await expectLater(failed, throwsA(isA<Exception>()));
+    a.signOut();
+    expect(posted.last, {'type': 'signout'});
   });
 }

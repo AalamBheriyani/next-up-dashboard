@@ -29,6 +29,6 @@ void main() {
     expect(await with_((_) async => http.Response('{"permanent":true}', 200)).permanent(), isTrue);
     expect(await with_((_) async => http.Response('{"permanent":false}', 200)).permanent(), isFalse);
     expect(await with_((_) async => throw Exception('x')).permanent(), isFalse);
-    expect(with_((_) async => http.Response('', 200)).startUrl(), 'https://w/auth/start?return=beta');
+    expect(with_((_) async => http.Response('', 200)).startUrl(), 'https://w/auth/start');
   });
 }

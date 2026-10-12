@@ -21,8 +21,8 @@ class WorkerSession {
     }
   }
 
-  /// Where to send the browser to sign in; it comes back to /beta/ with a session token in the address.
-  String startUrl() => '$base/auth/start?return=beta';
+  /// Where to send the browser to sign in; it comes back to the site with a session token in the address.
+  String startUrl() => '$base/auth/start';
 
   /// A fresh Google access token for this session. Null with [expired] true when the session is no longer
   /// good (sign in again); null with [expired] false when the Worker couldn't be reached (try again later).
