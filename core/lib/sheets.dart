@@ -21,8 +21,7 @@ class GoogleSheetsApi implements SheetsApi {
   final Future<String?> Function() token;
   final String sheetId;
 
-  Uri _uri(String path, [Map<String, String>? q]) =>
-      Uri.https('sheets.googleapis.com', '/v4/spreadsheets/$sheetId$path', q);
+  Uri _uri(String path, [Map<String, String>? q]) => sheetsUri(sheetId, path, q);
 
   Future<Map<String, dynamic>> _call(String method, Uri uri, {Object? body}) async {
     if (sheetId.isEmpty) throw SourceException('Add your Time Tracker sheet in Settings first.');
@@ -42,14 +41,21 @@ class GoogleSheetsApi implements SheetsApi {
     if (res.statusCode == 401) throw SourceException('Your sign-in expired. Sign in again.', signedOut: true);
     if (res.statusCode == 403) throw SourceException('Google blocked access to that sheet. Sign in again and allow Sheets, or ask the owner to share it with you.', signedOut: true);
     if (res.statusCode == 404) throw SourceException("That sheet wasn't found. Check the link in Settings.");
-    if (res.statusCode >= 400) throw SourceException('Sheets failed (${res.statusCode}).');
+    if (res.statusCode >= 400) {
+      // Google says what was wrong (often a tab the sheet doesn't have); show that rather than a bare code.
+      var why = '';
+      try {
+        why = '${((jsonDecode(utf8.decode(res.bodyBytes)) as Map)['error'] as Map?)?['message'] ?? ''}';
+      } catch (_) {}
+      throw SourceException(why.isEmpty ? 'Sheets failed (${res.statusCode}).' : 'Sheets failed (${res.statusCode}): $why');
+    }
     final text = utf8.decode(res.bodyBytes);
     return text.isEmpty ? {} : jsonDecode(text) as Map<String, dynamic>;
   }
 
   @override
   Future<List<List<String>>> get(String range) async {
-    final d = await _call('GET', _uri('/values/${Uri.encodeComponent(range)}'));
+    final d = await _call('GET', _uri('/values/$range'));
     return [
       for (final r in (d['values'] as List? ?? const [])) [for (final c in (r as List)) '$c'],
     ];
@@ -57,15 +63,15 @@ class GoogleSheetsApi implements SheetsApi {
 
   @override
   Future<void> putRaw(String range, List<List<String>> values) =>
-      _call('PUT', _uri('/values/${Uri.encodeComponent(range)}', {'valueInputOption': 'RAW'}), body: {'range': range, 'values': values});
+      _call('PUT', _uri('/values/$range', {'valueInputOption': 'RAW'}), body: {'range': range, 'values': values});
 
   @override
   Future<void> put(String range, List<List<Object>> values) =>
-      _call('PUT', _uri('/values/${Uri.encodeComponent(range)}', {'valueInputOption': 'USER_ENTERED'}), body: {'range': range, 'values': values});
+      _call('PUT', _uri('/values/$range', {'valueInputOption': 'USER_ENTERED'}), body: {'range': range, 'values': values});
 
   @override
   Future<int> append(String range, List<List<String>> values) async {
-    final d = await _call('POST', _uri('/values/${Uri.encodeComponent(range)}:append', {'valueInputOption': 'RAW', 'insertDataOption': 'INSERT_ROWS'}), body: {'values': values});
+    final d = await _call('POST', _uri('/values/$range:append', {'valueInputOption': 'RAW', 'insertDataOption': 'INSERT_ROWS'}), body: {'values': values});
     final r = (d['updates'] as Map?)?['updatedRange'] as String?;
     final m = RegExp(r'![A-Z]+(\d+)').firstMatch(r ?? '');
     return m == null ? 0 : int.parse(m[1]!);
@@ -84,3 +90,12 @@ class GoogleSheetsApi implements SheetsApi {
         ]
       });
 }
+
+/// The Sheets REST address for a path under the spreadsheet. Each path part is encoded once by [Uri]; encoding
+/// the range first as well turned "A2:J600" into "A2%253AJ600", which Google rejects with a 400.
+Uri sheetsUri(String sheetId, String path, [Map<String, String>? q]) => Uri(
+      scheme: 'https',
+      host: 'sheets.googleapis.com',
+      pathSegments: ['v4', 'spreadsheets', '$sheetId${path.startsWith(':') ? path : ''}', if (!path.startsWith(':')) ...path.split('/').where((p) => p.isNotEmpty)],
+      queryParameters: q,
+    );
