@@ -227,10 +227,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
               ]))),
               const SizedBox(height: 16),
-              Reveal(index: 4, child: Panel(title: 'Old site', child: Row(children: [
-                Expanded(child: Text('Something not working here? The original site still runs with the same sign-in and the same sheets.', style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted))),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(onPressed: () => launchUrl(Uri.parse(classicSite)), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open old site')),
+              Reveal(index: 4, child: Panel(title: 'Old site', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Something not working here? The original site still runs with the same sign-in and the same sheets.', style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  OutlinedButton.icon(onPressed: () => launchUrl(Uri.parse(classicSite)), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open old site')),
+                  // Every released version stays online, as the old site's menu linked.
+                  TextButton(onPressed: () => launchUrl(Uri.parse('${classicSite}v/')), child: const Text('All versions')),
+                ]),
               ]))),
             ]),
           ),
