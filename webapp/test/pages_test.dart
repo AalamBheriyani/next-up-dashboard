@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/hours.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
@@ -73,6 +74,29 @@ void main() {
     expect(sheets.writes, ['Log!I2:J2 DONE|']);
   });
 
+  testWidgets('Rate with Claude proposes statuses and Apply writes the ticked ones', (tester) async {
+    await big(tester);
+    final dash = List.generate(21, (_) => List.filled(10, ''));
+    dash[1][1] = '82%';
+    final log = [
+      ['2026-10-10', '', '9:00 AM', '10:00 AM', 'Chem class', '', 'Class', '1', ''],
+    ];
+    final sheets = FakeSheetsForHours(dash, log);
+    final ask = AskService(transport: _Claude('{"reply": "Chem went fine.", "ratings": [{"row": 2, "status": "DONE"}]}'), mode: AskMode.api);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdherenceScreen(services: fakeServices(hours: HoursRepository(sheets)), config: const AppConfig(sheetId: 's'), now: () => now, ask: ask))));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.enterText(find.byType(TextField).first, 'did chem'); // above the Partial hours fields
+    await tester.tap(find.text('Rate'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Chem went fine.'), findsOneWidget);
+    await tester.tap(find.text('Apply to Time Tracker'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(sheets.writes, ['Log!I2:J2 DONE|']);
+  });
+
   test('sheetIdFrom accepts links and ids', () {
     const id = '1lxnTxm9qe5P-HsN0N-ZK5tXFo0lumgyuEfHjhxgYQog';
     expect(sheetIdFrom('https://docs.google.com/spreadsheets/d/$id/edit#gid=0'), id);
@@ -95,4 +119,19 @@ void main() {
     expect(cfg.saved, ['$id|']);
     expect(saved?.sheetId, id);
   });
+}
+
+class _Claude implements AskTransport {
+  _Claude(this.answer);
+  final String answer;
+  @override
+  Future<Map<String, dynamic>> claude(Map<String, dynamic> body) async => {
+        'content': [{'type': 'text', 'text': answer}],
+      };
+  @override
+  Future<bool> relayOnline() async => false;
+  @override
+  Future<String> relayAsk(String prompt) async => '';
+  @override
+  Future<Map<String, dynamic>> relayAnswer(String id) async => {};
 }

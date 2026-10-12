@@ -235,6 +235,16 @@ class _Ask implements AskTransport {
   @override
   Future<Map<String, dynamic>> claude(Map<String, dynamic> body) async {
     await Future<void>.delayed(const Duration(milliseconds: 900));
+    // "Rate with Claude": mark the first listed block done.
+    final asked = '${((body['messages'] as List).last as Map)['content']}';
+    final row = RegExp(r'^(\d+) \|', multiLine: true).firstMatch(asked)?.group(1);
+    if (row != null && asked.contains('time tracker')) {
+      return {
+        'content': [
+          {'type': 'text', 'text': '{"reply": "Sounds like a solid morning.", "ratings": [{"row": $row, "status": "DONE"}]}'},
+        ],
+      };
+    }
     return {
       'stop_reason': 'end_turn',
       'content': [

@@ -1,4 +1,7 @@
 // The Time Tracker sheet's Dashboard tab (adherence) and Log tab (blocks to rate).
+import 'dart:convert';
+
+import 'deadline_source.dart';
 import 'sheets.dart';
 
 class HoursBar {
@@ -98,4 +101,45 @@ class HoursRepository {
   /// status is DONE, PARTIAL, MISSED or SKIP; actual hours only for PARTIAL.
   Future<void> rate(RateBlock b, String status, double? actual) =>
       sheets.put('Log!I${b.row}:J${b.row}', [[status, if (status == 'PARTIAL' && actual != null) actual else '']]);
+}
+
+/// One status Claude proposed for a block, from "Rate with Claude".
+class RatePick {
+  RatePick(this.block, this.status, this.hours);
+  final RateBlock block;
+  final String status; // DONE, PARTIAL, MISSED or SKIP
+  final double? hours; // PARTIAL only
+}
+
+/// The question for "Rate with Claude": the unrated blocks and the day in the person's words. Same wording
+/// as the old site.
+String ratePrompt(List<RateBlock> blocks, String said, DateTime now) {
+  final list = blocks.map((b) => '${b.row} | ${b.date} ${b.start}-${b.end} | ${b.name} | ${b.planned}h planned').join('\n');
+  return 'Today is $now. These planned blocks from my time tracker have no status yet (row | when | block | planned hours):\n'
+      '$list\n\nWhat I did, in my own words:\n$said\n\n'
+      'Match what I said to the blocks. Statuses: DONE (did it as planned), PARTIAL (did some; give the hours actually done), '
+      'MISSED (didn\'t do it), SKIP (block no longer applies). Only include blocks my words clearly cover; leave the rest out. '
+      'Reply with only this JSON, no other text:\n'
+      '{"reply": "<one short sentence summarising>", "ratings": [{"row": <row number>, "status": "DONE|PARTIAL|MISSED|SKIP", "hours": <number, only for PARTIAL>}]}';
+}
+
+/// Reads Claude's answer: its one-line summary and the picks that match a real block. Throws
+/// [SourceException] when the answer isn't the JSON asked for.
+({String reply, List<RatePick> picks}) parseRatings(String answer, List<RateBlock> blocks) {
+  final m = RegExp(r'\{[\s\S]*\}').firstMatch(answer);
+  Object? j;
+  try {
+    j = m == null ? null : jsonDecode(m[0]!);
+  } catch (_) {}
+  if (j is! Map) throw SourceException("Claude's answer wasn't in the expected format. Try again.");
+  final byRow = {for (final b in blocks) b.row: b};
+  final picks = <RatePick>[];
+  for (final r in (j['ratings'] as List? ?? const []).whereType<Map>()) {
+    final b = byRow[(r['row'] as num?)?.toInt()];
+    final st = '${r['status']}'.toUpperCase();
+    if (b == null || !const {'DONE', 'PARTIAL', 'MISSED', 'SKIP'}.contains(st)) continue;
+    final h = (r['hours'] as num?)?.toDouble();
+    picks.add(RatePick(b, st, st == 'PARTIAL' && h != null && h > 0 ? h : null));
+  }
+  return (reply: '${j['reply'] ?? ''}'.trim(), picks: picks);
 }

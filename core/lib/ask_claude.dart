@@ -123,6 +123,29 @@ class AskService {
     }
   }
 
+  /// One question with a plain-text answer and no tools, for jobs like "Rate with Claude". Needs the API
+  /// or the laptop relay; the claude.ai link can't answer back.
+  Future<String> once(String prompt, {String system = 'You help fill in a personal time tracker. Answer only with the JSON asked for.'}) async {
+    if (mode == AskMode.api) {
+      final r = await transport.claude({'system': system, 'messages': [{'role': 'user', 'content': prompt}]});
+      return (r['content'] as List? ?? const []).whereType<Map>().where((b) => b['type'] == 'text').map((b) => '${b['text']}').join('\n');
+    }
+    if (mode != AskMode.relay || !await transport.relayOnline().catchError((_) => false)) {
+      throw SourceException('Rating with Claude needs your laptop relay running (or a Claude API key). The buttons below still work.');
+    }
+    final id = await transport.relayAsk(prompt);
+    final until = DateTime.now().add(waitFor);
+    while (DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(pollEvery);
+      final a = await transport.relayAnswer(id);
+      if (a['state'] == 'gone') throw SourceException("The laptop didn't pick up the request.");
+      if (a['state'] != 'done') continue;
+      if ('${a['error'] ?? ''}'.isNotEmpty) throw SourceException('Claude on the laptop failed: ${a['error']}');
+      return '${a['text']}';
+    }
+    throw SourceException('The laptop is taking too long. Try again.');
+  }
+
   /// A claude.ai chat prefilled with the question and the same context, trimmed to a link-friendly size.
   String appUrl(String text, String snapshot) {
     final intro = '${systemPrompt(name: name, rules: rules)}\nIf the user says a task is done, complete it with the TickTick connector. Task ids are in square brackets.';
