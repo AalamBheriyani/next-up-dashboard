@@ -10,11 +10,17 @@ import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWi
 import '../motion.dart';
 
 class ClockHeader extends StatefulWidget {
-  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.place = '', this.sleepMinutes});
+  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.place = '', this.sleepMinutes, this.tools, this.centre, this.jump});
   /// The waking day, as minutes after midnight (from the person's settings).
   final int wakeMinutes, windDownMinutes;
   final String place;
   final int? sleepMinutes;
+  /// The updated stamp and the page's buttons, shown under the time.
+  final Widget? tools;
+  /// The next deadline (and quick links), shown between the clock and the bars.
+  final Widget? centre;
+  /// Quick links: under the buttons beside the next deadline, or last on a phone.
+  final Widget? jump;
   final List<CalendarEvent>? events; // today's calendar, for the "until free" bar
   final DateTime Function()? now; // for tests
 
@@ -50,10 +56,14 @@ class _ClockHeaderState extends State<ClockHeader> {
     final muted = TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body);
     // The same arrangement as the current site: a bold clock with the date on its baseline, then small cards
     // with a label, a value on the right, a bar and the day's anchors.
-    final clock = Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 14, runSpacing: 4, children: [
+    final time = Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 14, runSpacing: 4, children: [
       Text(DateFormat('h:mm a').format(now), style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
       Padding(padding: const EdgeInsets.only(bottom: 6), child: Text([DateFormat('EEEE, MMMM d').format(now), if (widget.place.isNotEmpty) widget.place].join('  ·  '), style: muted)),
     ]);
+    final head = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [time, if (widget.tools != null) ...[const SizedBox(height: 4), widget.tools!]]);
+    final clock = widget.jump == null
+        ? head
+        : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [head, const SizedBox(height: 8), ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: widget.jump!)]);
     final work = _Card(
       label: 'Work time left today',
       value: left.isNegative ? 'Wind-down time. Log XP and rest.' : '${_fmt(left)} until wind-down',
@@ -62,38 +72,37 @@ class _ClockHeaderState extends State<ClockHeader> {
       to: ['Wind-down ${_hm(end)}', if (widget.sleepMinutes != null) 'Sleep ${_hm(DateTime(now.year, now.month, now.day, 0, widget.sleepMinutes!))}'].join('  ·  '),
     );
     final freeCard = free == null ? null : _Card(label: free.title, value: free.value, fraction: free.fraction, from: free.from, to: free.to);
+    final cards = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (freeCard != null) ...[freeCard, const SizedBox(height: 8)],
+      work,
+    ]);
+    final centre = widget.centre;
     return LayoutBuilder(builder: (context, box) {
-      // Wide: the clock on the left and the cards side by side filling the rest of the line, so the top right
-      // isn't left empty. Narrower: the cards stack under the clock, as on the current site.
-      if (box.maxWidth >= 860) {
-        return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      // Wide: the clock, the next deadline in the centre and the progress bars on the right, as three columns.
+      if (box.maxWidth >= 1100 && centre != null) {
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           clock,
-          const SizedBox(width: 32),
-          Expanded(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (freeCard != null) ...[Expanded(child: freeCard), const SizedBox(width: 12)],
-              Expanded(child: work),
-            ]),
-          ),
+          const SizedBox(width: 28),
+          Expanded(child: centre),
+          const SizedBox(width: 16),
+          Expanded(child: cards),
         ]);
       }
-      // Medium: the cards side by side under the clock, using the full width.
-      if (box.maxWidth >= 560 && freeCard != null) {
+      // Medium: the clock on its own line, then the next deadline and the bars side by side.
+      if (box.maxWidth >= 640 && centre != null) {
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           clock,
           const SizedBox(height: 12),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: freeCard), const SizedBox(width: 12), Expanded(child: work)]),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: centre), const SizedBox(width: 16), Expanded(child: cards)]),
         ]);
       }
-      return Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 32, runSpacing: 12, children: [
-        clock,
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (freeCard != null) ...[freeCard, const SizedBox(height: 8)],
-            work,
-          ]),
-        ),
+      // Phone: everything stacks.
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        head,
+        if (centre != null) ...[const SizedBox(height: 12), centre],
+        const SizedBox(height: 12),
+        cards,
+        if (widget.jump != null) ...[const SizedBox(height: 12), widget.jump!],
       ]);
     });
   }

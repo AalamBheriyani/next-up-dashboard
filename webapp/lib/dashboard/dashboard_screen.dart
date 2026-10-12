@@ -48,6 +48,7 @@ class DashboardScreen extends StatefulWidget {
     this.focus,
     this.ask,
     this.hours,
+    this.jump,
   });
   final DeadlineSource deadlines;
   final CalendarSource calendar;
@@ -67,6 +68,8 @@ class DashboardScreen extends StatefulWidget {
   final AskService? ask;
   /// This week's adherence from the Time Tracker sheet, for Ask Claude (when a sheet is set).
   final Future<HoursSummary> Function()? hours;
+  /// Quick links shown under the next deadline, as on the old site's top panel.
+  final Widget? jump;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -84,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
   bool _notConnected = false;
   bool _loading = false;
   bool _editing = false;
-  late BoardLayout _layout = widget.layout;
+  late BoardLayout _layout = migrateDashboardLayout(widget.layout);
   late final FocusController _ownFocus = FocusController();
   FocusController get _focus => widget.focus ?? _ownFocus;
   Timer? _refresh;
@@ -94,7 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
   void didUpdateWidget(DashboardScreen old) {
     super.didUpdateWidget(old);
     // A layout arriving from the account (after sign-in) replaces ours unless we're mid-edit.
-    if (!_editing && old.layout != widget.layout) _layout = widget.layout;
+    if (!_editing && old.layout != widget.layout) _layout = migrateDashboardLayout(widget.layout);
   }
 
   List<String> _ids = const [];
@@ -288,7 +291,6 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               Builder(builder: (context) {
-                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes);
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
                   if (!_loading) UpdatedStamp(at: _updatedAt),
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
@@ -305,9 +307,15 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
                   IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
                   IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
                 ]);
-                // On a phone the buttons take their own line so the clock and date are never squeezed.
-                if (w < 600) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Align(alignment: Alignment.centerRight, child: tools), clock]);
-                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: clock), tools]);
+                // The stamp and buttons sit under the time, so the cards get the whole width beside the clock.
+                return ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes,
+                    tools: tools,
+                    jump: widget.jump,
+                    // The next deadline sits beside the clock, as on the old site; Jump to goes under the buttons.
+                    centre: Builder(builder: (context) {
+                      final next = DeadlineGroups(_deadlines ?? const [], now).next;
+                      return _board(now, onStart: () => next == null ? null : _startOn(next));
+                    }));
               }),
               const SizedBox(height: 20),
               AnimatedSize(duration: motionFast, alignment: Alignment.topLeft, child: _searching ? _searchBar() : const SizedBox(width: double.infinity)),
@@ -400,24 +408,29 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final f = !_searching || (q.isEmpty && _lists.isEmpty)
         ? g
         : DeadlineGroups([for (final d in all) if ((_lists.isEmpty || _lists.contains(d.list)) && (q.isEmpty || '${d.title} ${d.list} ${d.notes}'.toLowerCase().contains(q))) d], now);
-    BoardItem list(String id, String title, Color color, List<Deadline> items, {String? hint, bool showDate = false}) => BoardItem(
-          id: id,
-          name: title,
-          span: 6,
-          child: Panel(
-            title: title,
-            accent: color,
-            trailing: hint == null ? null : Text(hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
-            child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null,
-                // On a phone the panels stack, so a short list needn't keep the shared height.
-                height: MediaQuery.sizeOf(context).width < 600 ? (items.length * 64.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
-          ),
-        );
+    // The panels follow the old site: now and next beside today hour by hour (the next deadline is in the
+    // header); then Deadlines, Ask Claude and the focus timer side by side; then the rest.
+    final sections = [
+      ('Overdue', NextUpColors.deadline, f.overdue, 'Oldest first'),
+      ('Today', NextUpColors.accent, f.today(now).where((d) => d != next).toList(), null),
+      ('This week', NextUpColors.accent, f.thisWeek(now), null),
+      ('Later', NextUpColors.muted, f.later(now), null),
+    ];
     return [
-      BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
       // "Use it on" suggests the oldest late task first, as Do this first does.
-      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: (g.overdue.isNotEmpty ? g.overdue.first : next)?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
-      BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
+      BoardItem(id: 'calendar', name: 'Now and next', span: 6, child: CalendarPanel(events: _events, now: now, useOn: (g.overdue.isNotEmpty ? g.overdue.first : next)?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
+      BoardItem(id: 'day', name: 'Today hour by hour', span: 6, child: DayColumn(events: _events, now: now)),
+      // Without Ask Claude the list takes its place so the row stays full.
+      BoardItem(
+        id: 'deadlines',
+        name: 'Deadlines',
+        span: widget.ask == null ? 8 : 4,
+        child: Panel(
+          title: 'Deadlines',
+          trailing: Text('${sections.fold<int>(0, (n, s) => n + s.$3.length)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+          child: _DeadlineList(sections: sections, now: now, onFinish: _finish, onEdit: widget.deadlines is DeadlineEditor ? _edit : null, loading: _deadlines == null),
+        ),
+      ),
       if (widget.ask != null)
         BoardItem(
           id: 'ask',
@@ -425,15 +438,9 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
           span: 4,
           child: AskPanel(key: _askKey, service: widget.ask!, tools: _tools, snapshot: () => askSnapshot(now: _now(), deadlines: _deadlines ?? const [], events: _events ?? const [], focus: _focus, hours: _hours?.forAsk)),
         ),
-      BoardItem(id: 'day', name: 'Today hour by hour', span: 8, child: DayColumn(events: _events, now: now)),
-      BoardItem(id: 'week', name: 'Next 7 days', span: 12, child: WeekStrip(deadlines: [...all], events: [...?_events], now: now)),
-      if (_deadlines != null) ...[
-        if (f.overdue.isNotEmpty || _editing) list('overdue', 'Overdue', NextUpColors.deadline, f.overdue, hint: 'Oldest first', showDate: true),
-        if (f.today(now).any((d) => d != next) || _editing) list('today', 'Today', NextUpColors.accent, f.today(now).where((d) => d != next).toList()),
-        if (f.thisWeek(now).isNotEmpty || _editing) list('thisweek', 'This week', NextUpColors.accent, f.thisWeek(now), showDate: true),
-        if (f.later(now).isNotEmpty || _editing) list('later', 'Later', NextUpColors.muted, f.later(now), showDate: true),
-      ],
+      BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
       ...widget.extras,
+      BoardItem(id: 'week', name: 'Next 7 days', span: 12, child: WeekStrip(deadlines: [...all], events: [...?_events], now: now)),
     ];
   }
 }
@@ -474,4 +481,55 @@ class _DashboardTools implements AskTools {
 
   @override
   int startTimer(int minutes, String label) => s._focus.startFocus(minutes, label);
+}
+
+/// Layouts saved before the old-site arrangement (four separate deadline lists) start again from the new
+/// defaults for the dashboard's own panels, so the new order shows; what was hidden stays hidden.
+BoardLayout migrateDashboardLayout(BoardLayout l) {
+  const old = ['overdue', 'today', 'thisweek', 'later', 'links'];
+  if (l.order.contains('deadlines') || !l.order.any(old.contains)) return l;
+  const mine = ['next', 'calendar', 'timer', 'ask', 'day', 'week', 'deadlines', 'track', 'habits', 'anki', ...old];
+  return BoardLayout(
+    order: l.order.where((x) => !mine.contains(x)).toList(),
+    span: {...l.span}..removeWhere((k, _) => mine.contains(k)),
+    height: {...l.height}..removeWhere((k, _) => mine.contains(k)),
+    hidden: l.hidden.where((x) => !old.contains(x)).toList(),
+  );
+}
+
+/// Every deadline in one panel, grouped Overdue, Today, This week and Later, as the old site's Deadlines list.
+/// A fixed height that scrolls, so it lines up with Ask Claude and the timer beside it.
+class _DeadlineList extends StatefulWidget {
+  const _DeadlineList({required this.sections, required this.now, required this.onFinish, this.onEdit, this.loading = false});
+  final List<(String, Color, List<Deadline>, String?)> sections;
+  final DateTime now;
+  final void Function(Deadline) onFinish;
+  final void Function(Deadline)? onEdit;
+  final bool loading;
+
+  @override
+  State<_DeadlineList> createState() => _DeadlineListState();
+}
+
+class _DeadlineListState extends State<_DeadlineList> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.loading) return const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+    final shown = widget.sections.where((s) => s.$3.isNotEmpty);
+    if (shown.isEmpty) return Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted));
+    final list = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final s in shown) DeadlineSection(title: s.$1, color: s.$2, items: s.$3, now: widget.now, onFinish: widget.onFinish, onEdit: widget.onEdit, hint: s.$4, showDate: s.$1 != 'Today', limit: s.$1 == 'Later' ? 8 : null),
+    ]);
+    // On a phone the panels stack, so the list just grows.
+    if (MediaQuery.sizeOf(context).width < 600) return list;
+    return SizedBox(height: deadlineBoxHeight + 120, child: Scrollbar(controller: _scroll, child: SingleChildScrollView(controller: _scroll, child: list)));
+  }
 }
