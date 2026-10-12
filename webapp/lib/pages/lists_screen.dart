@@ -79,6 +79,7 @@ class _ListsScreenState extends State<ListsScreen> {
         ListViewKind.matrix => [NextUpColors.deadline, NextUpColors.accent, NextUpColors.soon, NextUpColors.muted][i],
         ListViewKind.priority => [NextUpColors.deadline, NextUpColors.soon, NextUpColors.accent, NextUpColors.muted][i],
         ListViewKind.due => i == 0 ? NextUpColors.deadline : (i == 4 ? NextUpColors.muted : NextUpColors.accent),
+        ListViewKind.week => i == 0 ? NextUpColors.deadline : (i == 1 ? NextUpColors.soon : (i == 8 ? NextUpColors.muted : NextUpColors.accent)),
         ListViewKind.list => NextUpColors.accent,
       };
 
@@ -128,9 +129,10 @@ class _ListsScreenState extends State<ListsScreen> {
         if (all == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (all != null)
           LayoutBuilder(builder: (context, box) {
-            final cols = box.maxWidth >= 1000 ? 3 : (box.maxWidth >= 600 ? 2 : 1);
-            final w = (box.maxWidth - 16 * (cols - 1)) / cols;
             final groups = groupsFor(_view, all.where(_shows).toList(), now);
+            var cols = box.maxWidth >= 1000 ? 3 : (box.maxWidth >= 600 ? 2 : 1);
+            if (cols == 3 && groups.length % 3 == 1) cols = 2; // four boxes read better as 2 by 2 than 3 and 1
+            final w = (box.maxWidth - 16 * (cols - 1)) / cols;
             return Wrap(spacing: 16, runSpacing: 16, children: [
               for (var i = 0; i < groups.length; i++)
                 SizedBox(

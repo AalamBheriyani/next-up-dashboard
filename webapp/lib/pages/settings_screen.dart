@@ -161,8 +161,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Reveal(index: 2, child: Panel(title: 'Look', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Accent colour', style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
                 const SizedBox(height: 10),
-                Wrap(spacing: 12, children: [
-                  for (final hex in _swatches)
+                Wrap(spacing: 12, runSpacing: 8, children: [
+                  for (final hex in [..._swatches, if (!_swatches.contains(_accent)) _accent])
                     Semantics(
                       button: true,
                       selected: hex == _accent,
@@ -181,6 +181,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ),
+                  // Any colour, like the old site's picker.
+                  IconButton.outlined(
+                    tooltip: 'Pick any colour',
+                    constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    onPressed: () async {
+                      final hex = await showDialog<String>(context: context, builder: (_) => _ColourPicker(start: _accent));
+                      if (hex != null) _saveTheme(accent: hex);
+                    },
+                    icon: const Icon(Icons.colorize_rounded),
+                  ),
                 ]),
                 Row(children: [const Expanded(child: Text('Show deadlines in red', style: TextStyle(fontSize: NextUpType.body))), Switch(value: _red, onChanged: (v) => _saveTheme(red: v))]),
               ]))),
@@ -227,3 +239,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
+
+/// A hue slider and a hex box. Returns "#rrggbb", or null when cancelled.
+class _ColourPicker extends StatefulWidget {
+  const _ColourPicker({required this.start});
+  final String start;
+
+  @override
+  State<_ColourPicker> createState() => _ColourPickerState();
+}
+
+class _ColourPickerState extends State<_ColourPicker> {
+  late Color _c = parseHex(widget.start) ?? NextUpColors.defaultAccent;
+  late final _hex = TextEditingController(text: toHex(_c));
+
+  @override
+  void dispose() {
+    _hex.dispose();
+    super.dispose();
+  }
+
+  void _set(Color c) => setState(() {
+        _c = c;
+        _hex.text = toHex(c);
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final hue = HSVColor.fromColor(_c).hue;
+    return AlertDialog(
+      title: const Text('Accent colour'),
+      content: SizedBox(
+        width: 320,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(height: 48, decoration: BoxDecoration(color: _c, borderRadius: BorderRadius.circular(12))),
+          const SizedBox(height: 12),
+          Container(
+            height: 10,
+            margin: const EdgeInsets.symmetric(horizontal: 24), // lines up with the slider's track
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5),
+              gradient: LinearGradient(colors: [for (var h = 0; h <= 360; h += 60) HSVColor.fromAHSV(1, h.toDouble(), .7, .95).toColor()]),
+            ),
+          ),
+          Slider(value: hue, max: 360, label: 'Hue', onChanged: (h) => _set(HSVColor.fromAHSV(1, h, .7, .95).toColor())),
+          TextField(
+            controller: _hex,
+            decoration: const InputDecoration(labelText: 'Hex', hintText: '#4f8cff'),
+            onChanged: (v) {
+              final c = parseHex(v.trim());
+              if (c != null) setState(() => _c = c);
+            },
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.of(context).pop(''), child: const Text('Default blue')),
+        FilledButton(onPressed: () => Navigator.of(context).pop(toHex(_c)), child: const Text('Use it')),
+      ],
+    );
+  }
+}
+
+/// "#rrggbb" (or "rrggbb") as a colour; null if it isn't one.
+Color? parseHex(String s) {
+  final m = RegExp(r'^#?([0-9a-fA-F]{6})$').firstMatch(s);
+  return m == null ? null : Color(0xFF000000 | int.parse(m[1]!, radix: 16));
+}
+
+String toHex(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';

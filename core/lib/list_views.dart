@@ -1,5 +1,7 @@
 // Ways to look at the same deadlines: by urgency and importance, by priority, by due date, by list.
 // Each view is a few titled groups; the screen decides how to draw them.
+import 'package:intl/intl.dart';
+
 import 'deadline.dart';
 
 class ListGroup {
@@ -9,9 +11,9 @@ class ListGroup {
   final List<Deadline> items;
 }
 
-enum ListViewKind { matrix, priority, due, list }
+enum ListViewKind { matrix, priority, due, week, list }
 
-const listViewNames = {ListViewKind.matrix: 'Urgent / Important', ListViewKind.priority: 'Priority', ListViewKind.due: 'Due date', ListViewKind.list: 'By list'};
+const listViewNames = {ListViewKind.matrix: 'Urgent / Important', ListViewKind.priority: 'Priority', ListViewKind.due: 'Due date', ListViewKind.week: 'Week', ListViewKind.list: 'By list'};
 
 /// Urgent means late or due within two days.
 bool isUrgent(Deadline d, DateTime now) => d.due.difference(now) < const Duration(hours: 48);
@@ -50,6 +52,23 @@ List<ListGroup> groupsFor(ListViewKind kind, List<Deadline> all, DateTime now) {
         ListGroup('Tomorrow', g.upcoming.where(isTomorrow).toList()),
         ListGroup('This week', week.where((d) => !isTomorrow(d)).toList()),
         ListGroup('Later', g.later(now)),
+      ];
+    case ListViewKind.week:
+      // The old Departures week board: what is late, then one box per day.
+      final g = DeadlineGroups(all, now);
+      ListGroup day(int i) {
+        final d0 = DateTime(now.year, now.month, now.day + i);
+        return ListGroup(
+          DateFormat('EEE d').format(d0),
+          g.upcoming.where((d) => d.due.year == d0.year && d.due.month == d0.month && d.due.day == d0.day).toList(),
+          hint: i == 0 ? 'Today' : i == 1 ? 'Tomorrow' : DateFormat('MMMM d').format(d0),
+        );
+      }
+      final after = DateTime(now.year, now.month, now.day + 7);
+      return [
+        ListGroup('Overdue', g.overdue, hint: 'Oldest first'),
+        for (var i = 0; i < 7; i++) day(i),
+        ListGroup('Later', g.upcoming.where((d) => !d.due.isBefore(after)).toList(), hint: 'After this week'),
       ];
     case ListViewKind.list:
       final names = <String>[];

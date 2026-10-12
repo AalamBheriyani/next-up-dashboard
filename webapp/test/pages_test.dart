@@ -97,6 +97,19 @@ void main() {
     expect(sheets.writes, ['Log!I2:J2 DONE|']);
   });
 
+  testWidgets('any accent colour can be picked and saved', (tester) async {
+    await big(tester);
+    final cfg = FakeConfig();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SettingsScreen(services: fakeServices(config: cfg), config: const AppConfig(email: 'a@b.c'), onSaved: (_) {}, onSignOut: () {}))));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.byTooltip('Pick any colour'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Hex'), '#123abc');
+    await tester.tap(find.text('Use it'));
+    await tester.pumpAndSettle();
+    expect(cfg.savedAccents, ['#123abc']);
+  });
+
   test('sheetIdFrom accepts links and ids', () {
     const id = '1lxnTxm9qe5P-HsN0N-ZK5tXFo0lumgyuEfHjhxgYQog';
     expect(sheetIdFrom('https://docs.google.com/spreadsheets/d/$id/edit#gid=0'), id);
