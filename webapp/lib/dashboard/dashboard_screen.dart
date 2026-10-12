@@ -183,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
   Future<void> _edit(Deadline? d) async {
     final editor = widget.deadlines;
     if (editor is! DeadlineEditor) return;
-    if (await showDeadlineEditor(context, editor as DeadlineEditor, d: d, now: widget.now)) await _load();
+    if (await showDeadlineEditor(context, editor as DeadlineEditor, d: d, now: widget.now, calendar: widget.calendar is CalendarWriter ? widget.calendar as CalendarWriter : null)) await _load();
   }
 
   Future<void> _finish(Deadline d) async {

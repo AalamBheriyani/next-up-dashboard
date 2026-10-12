@@ -14,9 +14,10 @@ import 'platform/platform.dart';
 const webClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID',
     defaultValue: '385720599418-u8qoimd49q4s9rpb612fteug3ocpkk27.apps.googleusercontent.com');
 
-// Deadlines need only the first two; the dashboard reads Calendar events (read-only), and Track,
-// Adherence and Rate read and write the person's own Time Tracker sheet.
-const webScopes = <String>['openid', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/spreadsheets'];
+// Deadlines need only the first two; the dashboard reads Calendar events and "Add to Calendar" writes one
+// (the same scopes as the Worker's sign-in and the old site), and Track, Adherence and Rate read and write
+// the person's own Time Tracker sheet.
+const webScopes = <String>['openid', 'email', 'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/spreadsheets'];
 
 const _sessionKey = 'nu.web.session';
 

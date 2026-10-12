@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_web/dashboard/deadline_editor.dart';
@@ -14,15 +15,21 @@ class _Editor implements DeadlineEditor {
   Future<void> create({required String title, DateTime? day, int priority = 0}) async => calls.add('create $title ${day?.day ?? '-'} $priority');
 }
 
+class _Cal implements CalendarWriter {
+  final added = <Map<String, dynamic>>[];
+  @override
+  Future<void> add(Map<String, dynamic> event) async => added.add(event);
+}
+
 void main() {
   final d = Deadline.fromTask({'id': 'a', 'projectId': 'p', 'title': 'Chem quiz', 'dueDate': '2026-10-12T04:00:00+0000', 'isAllDay': true, 'priority': 1}, {})!;
   final now = DateTime(2026, 10, 10, 9);
 
-  Future<void> open(WidgetTester t, _Editor e, {Deadline? d}) async {
+  Future<void> open(WidgetTester t, _Editor e, {Deadline? d, CalendarWriter? cal}) async {
     t.view.physicalSize = const Size(1000, 1600);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
-    await t.pumpWidget(MaterialApp(home: Builder(builder: (c) => Scaffold(body: TextButton(onPressed: () => showDeadlineEditor(c, e, d: d, now: () => now), child: const Text('open'))))));
+    await t.pumpWidget(MaterialApp(home: Builder(builder: (c) => Scaffold(body: TextButton(onPressed: () => showDeadlineEditor(c, e, d: d, now: () => now, calendar: cal), child: const Text('open'))))));
     await t.tap(find.text('open'));
     await t.pump();
     await t.pump(const Duration(seconds: 1));
@@ -61,5 +68,24 @@ void main() {
     await tester.tap(find.text('Add'));
     await tester.pump(const Duration(milliseconds: 500));
     expect(e.calls, ['create Essay draft 10 0']);
+  });
+
+  testWidgets('Add to Calendar puts an all-day deadline on its date', (tester) async {
+    final cal = _Cal();
+    await open(tester, _Editor(), d: d, cal: cal);
+    await tester.tap(find.text('Add to Calendar (all day)'));
+    await tester.pump();
+    expect(cal.added.single['summary'], 'Chem quiz');
+    expect(cal.added.single['start'], {'date': '2026-10-12'});
+    expect(cal.added.single['end'], {'date': '2026-10-13'});
+    expect(find.text('In your calendar'), findsOneWidget);
+  });
+
+  test('a timed deadline becomes the hour before it is due', () {
+    final t = Deadline(id: 'x', projectId: 'p', title: 'Essay', due: DateTime.utc(2026, 10, 12, 17).toLocal(), allDay: false, priority: 0, list: 'Uni', notes: 'Two pages');
+    final ev = eventForDeadline(t);
+    expect(ev['start'], {'dateTime': '2026-10-12T16:00:00.000Z'});
+    expect(ev['end'], {'dateTime': '2026-10-12T17:00:00.000Z'});
+    expect(ev['description'], 'Two pages\n\nFrom Next Up (TickTick: Uni)');
   });
 }
