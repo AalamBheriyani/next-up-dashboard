@@ -236,25 +236,23 @@ class _TileState extends State<_Tile> with SingleTickerProviderStateMixin {
     final tile = Container(
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: NextUpColors.accent.withValues(alpha: .6), width: 1.5)),
       padding: const EdgeInsets.all(4),
-      child: Stack(children: [
-        AnimatedOpacity(duration: motionFast, opacity: hidden ? .35 : 1, child: IgnorePointer(child: body)),
-        Positioned(
-          left: 8,
-          top: 8,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(20)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.open_with_rounded, size: 14, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(widget.item.name, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white)),
-            ]),
-          ),
-        ),
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+      // A slim strip above the panel holds its name and buttons, so nothing covers the panel's own content.
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 2, 2, 6),
+          child: Row(children: [
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(20)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.open_with_rounded, size: 14, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Flexible(child: Text(widget.item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white))),
+                ]),
+              ),
+            ),
+            const Spacer(),
             pill(PopupMenuButton<String>(
               tooltip: 'Size',
               padding: EdgeInsets.zero,
@@ -278,6 +276,9 @@ class _TileState extends State<_Tile> with SingleTickerProviderStateMixin {
             )),
           ]),
         ),
+        // passthrough: the panel keeps the tile's full width, as it has outside customise mode.
+        Stack(fit: StackFit.passthrough, children: [
+        AnimatedOpacity(duration: motionFast, opacity: hidden ? .35 : 1, child: IgnorePointer(child: body)),
         Positioned(
           right: 0,
           bottom: 0,
@@ -293,6 +294,7 @@ class _TileState extends State<_Tile> with SingleTickerProviderStateMixin {
           ),
         ),
         if (_badge != null) Positioned(left: 8, bottom: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(8)), child: Text(_badge!, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white)))),
+        ]),
       ]),
     );
 

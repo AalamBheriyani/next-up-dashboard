@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../board/page_board.dart';
 import '../board/widget_board.dart';
 import '../dashboard/panel.dart';
+import '../dashboard/tile_row.dart';
 import '../motion.dart';
 import '../services.dart';
 import 'settings_screen.dart' show sheetLinkFor;
@@ -151,7 +152,9 @@ class _QuestScreenState extends State<QuestScreen> {
       child: ListView(padding: const EdgeInsets.all(24), children: [
       Row(children: [
         const Text('Quest Log', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
-        const Spacer(),
+        const SizedBox(width: 16),
+        // The last XP gained shows beside the title, so the page doesn't jump down when it appears.
+        Expanded(child: AnimatedSwitcher(duration: motionFast, child: _note == null ? const SizedBox.shrink() : Text(_note!, key: ValueKey(_note), overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
         IconButton(
           tooltip: _muted ? 'Turn sound on' : 'Turn sound off',
           icon: Icon(_muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20),
@@ -164,7 +167,6 @@ class _QuestScreenState extends State<QuestScreen> {
         CustomiseButton(editing: _editing),
       ]),
       const SizedBox(height: 8),
-      if (_note != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: AnimatedSwitcher(duration: motionFast, child: Text(_note!, key: ValueKey(_note), style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
       PageBoard(editing: _editing, layout: widget.layout, onLayout: widget.onLayout, items: [
       BoardItem(id: 'quest-level', name: 'Level', span: 12, child: Reveal(
         child: Panel(
@@ -185,7 +187,7 @@ class _QuestScreenState extends State<QuestScreen> {
       )),
       BoardItem(id: 'quest-stats', name: 'Today and streak', span: 12, child: Reveal(
         index: 1,
-        child: Wrap(spacing: 16, runSpacing: 16, children: [
+        child: TileRow(gap: 12, minTile: 140, children: [
           _Stat(title: 'Today', value: '${m.todayXp}', of: '/ ${_settings.dailyGoal.round()}', frac: m.todayXp / _settings.dailyGoal, color: NextUpColors.ok),
           _Stat(title: 'This week', value: '${m.weekXp}', of: '/ ${_settings.weeklyGoal.round()}', frac: m.weekXp / _settings.weeklyGoal, color: NextUpColors.accent),
           _Stat(title: 'Streak', value: '${m.info.streak}', of: 'days${m.info.shields > 0 ? ' · ${m.info.shields} shield' : ''}', frac: m.info.todayMet ? 1 : 0, color: _flame, note: m.info.atRisk ? 'Hit today\'s goal to keep it' : 'Best ${m.info.best}'),
@@ -260,9 +262,7 @@ class _Stat extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 220,
-        child: Panel(
+  Widget build(BuildContext context) => Panel(
           title: title,
           accent: color,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -275,7 +275,6 @@ class _Stat extends StatelessWidget {
             GrowBar(value: frac.clamp(0, 1).toDouble(), color: color, height: 6),
             if (note != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(note!, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
           ]),
-        ),
       );
 }
 

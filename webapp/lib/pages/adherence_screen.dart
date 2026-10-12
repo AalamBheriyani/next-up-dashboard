@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../board/page_board.dart';
 import '../board/widget_board.dart';
 import '../dashboard/panel.dart';
+import '../dashboard/tile_row.dart';
 import '../motion.dart';
 import '../services.dart';
 import 'settings_screen.dart' show sheetLinkFor;
@@ -148,22 +149,20 @@ class _Kpis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget kpi(String label, double? v, String Function(double) f, Color color, {String? fallback}) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: NextUpColors.line)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label.toUpperCase(), style: TextStyle(fontSize: NextUpType.label, letterSpacing: 1.2, color: NextUpColors.muted, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              v == null ? Text(fallback ?? '–', style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)) : CountUp(value: v, format: f, style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800, color: color, fontFeatures: monoFeatures)),
-            ]),
-          ),
+    Widget kpi(String label, double? v, String Function(double) f, Color color, {String? fallback}) => Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: NextUpColors.line)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label.toUpperCase(), style: TextStyle(fontSize: NextUpType.label, letterSpacing: 1.2, color: NextUpColors.muted, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            v == null ? Text(fallback ?? '–', style: const TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)) : CountUp(value: v, format: f, style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800, color: color, fontFeatures: monoFeatures)),
+          ]),
         );
-    return Wrap(spacing: 12, runSpacing: 12, children: [
-      SizedBox(width: 220, child: Row(children: [kpi('Time adherence', s.timeAdherence, (v) => '${v.round()}%', _tone(s.timeAdherence))])),
-      SizedBox(width: 220, child: Row(children: [kpi('Blocks done', s.blocksDone, (v) => '${v.round()}%', _tone(s.blocksDone))])),
-      SizedBox(width: 220, child: Row(children: [kpi('Hours missed', s.hoursMissed, (v) => '${v.toStringAsFixed(1)}h', (s.hoursMissed ?? 0) > 3 ? NextUpColors.deadline : NextUpColors.ink)])),
-      SizedBox(width: 220, child: Row(children: [kpi('Uni hours done', s.uniPlanned == 0 && s.uniDone == 0 ? null : s.uniDone, (v) => '${v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1)}/${s.uniPlanned.toStringAsFixed(s.uniPlanned == s.uniPlanned.roundToDouble() ? 0 : 1)}', NextUpColors.ink)])),
+    return TileRow(children: [
+      kpi('Time adherence', s.timeAdherence, (v) => '${v.round()}%', _tone(s.timeAdherence)),
+      kpi('Blocks done', s.blocksDone, (v) => '${v.round()}%', _tone(s.blocksDone)),
+      kpi('Hours missed', s.hoursMissed, (v) => '${v.toStringAsFixed(1)}h', (s.hoursMissed ?? 0) > 3 ? NextUpColors.deadline : NextUpColors.ink),
+      kpi('Uni hours done', s.uniPlanned == 0 && s.uniDone == 0 ? null : s.uniDone, (v) => '${v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1)}/${s.uniPlanned.toStringAsFixed(s.uniPlanned == s.uniPlanned.roundToDouble() ? 0 : 1)}', NextUpColors.ink),
     ]);
   }
 }

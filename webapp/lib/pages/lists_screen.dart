@@ -113,7 +113,7 @@ class _ListsScreenState extends State<ListsScreen> {
                     trailing: Text('${groups[i].items.length}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       if (groups[i].hint.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(groups[i].hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
-                      DeadlineBox(title: groups[i].title, color: _tone(_view, i), items: groups[i].items, now: now, onFinish: _finish, onEdit: widget.onEdit, showDate: true),
+                      DeadlineBox(title: groups[i].title, color: _tone(_view, i), items: groups[i].items, now: now, onFinish: _finish, onEdit: widget.onEdit, showDate: true, showList: _view != ListViewKind.list),
                     ]),
                   ),
                 ),

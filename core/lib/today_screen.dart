@@ -179,8 +179,10 @@ class DeadlineSection extends StatelessWidget {
     this.limit,
     this.bare = false,
     this.onEdit,
+    this.showList = true,
   });
   final bool bare; // the caller's panel already shows the title
+  final bool showList; // off when every row is from the same list (the box is that list)
   final void Function(Deadline)? onEdit; // when set, each row gets an edit button
   final String title;
   final String? hint;
@@ -205,7 +207,7 @@ class DeadlineSection extends StatelessWidget {
           if (hint != null) ...[const Spacer(), Text(hint!, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))],
         ]),
         if (!bare) const SizedBox(height: 6),
-        for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, onEdit: onEdit, showDate: showDate),
+        for (final d in shown) _Row(d: d, now: now, onFinish: onFinish, onEdit: onEdit, showDate: showDate, showList: showList),
         if (shown.length < items.length)
           Padding(padding: const EdgeInsets.only(top: 6), child: Text('+ ${items.length - shown.length} more', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
       ]),
@@ -214,7 +216,8 @@ class DeadlineSection extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.d, required this.now, required this.onFinish, required this.showDate, this.onEdit});
+  const _Row({required this.d, required this.now, required this.onFinish, required this.showDate, this.onEdit, this.showList = true});
+  final bool showList;
   final Deadline d;
   final DateTime now;
   final void Function(Deadline) onFinish;
@@ -249,7 +252,7 @@ class _Row extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600)),
-              if (d.list.isNotEmpty) Text(d.list, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+              if (showList && d.list.isNotEmpty) Text(d.list, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
             ]),
           ),
           const SizedBox(width: 8),
