@@ -27,6 +27,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(xp.appended.single.q, 'plan');
     expect(xp.appended.single.xp, greaterThanOrEqualTo(15));
+    expect(find.text('Saved to Sheets'), findsOneWidget);
     expect(find.textContaining(RegExp(r'^(CRIT )?\+\d+ XP$')), findsNWidgets(2), reason: 'the note by the title, and the XP floating out of the tapped tile');
     await tester.tap(find.text('Undo last'));
     await tester.pump(const Duration(seconds: 1));

@@ -99,13 +99,24 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
     }
   }
 
+  bool _syncing = false, _synced = false; // the old page's "Syncing" and "Saved to Sheets"
+
   Future<void> _retry() async {
+    if (_queue.pending.isEmpty) return;
+    setState(() => _syncing = true);
     try {
       await _queue.flush(_repo, _settings.dayStartHour);
-      if (mounted) setState(() => _unsaved = 0);
+      if (mounted) {
+        setState(() {
+          _unsaved = 0;
+          _syncing = false;
+          _synced = true;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
+          _syncing = false;
           _unsaved = _queue.pending.length;
           _note = 'Not saved yet: ${e is SourceException ? e.message : 'no connection'}';
         });
@@ -222,6 +233,18 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
         const SizedBox(width: 16),
         // The last XP gained shows beside the title, so the page doesn't jump down when it appears.
         Expanded(child: AnimatedSwitcher(duration: motionFast, child: _note == null ? const SizedBox.shrink() : Text(_note!, key: ValueKey(_note), overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
+        if (_unsaved == 0 && (_syncing || _synced))
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Tooltip(message: _syncing ? 'Syncing' : 'Saved to Sheets', child: Icon(_syncing ? Icons.sync_rounded : Icons.cloud_done_rounded, size: 16, color: NextUpColors.muted)),
+              // On a phone the header is full; the icon alone says it.
+              if (MediaQuery.sizeOf(context).width >= 600) ...[
+                const SizedBox(width: 4),
+                Text(_syncing ? 'Syncing' : 'Saved to Sheets', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+              ],
+            ]),
+          ),
         if (_unsaved > 0)
           Padding(
             padding: const EdgeInsets.only(right: 4),

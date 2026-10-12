@@ -397,13 +397,15 @@ class _StatusLine extends StatelessWidget {
     final (label, tone) = boardStatus(d.due.difference(now));
     final small = TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption);
     final when = d.allDay ? DateFormat('EEE MMM d').format(d.due) : DateFormat('EEE MMM d, h:mm a').format(d.due);
+    final pill = Container(
+      margin: const EdgeInsets.only(right: 6, top: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(color: tone.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(99)),
+      child: Text(label, style: TextStyle(color: tone, fontSize: NextUpType.label, fontWeight: FontWeight.w700)),
+    );
     return Row(children: [
-      Container(
-        margin: const EdgeInsets.only(right: 6, top: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-        decoration: BoxDecoration(color: tone.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(99)),
-        child: Text(label, style: TextStyle(color: tone, fontSize: NextUpType.label, fontWeight: FontWeight.w700)),
-      ),
+      // Overdue and Final call blink, as on the old departures board.
+      if (label == 'Overdue' || label == 'Final call') _Blink(child: pill) else pill,
       Flexible(child: Text([when, if (meta.isNotEmpty) meta].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: small)),
     ]);
   }
@@ -472,4 +474,38 @@ Future<bool> finishWithUndo(ScaffoldMessengerState messenger, DeadlineSource sou
   if (await bar.closed == SnackBarClosedReason.action) return false;
   await source.complete(d);
   return true;
+}
+
+/// Fades its child in and out slowly; still when the system asks for less motion.
+class _Blink extends StatefulWidget {
+  const _Blink({required this.child});
+  final Widget child;
+
+  @override
+  State<_Blink> createState() => _BlinkState();
+}
+
+class _BlinkState extends State<_Blink> {
+  Timer? _t;
+  bool _dim = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(milliseconds: 900), (_) {
+      if (mounted) setState(() => _dim = !_dim);
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return widget.child;
+    return AnimatedOpacity(opacity: _dim ? 0.35 : 1, duration: const Duration(milliseconds: 450), child: widget.child);
+  }
 }

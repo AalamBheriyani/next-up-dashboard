@@ -77,4 +77,14 @@ void main() {
     expect(find.text('Resume'), findsOneWidget, reason: 'a paused timer says it will carry on');
     expect(find.textContaining('Paused'), findsOneWidget);
   });
+
+  testWidgets('search narrows the deadline lists', (tester) async {
+    await show(tester, _Calendar(const []));
+    final before = tester.widgetList(find.text('Late essay')).length;
+    await tester.tap(find.byTooltip('Search deadlines'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(find.byType(TextField).first, 'chem');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.widgetList(find.text('Late essay')).length, before - 1, reason: 'gone from the Overdue list, still in Do this first');
+  });
 }
