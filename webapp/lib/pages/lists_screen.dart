@@ -13,6 +13,9 @@ import '../dashboard/panel.dart';
 import '../motion.dart';
 import '../services.dart';
 import '../refresh.dart';
+import 'week_calendar.dart';
+
+const _viewKey = 'nu.web.listview';
 
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key, required this.services, this.onEdit, this.now});
@@ -30,7 +33,19 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
 
   List<Deadline>? _all;
   String? _error;
-  ListViewKind _view = ListViewKind.matrix;
+  // The chosen view is remembered on this device, as the old site did. 'calendar' is the week of days with events.
+  late String _saved = widget.services.store.get(_viewKey) ?? '';
+  late ListViewKind _view = ListViewKind.values.firstWhere((k) => k.name == _saved, orElse: () => ListViewKind.matrix);
+  bool get _calendar => _saved == 'calendar';
+  late bool _hideTodos = widget.services.store.get(hideTodosKey) == '1';
+
+  void _pick(String name) {
+    setState(() {
+      _saved = name;
+      if (name != 'calendar') _view = ListViewKind.values.byName(name);
+    });
+    widget.services.store.set(_viewKey, name);
+  }
   // Search and list filter, as on the old Departures board.
   String _query = '';
   final Set<String> _lists = {};
@@ -102,9 +117,10 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
         const SizedBox(height: 8),
         Reveal(index: 1, child: Wrap(spacing: 8, runSpacing: 8, children: [
           for (final e in listViewNames.entries)
-            ChoiceChip(label: Text(e.value), selected: _view == e.key, onSelected: (_) => setState(() => _view = e.key)),
+            ChoiceChip(label: Text(e.value), selected: !_calendar && _view == e.key, onSelected: (_) => _pick(e.key.name)),
+          ChoiceChip(label: const Text('Calendar'), selected: _calendar, onSelected: (_) => _pick('calendar')),
         ])),
-        if (_view == ListViewKind.matrix)
+        if (_view == ListViewKind.matrix && !_calendar)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text('Urgent means late or due within 2 days. Important means medium or high priority in TickTick.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
@@ -131,7 +147,19 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
         const SizedBox(height: 16),
         if (_error != null && all == null) Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted))),
         if (all == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
-        if (all != null)
+        if (all != null && _calendar)
+          WeekCalendar(
+            calendar: widget.services.calendar,
+            deadlines: all.where(_shows).toList(),
+            now: now,
+            onEdit: widget.onEdit,
+            hideTodos: _hideTodos,
+            onHideTodos: (v) {
+              setState(() => _hideTodos = v);
+              widget.services.store.set(hideTodosKey, v ? '1' : '0');
+            },
+          ),
+        if (all != null && !_calendar)
           LayoutBuilder(builder: (context, box) {
             final groups = groupsFor(_view, all.where(_shows).toList(), now);
             var cols = box.maxWidth >= 1000 ? 3 : (box.maxWidth >= 600 ? 2 : 1);
