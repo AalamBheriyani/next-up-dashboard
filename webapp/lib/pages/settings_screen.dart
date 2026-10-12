@@ -227,15 +227,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
               ]))),
               const SizedBox(height: 16),
-              Reveal(index: 4, child: Panel(title: 'Old site', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('The original site is archived and still works, with the same account and the same sheets.', style: TextStyle(fontSize: NextUpType.body, color: NextUpColors.muted)),
-                const SizedBox(height: 10),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  OutlinedButton.icon(onPressed: () => launchUrl(Uri.parse(classicSite)), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open old site')),
-                  // Every released version stays online, as the old site's menu linked.
-                  TextButton(onPressed: () => launchUrl(Uri.parse('https://aalambheriyani.github.io/next-up-dashboard/v/')), child: const Text('All versions')),
-                ]),
-              ]))),
+              // Every released version stays online, as the old site's menu linked.
+              Reveal(index: 4, child: Panel(title: 'Versions', child: Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: () => launchUrl(Uri.parse('https://aalambheriyani.github.io/next-up-dashboard/v/')), child: const Text('All versions'))))),
             ]),
           ),
         ),

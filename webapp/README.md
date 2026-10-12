@@ -1,7 +1,7 @@
 # Next Up on the web (Flutter)
 
-The main website, published at the root of `/next-up-dashboard/`. The original site (`docs/`) is archived at
-`/next-up-dashboard/classic/`, and old `/beta/` links forward to the root. Inside the Android/iOS app it signs
+The website, published at the root of `/next-up-dashboard/`. The original site (`docs/`) is no longer
+published; old `/beta/` and `/classic/` links forward to the root. Inside the Android/iOS app it signs
 in through the app (the `NextUpNative` channel), because Google won't sign in inside a web view.
 
 Now:

@@ -1,4 +1,4 @@
-// Next Up on the web, built with Flutter: the main site. The old site is archived at /classic/. It shares its theme, deadline model and Today screen with the
+// Next Up on the web, built with Flutter: the site. The old one (docs/) is no longer published. It shares its theme, deadline model and Today screen with the
 // phone app in ../core.
 import 'dart:async';
 import 'dart:convert';
