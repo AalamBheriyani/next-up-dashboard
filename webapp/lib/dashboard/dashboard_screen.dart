@@ -17,6 +17,7 @@ import 'package:next_up_core/today_screen.dart';
 import '../board/widget_board.dart';
 import 'calendar_panel.dart';
 import 'ask_panel.dart';
+import 'day_column.dart';
 import 'deadline_box.dart';
 import 'deadline_editor.dart';
 import 'do_now.dart';
@@ -281,6 +282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return [
       BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
       BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: next?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
+      BoardItem(id: 'day', name: 'Today hour by hour', span: 4, child: DayColumn(events: _events, now: now)),
       BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
       if (widget.ask != null)
         BoardItem(

@@ -1,6 +1,7 @@
 // Adherence: how this week went against the plan, plus the blocks that still need a rating.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/hours.dart';
@@ -17,8 +18,10 @@ import '../services.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 class AdherenceScreen extends StatefulWidget {
-  const AdherenceScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout});
+  const AdherenceScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout, this.ask});
   final Services services;
+  /// For "Rate with Claude"; null hides it.
+  final AskService? ask;
   final AppConfig config;
   final DateTime Function()? now;
   final BoardLayout layout;
@@ -128,7 +131,13 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
                     title: 'Rate your blocks',
                     child: _blocks!.isEmpty
                         ? Text('All caught up. Every block from the last two days has a status.', style: TextStyle(color: NextUpColors.muted))
-                        : Column(children: [for (final b in _blocks!.take(8)) _RateRow(key: ValueKey(b.row), block: b, now: _now(), busy: _rating.contains(b.row), note: _note[b.row], onRate: (st, h) => _rate(b, st, h))]),
+                        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            if (widget.ask != null) _RateWithClaude(ask: widget.ask!, blocks: _blocks!, now: _now, rate: _repo.rate, onSaved: _load),
+                            // Side by side when there is room, instead of one narrow column.
+                            Wrap(spacing: 12, children: [
+                              for (final b in _blocks!.take(8)) _RateRow(key: ValueKey(b.row), block: b, now: _now(), busy: _rating.contains(b.row), note: _note[b.row], onRate: (st, h) => _rate(b, st, h)),
+                            ]),
+                          ]),
                   )),
                 ),
             ],
@@ -225,6 +234,131 @@ class _RateRowState extends State<_RateRow> {
           SizedBox(width: 90, child: TextField(controller: _hours, keyboardType: TextInputType.number, decoration: const InputDecoration(isDense: true, hintText: 'hrs', helperText: 'for partial'))),
         ]),
       ]),
+    );
+  }
+}
+
+/// "Rate with Claude": say how the day went in your own words, Claude proposes a status for each block it
+/// can match, you untick any it got wrong, and Apply writes them like the buttons do.
+class _RateWithClaude extends StatefulWidget {
+  const _RateWithClaude({required this.ask, required this.blocks, required this.now, required this.rate, required this.onSaved});
+  final AskService ask;
+  final List<RateBlock> blocks;
+  final DateTime Function() now;
+  final Future<void> Function(RateBlock, String, double?) rate;
+  final VoidCallback onSaved;
+
+  @override
+  State<_RateWithClaude> createState() => _RateWithClaudeState();
+}
+
+class _RateWithClaudeState extends State<_RateWithClaude> {
+  final _text = TextEditingController();
+  bool _busy = false;
+  String _note = '';
+  List<RatePick> _picks = const [];
+  final Set<int> _off = {}; // rows unticked
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _askClaude() async {
+    final said = _text.text.trim();
+    if (said.isEmpty || _busy) return;
+    setState(() {
+      _busy = true;
+      _note = 'Asking Claude…';
+      _picks = const [];
+      _off.clear();
+    });
+    try {
+      final out = await widget.ask.once(ratePrompt(widget.blocks, said, widget.now()));
+      final r = parseRatings(out, widget.blocks);
+      if (!mounted) return;
+      setState(() {
+        _picks = r.picks;
+        _note = r.picks.isEmpty ? '${r.reply.isEmpty ? '' : '${r.reply} '}No blocks matched.' : r.reply;
+      });
+    } on SourceException catch (e) {
+      if (mounted) setState(() => _note = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _apply() async {
+    setState(() => _busy = true);
+    try {
+      for (final p in _picks.where((p) => !_off.contains(p.block.row))) {
+        await widget.rate(p.block, p.status, p.hours);
+      }
+      if (!mounted) return;
+      _text.clear();
+      setState(() {
+        _picks = const [];
+        _note = 'Saved. Adherence updates in a moment.';
+      });
+      widget.onSaved();
+    } on SourceException catch (e) {
+      if (mounted) setState(() => _note = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String label(String st) => st[0] + st.substring(1).toLowerCase();
+    // A Material (not a coloured box) so the checkbox rows can show their ink.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+      color: NextUpColors.raised,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Rate with Claude', style: TextStyle(color: NextUpColors.accent, fontWeight: FontWeight.w700, fontSize: NextUpType.caption)),
+        const SizedBox(height: 6),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: TextField(
+              controller: _text,
+              minLines: 1,
+              maxLines: 4,
+              onSubmitted: (_) => _askClaude(),
+              decoration: const InputDecoration(isDense: true, hintText: 'How did it go? e.g. "did chemistry, half of maths, skipped the gym"'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(onPressed: _busy ? null : _askClaude, child: const Text('Rate')),
+        ]),
+        if (_note.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_note, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
+        if (_picks.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          for (final p in _picks)
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: !_off.contains(p.block.row),
+              onChanged: _busy ? null : (on) => setState(() => on == true ? _off.remove(p.block.row) : _off.add(p.block.row)),
+              title: Text.rich(TextSpan(children: [
+                TextSpan(text: '${label(p.status)}${p.hours == null ? '' : ' ${p.hours}h'}  ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                TextSpan(text: '${p.block.name} · ${p.block.date} ${p.block.start}', style: TextStyle(color: NextUpColors.muted)),
+              ])),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonal(onPressed: _busy || _off.length == _picks.length ? null : _apply, child: const Text('Apply to Time Tracker')),
+          ),
+        ],
+      ]),
+      ),
+      ),
     );
   }
 }
