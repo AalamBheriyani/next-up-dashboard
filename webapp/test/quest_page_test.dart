@@ -27,6 +27,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(xp.appended.single.q, 'plan');
     expect(xp.appended.single.xp, greaterThanOrEqualTo(15));
+    expect(find.textContaining(RegExp(r'^(CRIT )?\+\d+ XP$')), findsNWidgets(2), reason: 'the note by the title, and the XP floating out of the tapped tile');
     await tester.tap(find.text('Undo last'));
     await tester.pump(const Duration(seconds: 1));
     expect(xp.appended.last.kind, 'undo');
@@ -80,5 +81,12 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(xp.appended.single.q, 'plan');
     expect(find.textContaining('not saved yet'), findsNothing);
+  });
+
+  testWidgets('signed out, the Quest Log asks you to sign in rather than to add a sheet', (t) async {
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: QuestScreen(services: fakeServices(signedIn: false), config: const AppConfig(), now: () => now))));
+    await t.pump();
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Add it in Settings'), findsNothing);
   });
 }

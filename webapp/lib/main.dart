@@ -2,6 +2,7 @@
 // breaks while it grows page by page. It shares its theme, deadline model and Today screen with the
 // phone app in ../core.
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -98,8 +99,28 @@ class _ShellState extends State<Shell> {
     WidgetsBinding.instance.addPostFrameCallback((_) => Timer(const Duration(milliseconds: 300), () {
           if (mounted) setHash(pageHashes[_page]);
         }));
-    if (_svc.signedIn()) _loadConfig();
+    if (_svc.signedIn()) {
+      _restoreLook();
+      _loadConfig();
+    }
   }
+
+  // The last accent and panel layout are kept on the device and painted at once, so a reload doesn't flash the
+  // default blue and jump the panels while the account's settings load (the old site does the same).
+  static const _lookKey = 'nu.web.look';
+
+  void _restoreLook() {
+    try {
+      final j = jsonDecode(_svc.store.get(_lookKey) ?? '');
+      if (j is! Map) return;
+      if (j['layout'] != null) _layout = BoardLayout.fromJson(j['layout']);
+      NextUpColors.apply(accentHex: '${j['accent'] ?? ''}', redDeadlines: j['red'] != false);
+      themeRevision.value++;
+    } catch (_) {}
+  }
+
+  void _saveLook() => _svc.store.set(_lookKey, jsonEncode({'accent': _config.accent, 'red': _config.redDeadlines, 'layout': _layout.toJson()}));
+
 
   Future<void> _loadConfig() async {
     try {
@@ -113,6 +134,7 @@ class _ShellState extends State<Shell> {
   /// Keeps the arrangement on screen now and saves it to the account a moment after the last change.
   void _saveLayout(BoardLayout l) {
     _layout = l;
+    _saveLook();
     _layoutTimer?.cancel();
     _layoutTimer = Timer(const Duration(milliseconds: 600), () => _svc.config.save(layout: l).catchError((Object _) {}));
   }
@@ -198,6 +220,7 @@ class _ShellState extends State<Shell> {
     }
     NextUpColors.apply(accentHex: c.accent, redDeadlines: c.redDeadlines);
     setState(() => _config = c);
+    _saveLook();
     themeRevision.value++;
   }
 
@@ -210,6 +233,7 @@ class _ShellState extends State<Shell> {
   void _signOut() => setState(() {
         _auth.signOut();
         _config = const AppConfig();
+        _svc.store.set(_lookKey, '');
         NextUpColors.apply();
         _session++;
       });

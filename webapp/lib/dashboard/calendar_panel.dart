@@ -50,6 +50,9 @@ class CalendarPanel extends StatelessWidget {
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               SizedBox(width: 72, child: Text(t.format(e.start), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption, fontFeatures: monoFeatures))),
               Expanded(child: Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))),
+              // How long until the next one starts, as the old Now card's "Next · in 25m" line.
+              if (e == day.upcoming.first && e.start.isAfter(now))
+                Padding(padding: const EdgeInsets.only(left: 8), child: Text('in ${_len(e.start.difference(now))}', style: TextStyle(color: NextUpColors.accent, fontSize: NextUpType.caption, fontWeight: FontWeight.w600))),
             ]),
           ),
       ] else if (current == null && day.allDay.isEmpty && all.isEmpty)

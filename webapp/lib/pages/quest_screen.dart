@@ -76,7 +76,7 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
 
   Future<void> _load() async {
     if (widget.config.questSheetId.isEmpty) {
-      setState(() => _error = 'Add your XP Tracker sheet in Settings to use the Quest Log.');
+      setState(() => _error = widget.services.signedIn() ? 'Add your XP Tracker sheet in Settings to use the Quest Log.' : 'Sign in to use the Quest Log. XP from the timer is kept on this device until then.');
       return;
     }
     try {
@@ -184,8 +184,11 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
     }
     final crit = _rng.nextDouble() < _settings.critChance;
     final r = questRow(q, m, _now().millisecondsSinceEpoch, crit: crit);
+    if (!reduceMotion(context)) _float = (q.id, '${crit ? 'CRIT ' : ''}+${r.xp} XP', (_float?.$3 ?? 0) + 1);
     _log(r, note: '${crit ? 'CRIT! ' : ''}+${r.xp} XP', crit: crit);
   }
+
+  (String, String, int)? _float; // the quest whose tile shows a rising "+15 XP", its text, and a serial to replay it
 
   void _undo() {
     final r = lastUndoable(_rows);
@@ -201,7 +204,7 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load, onSettings: widget.config.questSheetId.isEmpty ? widget.onSettings : null);
+    if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load, onSettings: widget.config.questSheetId.isEmpty ? (widget.services.signedIn() ? widget.onSettings : widget.services.signIn) : null, signedOut: !widget.services.signedIn());
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final m = _model;
     final span = m.next - m.floor;
@@ -278,7 +281,7 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
                 final w = (box.maxWidth - 10 * (cols - 1)) / cols;
                 return Wrap(spacing: 10, runSpacing: 10, children: [
                 for (final q in _quests.where((q) => q.cat == cats[i]))
-                  _QuestButton(q: q, width: w, done: m.counts[q.id] ?? 0, mult: m.multiplier, onTap: () => _do(q)),
+                  _QuestButton(q: q, width: w, done: m.counts[q.id] ?? 0, mult: m.multiplier, onTap: () => _do(q), float: _float?.$1 == q.id ? _float : null),
                 ]);
               }),
             ),
@@ -418,8 +421,9 @@ class _Stat extends StatelessWidget {
 }
 
 class _QuestButton extends StatelessWidget {
-  const _QuestButton({required this.q, required this.width, required this.done, required this.mult, required this.onTap});
+  const _QuestButton({required this.q, required this.width, required this.done, required this.mult, required this.onTap, this.float});
   final Quest q;
+  final (String, String, int)? float;
   final int done;
   final double mult, width;
   final VoidCallback onTap;
@@ -427,7 +431,7 @@ class _QuestButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxed = done >= q.cap;
-    return Semantics(
+    final tile = Semantics(
       button: true,
       label: '${q.name}, ${(q.xp * mult).round()} XP, $done of ${q.cap} today',
       child: Material(
@@ -459,11 +463,32 @@ class _QuestButton extends StatelessWidget {
         ),
       ),
     );
+    final f = float;
+    if (f == null) return tile;
+    // The old page's floating "+15" rising out of the tapped tile.
+    return Stack(clipBehavior: Clip.none, children: [
+      tile,
+      Positioned(
+        right: 12,
+        top: 0,
+        child: IgnorePointer(
+          child: TweenAnimationBuilder<double>(
+            key: ValueKey(f.$3),
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOut,
+            builder: (context, v, child) => Transform.translate(offset: Offset(0, -28 * v), child: Opacity(opacity: (1 - v).clamp(0, 1), child: child)),
+            child: Text(f.$2, style: const TextStyle(color: _gold, fontWeight: FontWeight.w900, fontSize: NextUpType.body)),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 
 class _Message extends StatelessWidget {
-  const _Message(this.text, {this.onRetry, this.onSettings});
+  const _Message(this.text, {this.onRetry, this.onSettings, this.signedOut = false});
+  final bool signedOut;
   final String text;
   final VoidCallback? onRetry, onSettings;
 
@@ -477,7 +502,7 @@ class _Message extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(text, style: TextStyle(color: NextUpColors.muted)),
             if (onRetry != null) Padding(padding: const EdgeInsets.only(top: 8), child: OutlinedButton(onPressed: onRetry, child: const Text('Try again'))),
-            if (onSettings != null) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: onSettings, child: const Text('Add it in Settings'))),
+            if (onSettings != null) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: onSettings, child: Text(signedOut ? 'Sign in' : 'Add it in Settings'))),
           ]),
         ),
       ]);
