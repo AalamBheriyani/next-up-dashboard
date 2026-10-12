@@ -50,8 +50,9 @@ void main() {
     ];
     await show(tester, _Calendar(events));
     expect(find.text('Chem quiz'), findsWidgets);
-    expect(find.text('Chemistry class'), findsOneWidget);
-    expect(find.text('Piano'), findsOneWidget);
+    expect(find.text('Chemistry class'), findsNWidgets(2)); // Now and next, and the hour-by-hour column
+    expect(find.text('Piano'), findsNWidgets(2));
+    expect(find.text('TODAY HOUR BY HOUR'), findsOneWidget);
     expect(find.text('OVERDUE'), findsWidgets);
     expect(find.text('Late essay'), findsWidgets); // the "do this first" strip and the list
     expect(find.text('NEXT 7 DAYS'), findsOneWidget);
