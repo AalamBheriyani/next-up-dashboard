@@ -13,7 +13,7 @@ void main() {
   final now = DateTime(2026, 10, 10, 15);
 
   Future<void> pump(WidgetTester t, FakeXp xp, {String sheet = 'xp', LocalStore? store, void Function(List<double>)? beep}) async {
-    t.view.physicalSize = const Size(1300, 1800);
+    t.view.physicalSize = const Size(1300, 2400);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await t.pumpWidget(MaterialApp(home: Scaffold(body: QuestScreen(services: fakeServices(xp: xp, store: store, beep: beep), config: AppConfig(sheetId: 's', questSheetId: sheet), now: () => now, random: Random(1)))));

@@ -6,6 +6,9 @@ import 'package:next_up_core/quest.dart';
 
 import 'platform/platform_base.dart';
 
+/// The account that last signed in on this device, so its queued XP is not sent for someone else.
+const lastEmailKey = 'nu.web.lastEmail';
+
 class XpQueue {
   XpQueue(this.store);
   final LocalStore store;

@@ -17,6 +17,8 @@ import 'week_calendar.dart';
 
 const _viewKey = 'nu.web.listview';
 
+
+const listFilterKey = 'nu.web.listfilter';
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key, required this.services, this.onEdit, this.now});
   final Services services;
@@ -48,7 +50,12 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
   }
   // Search and list filter, as on the old Departures board.
   String _query = '';
-  final Set<String> _lists = {};
+  late final Set<String> _lists = {for (final l in (widget.services.store.get(listFilterKey) ?? '').split('\n')) if (l.isNotEmpty) l}; // remembered, as on the old site
+
+  void _setLists(void Function() change) {
+    setState(change);
+    widget.services.store.set(listFilterKey, _lists.join('\n'));
+  }
 
   bool _shows(Deadline d) {
     if (_lists.isNotEmpty && !_lists.contains(d.list)) return false;
@@ -64,6 +71,8 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
     _load();
   }
 
+  DateTime? _updatedAt;
+
   Future<void> _load() async {
     if (!widget.services.signedIn()) {
       setState(() => _error = 'Sign in to see your deadlines.');
@@ -75,6 +84,7 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
         setState(() {
           _all = all;
           _error = null;
+          _updatedAt = _now();
         });
       }
     } on SourceException catch (e) {
@@ -112,6 +122,7 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
         Reveal(child: Row(children: [
           const Text('Lists', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
+          UpdatedStamp(at: _updatedAt),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
         const SizedBox(height: 8),
@@ -144,8 +155,9 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
                   }(),
                   label: Text(l),
                   selected: _lists.contains(l),
-                  onSelected: (on) => setState(() => on ? _lists.add(l) : _lists.remove(l)),
+                  onSelected: (on) => _setLists(() => on ? _lists.add(l) : _lists.remove(l)),
                 ),
+            if (_lists.isNotEmpty) ActionChip(label: const Text('Show all'), onPressed: () => _setLists(_lists.clear)),
           ]),
         ],
         const SizedBox(height: 16),

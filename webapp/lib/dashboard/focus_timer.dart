@@ -155,14 +155,14 @@ class _TimerBodyState extends State<TimerBody> {
       if (c.classicFace && c.label.isNotEmpty) Padding(padding: EdgeInsets.only(top: 6 * k), child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k))),
       SizedBox(height: 14 * k),
       Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 4, children: [
-        FilledButton(onPressed: c.running ? c.pause : c.start, child: Text(c.running ? 'Pause' : 'Start')),
+        FilledButton(onPressed: c.running ? c.pause : c.start, child: Text(c.running ? 'Pause' : c.left > Duration.zero && c.left < c.total ? 'Resume' : 'Start')),
         OutlinedButton(onPressed: c.reset, child: const Text('Reset')),
         TextButton(onPressed: c.skip, child: const Text('Skip')),
       ]),
       // The old timer's note line: which pomodoro this is, or a nudge to actually rest.
       Padding(
         padding: EdgeInsets.only(top: 6 * k),
-        child: Text(c.mode == FocusMode.focus ? 'Pomodoro #${c.done + 1}' : 'Stand up, water, back soon.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k)),
+        child: Text([if (!c.running && c.left > Duration.zero && c.left < c.total) 'Paused', c.mode == FocusMode.focus ? 'Pomodoro #${c.done + 1}' : 'Stand up, water, back soon.'].join(' · '), style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k)),
       ),
     ]);
   }

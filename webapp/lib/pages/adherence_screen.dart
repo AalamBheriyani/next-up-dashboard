@@ -19,7 +19,7 @@ import '../refresh.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 class AdherenceScreen extends StatefulWidget {
-  const AdherenceScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout, this.ask});
+  const AdherenceScreen({super.key, required this.services, required this.config, this.now, this.layout = const BoardLayout(), this.onLayout, this.ask, this.onSettings});
   final Services services;
   /// For "Rate with Claude"; null hides it.
   final AskService? ask;
@@ -27,6 +27,7 @@ class AdherenceScreen extends StatefulWidget {
   final DateTime Function()? now;
   final BoardLayout layout;
   final ValueChanged<BoardLayout>? onLayout;
+  final VoidCallback? onSettings; // opens Settings, where the sheet is added
 
   @override
   State<AdherenceScreen> createState() => _AdherenceScreenState();
@@ -52,6 +53,8 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
     _load();
   }
 
+  DateTime? _updatedAt;
+
   Future<void> _load() async {
     if (widget.config.sheetId.isEmpty) {
       setState(() => _error = 'Add your Time Tracker sheet in Settings to see your adherence.');
@@ -64,6 +67,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
         _summary = r[0] as HoursSummary;
         _blocks = blocksToRate(r[1] as List<List<String>>, _now());
         _error = null;
+        _updatedAt = _now();
       });
     } on SourceException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -109,11 +113,12 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
           const Text('Adherence', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
           if (widget.config.sheetId.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.sheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open sheet')),
+          UpdatedStamp(at: _updatedAt),
           if (s != null) CustomiseButton(editing: _editing),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
         if (s != null) Reveal(index: 1, child: Text('${s.title}. Adherence counts only blocks you have rated.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body))),
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
+        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_error!, style: TextStyle(color: NextUpColors.muted)), if (widget.onSettings != null && widget.config.sheetId.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.onSettings, child: const Text('Add it in Settings')))]))),
         if (s == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (s != null) ...[
           const SizedBox(height: 8),

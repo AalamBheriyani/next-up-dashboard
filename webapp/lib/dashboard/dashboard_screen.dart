@@ -124,6 +124,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     super.dispose();
   }
 
+  DateTime? _updatedAt; // when the last load finished, for the "updated" stamp
+
   Future<void> _load() async {
     if (!widget.signedIn()) {
       setState(() {
@@ -143,7 +145,12 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
       _guard(widget.calendar.load(start, start.add(const Duration(days: 7))), (c) => _events = c, (m) => _calendarError = m, 'Calendar failed to load.'),
       if (widget.hours != null) _loadHours(),
     ]);
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        if (_deadlineError == null || _calendarError == null) _updatedAt = _now();
+      });
+    }
   }
 
   // Only Ask Claude reads this, so a failure just leaves it out.
@@ -224,11 +231,23 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final phone = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
       // On a phone Ask Claude is far down the page; this button goes straight to it, as on the old site.
+      // It shrinks to an icon once the page scrolls and steps aside while the chat itself is on screen.
       floatingActionButton: phone && widget.ask != null && !_layout.isHidden('ask') && !_editing
-          ? FloatingActionButton.extended(onPressed: _toAsk, icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Claude'))
+          ? AnimatedScale(
+              scale: _askInView ? 0 : 1,
+              duration: motionFast,
+              child: _scrolled
+                  ? FloatingActionButton(tooltip: 'Ask Claude', onPressed: _toAsk, child: const Icon(Icons.auto_awesome_rounded))
+                  : FloatingActionButton.extended(onPressed: _toAsk, icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Claude')),
+            )
           : null,
       body: RefreshIndicator(
         onRefresh: _load,
+        child: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (n) {
+          if (n.depth == 0) _onScroll(n.metrics.pixels);
+          return false;
+        },
         child: LayoutBuilder(builder: (context, box) {
           final w = box.maxWidth;
           return ListView(
@@ -238,6 +257,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
               Builder(builder: (context) {
                 final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes);
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (!_loading) UpdatedStamp(at: _updatedAt),
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                   if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
                   IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
@@ -264,6 +284,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             ],
           );
         }),
+        ),
       ),
     );
   }
@@ -277,7 +298,15 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
       return const Panel(title: 'Next deadline', child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
     }
     final next = DeadlineGroups(items, now).next;
-    if (next == null) return Panel(title: 'Next deadline', child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)));
+    if (next == null) {
+      return Panel(
+        title: 'Next deadline',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Clear', style: TextStyle(fontSize: NextUpType.display, fontWeight: FontWeight.w800)),
+          Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)),
+        ]),
+      );
+    }
     return NextBoard(deadline: next, now: widget.now, onStart: onStart, overdue: DeadlineGroups(items, now).overdue.length);
   }
 
@@ -285,6 +314,29 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
   final _askKey = GlobalKey<AskPanelState>();
 
   void _startOn(Deadline d) => _focus.startFocus(25, d.title);
+
+  bool _scrolled = false, _askInView = false;
+
+  // Measured after the frame, once the scrolled panels have moved.
+  void _onScroll(double px) => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _measureAsk(px);
+      });
+
+  void _measureAsk(double px) {
+    final box = _askKey.currentContext?.findRenderObject() as RenderBox?;
+    var inView = false;
+    if (box != null && box.attached) {
+      final top = box.localToGlobal(Offset.zero).dy;
+      inView = top < MediaQuery.sizeOf(context).height - 120 && top + box.size.height > 80;
+    }
+    final scrolled = px > 40;
+    if (scrolled != _scrolled || inView != _askInView) {
+      setState(() {
+        _scrolled = scrolled;
+        _askInView = inView;
+      });
+    }
+  }
 
   Future<void> _toAsk() async {
     final c = _askKey.currentContext;
@@ -315,7 +367,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
         );
     return [
       BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
-      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: next?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
+      // "Use it on" suggests the oldest late task first, as Do this first does.
+      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: (g.overdue.isNotEmpty ? g.overdue.first : next)?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
       BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
       if (widget.ask != null)
         BoardItem(

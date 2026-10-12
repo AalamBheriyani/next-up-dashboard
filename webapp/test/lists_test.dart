@@ -29,6 +29,7 @@ void main() {
     expect(find.text('Essay'), findsOneWidget);
     final heights = {for (final b in t.widgetList(find.byType(DeadlineBox))) t.getSize(find.byWidget(b)).height};
     expect(heights, {deadlineBoxHeight}, reason: 'a box with 30 items is as tall as one with 1; long lists scroll');
+    expect(find.text('updated 12:00 PM'), findsOneWidget, reason: 'shows when the lists last loaded');
   });
 
   testWidgets('switching the view regroups the same deadlines', (t) async {
@@ -88,5 +89,20 @@ void main() {
     await t.pump();
     expect(find.text('Lab'), findsOneWidget, reason: 'the view and the hidden to-dos are remembered');
     expect(find.text('Essay'), findsNothing);
+  });
+
+  testWidgets('the list filter is remembered and Show all clears it', (t) async {
+    final store = MemoryStore()..set(listFilterKey, 'Uni');
+    t.view.physicalSize = const Size(1300, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final items = [d('Essay', const Duration(hours: 3), 5), Deadline(id: 'g', projectId: 'q', title: 'Gym', due: now.add(const Duration(hours: 5)), allDay: false, priority: 5, list: 'Home')];
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: ListsScreen(services: fakeServices(deadlines: items, store: store), now: () => now))));
+    await t.pump(const Duration(seconds: 1));
+    expect(find.text('Gym'), findsNothing, reason: 'only Uni, as last time');
+    await t.tap(find.text('Show all'));
+    await t.pump();
+    expect(find.text('Gym'), findsOneWidget);
+    expect(store.get(listFilterKey), '');
   });
 }

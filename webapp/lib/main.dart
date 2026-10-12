@@ -130,17 +130,24 @@ class _ShellState extends State<Shell> {
     if (_svc.store.get('nu.web.mute') != '1') playBeep(focus ? const [660, 880, 1320] : const [1320, 880, 660]); // the Quest Log's sound switch
     vibrate();
     notify(focus ? 'Pomodoro done' : 'Break over', focus ? 'Time for a break.' : 'Back to focus.');
-    if (_config.questSheetId.isEmpty) return;
-    final q = defaultQuests.firstWhere((x) => x.id == (focus ? 'timer' : 'break'));
-    final row = XpRow(t: DateTime.now().millisecondsSinceEpoch, q: q.id, name: q.name, base: q.xp.toDouble(), mult: 1, xp: q.xp, kind: 'auto');
-    // Queued first, so XP earned signed out or offline reaches the sheet later instead of being lost.
-    final queue = XpQueue(_svc.store)..add([row]);
+    final id = focus ? 'timer' : 'break';
+    final t = DateTime.now().millisecondsSinceEpoch;
+    final queue = XpQueue(_svc.store);
+    // The person's own XP sheet sets what the timer is worth; the built-in quests are the fallback.
+    ({List<Quest> quests, List<XpRow> log, XpSettings settings})? sheet;
+    if (_config.questSheetId.isNotEmpty && _svc.signedIn()) {
+      try {
+        sheet = await _svc.xpFor(_config.questSheetId).load();
+      } catch (_) {}
+    }
+    final q = (sheet?.quests ?? const <Quest>[]).where((x) => x.id == id).firstOrNull ?? defaultQuests.firstWhere((x) => x.id == id);
+    // Queued first, so XP earned signed out, offline or before an XP sheet is set reaches the sheet later.
+    queue.add([XpRow(t: t, q: q.id, name: q.name, base: q.xp.toDouble(), mult: 1, xp: q.xp, kind: 'auto')]);
     if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('+${q.xp} XP · ${q.name}')));
-    if (!_svc.signedIn()) return;
+    if (sheet == null) return;
     try {
-      final repo = _svc.xpFor(_config.questSheetId);
       // The day starts at the hour in the person's own XP sheet settings, so the row lands on the right day.
-      await queue.flush(repo, (await repo.load()).settings.dayStartHour);
+      await queue.flush(_svc.xpFor(_config.questSheetId), sheet.settings.dayStartHour);
     } catch (_) {
       // XP is a bonus; a failed write must never interrupt the timer. It stays queued for the next try.
     }
@@ -183,6 +190,12 @@ class _ShellState extends State<Shell> {
   /// Keeps the config and applies its accent and deadline colour to the whole app.
   void _setConfig(AppConfig c) {
     if (c.layout != null) _layout = c.layout!;
+    // XP waiting on this device belongs to whoever earned it; a different account must not send it to its sheet.
+    if (c.email.isNotEmpty) {
+      final last = _svc.store.get(lastEmailKey) ?? '';
+      if (last.isNotEmpty && last != c.email) _svc.store.set(XpQueue.key, '[]');
+      if (last != c.email) _svc.store.set(lastEmailKey, c.email);
+    }
     NextUpColors.apply(accentHex: c.accent, redDeadlines: c.redDeadlines);
     setState(() => _config = c);
     themeRevision.value++;
@@ -251,11 +264,11 @@ class _ShellState extends State<Shell> {
       case 2:
         return ListsScreen(services: _svc, onEdit: _svc.deadlines is DeadlineEditor ? _editDeadline : null);
       case 3:
-        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+        return TrackScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, onSettings: () => _go(6));
       case 4:
-        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, ask: _ask?.mode == AskMode.app ? null : _ask);
+        return AdherenceScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, ask: _ask?.mode == AskMode.app ? null : _ask, onSettings: () => _go(6));
       case 5:
-        return QuestScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout);
+        return QuestScreen(services: _svc, config: _config, layout: _layout, onLayout: _saveLayout, onSettings: () => _go(6));
       default:
         return SettingsScreen(
           services: _svc,
