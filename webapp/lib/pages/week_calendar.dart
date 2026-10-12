@@ -192,7 +192,10 @@ class _Todo extends StatelessWidget {
     return Material(
       color: NextUpColors.raised,
       borderRadius: BorderRadius.circular(8),
-      child: InkWell(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: d.color == 0 ? null : BoxDecoration(border: Border(left: BorderSide(color: Color(d.color), width: 3))),
+        child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onEdit == null ? null : () => onEdit!(d),
         child: Padding(
@@ -208,6 +211,7 @@ class _Todo extends StatelessWidget {
             ),
           ]),
         ),
+      ),
       ),
     );
   }

@@ -138,6 +138,10 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
             if ({for (final d in all) d.list}.length > 1)
               for (final l in ({for (final d in all) if (d.list.isNotEmpty) d.list}.toList()..sort()))
                 FilterChip(
+                  avatar: () {
+                    final c = all.firstWhere((d) => d.list == l).color;
+                    return c == 0 ? null : Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle));
+                  }(),
                   label: Text(l),
                   selected: _lists.contains(l),
                   onSelected: (on) => setState(() => on ? _lists.add(l) : _lists.remove(l)),

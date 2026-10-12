@@ -10,6 +10,8 @@ class Deadline {
     required this.list,
     this.raw = '',
     this.notes = '',
+    this.tags = const [],
+    this.color = 0,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class Deadline {
   final String list;
   final String raw; // TickTick's own dueDate text, so an edit can change the day and keep the rest
   final String notes; // the task's description in TickTick
+  final List<String> tags; // TickTick tags, passed on when it is finished (the laptop's done log uses them)
+  final int color; // the list's colour as ARGB, or 0 when unknown
 
   /// The real (outside) deadline written in the notes as "Real deadline: Fri 3pm.", when the due date is an
   /// earlier personal one. Same rule as the old site.
@@ -40,7 +44,7 @@ class Deadline {
   bool isLate(DateTime now) => due.isBefore(now);
 
   /// Parses one task from `/ticktick/tasks`. Returns null when it has no usable due date.
-  static Deadline? fromTask(Map<String, dynamic> t, Map<String, String> listNames) {
+  static Deadline? fromTask(Map<String, dynamic> t, Map<String, String> listNames, [Map<String, int> listColors = const {}]) {
     final raw = t['dueDate'];
     if (raw is! String) return null;
     final allDay = t['isAllDay'] == true;
@@ -65,6 +69,8 @@ class Deadline {
       list: listNames[projectId] ?? '',
       raw: raw,
       notes: '${t['content'] ?? t['desc'] ?? ''}'.trim(),
+      tags: [for (final x in (t['tags'] is List ? t['tags'] as List : const [])) '$x'],
+      color: listColors[projectId] ?? 0,
     );
   }
 }
@@ -105,4 +111,23 @@ String newDueText(DateTime when, {required bool allDay}) {
   if (allDay) return '${_ymd(when)}T00:00:00+0000';
   final u = when.toUtc();
   return '${_ymd(u)}T${_hms(u)}+0000';
+}
+
+/// Each TickTick list's colour: its own from TickTick, else a distinct one from the old site's palette, given
+/// out in name order so a list keeps its colour between loads.
+const listPalette = [0xFF4D8DFF, 0xFF22C55E, 0xFFF59E0B, 0xFFA855F7, 0xFF14B8A6, 0xFFEC4899, 0xFF84CC16, 0xFFF97316, 0xFF06B6D4, 0xFFE11D48];
+
+Map<String, int> listColors(Map<String, String> names, Map<String, String> hex) {
+  int? parse(String? h) {
+    final m = RegExp(r'^#?([0-9a-fA-F]{6})$').firstMatch((h ?? '').trim());
+    return m == null ? null : 0xFF000000 | int.parse(m[1]!, radix: 16);
+  }
+
+  final own = <String, int>{for (final e in names.entries) if (parse(hex[e.key]) != null) e.key: parse(hex[e.key])!};
+  final free = [for (final c in listPalette) if (!own.values.contains(c)) c];
+  final pool = free.isEmpty ? listPalette : free;
+  final order = {'Inbox', ...names.values}.toList()..sort();
+  return {
+    for (final e in names.entries) e.key: own[e.key] ?? pool[order.indexOf(e.value).clamp(0, 1 << 30) % pool.length],
+  };
 }

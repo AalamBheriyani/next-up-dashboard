@@ -262,10 +262,17 @@ class _RowState extends State<_Row> {
         decoration: BoxDecoration(color: NextUpColors.ok.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(12)),
         child: const Icon(Icons.check_rounded, color: NextUpColors.ok),
       ),
-      child: Container(
-        margin: const EdgeInsets.only(top: 8),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
         padding: const EdgeInsets.fromLTRB(4, 4, 14, 4),
-        decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(12)),
+        // The list's colour as a stripe down the left, as on the old site; clipped so it stays straight.
+        decoration: BoxDecoration(
+          color: NextUpColors.panel,
+          border: d.color == 0 ? null : Border(left: BorderSide(color: Color(d.color), width: 3)),
+        ),
         child: Row(children: [
           IconButton(
             tooltip: 'Finish ${d.title}',
@@ -295,6 +302,8 @@ class _RowState extends State<_Row> {
           _RowClock(d: d, now: now, showDate: widget.showDate),
           if (onEdit != null) IconButton(tooltip: 'Edit ${d.title}', icon: const Icon(Icons.edit_outlined, size: 18), color: NextUpColors.muted, visualDensity: VisualDensity.compact, onPressed: () => onEdit(d)),
         ]),
+      ),
+      ),
       ),
     );
   }
