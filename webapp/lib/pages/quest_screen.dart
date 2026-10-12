@@ -321,14 +321,17 @@ class _Message extends StatelessWidget {
   final String text;
   final VoidCallback? onRetry;
 
+  // The same title and "Heads up" card as the other pages, so an empty Quest Log doesn't look broken.
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(text, textAlign: TextAlign.center, style: TextStyle(color: NextUpColors.muted)),
-            if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again')),
+  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(24), children: [
+        const Text('Quest Log', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        Panel(
+          title: 'Heads up',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(text, style: TextStyle(color: NextUpColors.muted)),
+            if (onRetry != null) Padding(padding: const EdgeInsets.only(top: 8), child: OutlinedButton(onPressed: onRetry, child: const Text('Try again'))),
           ]),
         ),
-      );
+      ]);
 }
