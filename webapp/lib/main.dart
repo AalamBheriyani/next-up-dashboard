@@ -22,6 +22,7 @@ import 'board/widget_board.dart';
 import 'dashboard/anki_panel.dart';
 import 'dashboard/habits_panel.dart';
 import 'dashboard/links_panel.dart';
+import 'dashboard/track_panel.dart';
 import 'pages/lists_screen.dart';
 import 'pages/quest_screen.dart';
 import 'format.dart';
@@ -225,6 +226,7 @@ class _ShellState extends State<Shell> {
           focus: _focus,
           ask: _ask,
           extras: [
+            if (_config.sheetId.isNotEmpty && _svc.signedIn()) BoardItem(id: 'track', name: 'Track', span: 12, child: TrackPanel(repo: _svc.trackFor(_config.sheetId))),
             if (_config.questSheetId.isNotEmpty) BoardItem(id: 'habits', name: 'Habits', span: 12, child: HabitsPanel(repo: _svc.xpFor(_config.questSheetId))),
             if (_config.owner && _svc.anki != null) BoardItem(id: 'anki', name: 'Anki', span: 12, child: AnkiPanel(source: _svc.anki!)),
             if (_svc.signedIn()) BoardItem(id: 'links', name: 'Jump to', span: 12, child: LinksPanel(links: quickLinks(_config))),

@@ -19,6 +19,7 @@ import '../dashboard/panel.dart';
 import '../format.dart';
 import '../motion.dart';
 import '../services.dart';
+import '../refresh.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 const trackPalette = [Color(0xFFE4572E), Color(0xFF2E86AB), Color(0xFFF6AE2D), Color(0xFF43AA8B), Color(0xFF9C4DCC), Color(0xFF00A6A6), Color(0xFFFF7F50), Color(0xFF6C6CD8), Color(0xFFD81B60), Color(0xFF8D6E63), Color(0xFF7CB342), Color(0xFFF3722C)];
@@ -46,7 +47,10 @@ class TrackScreen extends StatefulWidget {
   State<TrackScreen> createState() => _TrackScreenState();
 }
 
-class _TrackScreenState extends State<TrackScreen> {
+class _TrackScreenState extends State<TrackScreen> with RefreshOnReturn {
+  @override
+  Future<void> refreshData() => _load();
+
   final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   TrackData? _data;
   String? _error;
@@ -162,8 +166,8 @@ class _TrackScreenState extends State<TrackScreen> {
             layout: widget.layout,
             onLayout: widget.onLayout,
             items: [
-              BoardItem(id: 'track-now', name: 'Now', span: 12, child: Reveal(index: 1, child: _NowBar(data: d, now: now, onStop: () => _run(() => _repo.stop(d, _now()))))),
-              BoardItem(id: 'track-cats', name: 'Start tracking', span: 12, child: Reveal(index: 2, child: _Categories(data: d, onTap: _toggle))),
+              BoardItem(id: 'track-now', name: 'Now', span: 12, child: Reveal(index: 1, child: TrackNowBar(data: d, now: now, onStop: () => _run(() => _repo.stop(d, _now()))))),
+              BoardItem(id: 'track-cats', name: 'Start tracking', span: 12, child: Reveal(index: 2, child: TrackCategories(data: d, onTap: _toggle))),
               BoardItem(id: 'track-day', name: 'Day', span: 8, child: Reveal(index: 3, child: _timeline(d, now))),
               BoardItem(id: 'track-totals', name: 'Totals', span: 4, child: Reveal(index: 4, child: _stats(d, now))),
             ],
@@ -265,8 +269,8 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 }
 
-class _NowBar extends StatelessWidget {
-  const _NowBar({required this.data, required this.now, required this.onStop});
+class TrackNowBar extends StatelessWidget {
+  const TrackNowBar({super.key, required this.data, required this.now, required this.onStop});
   final TrackData data;
   final DateTime now;
   final VoidCallback onStop;
@@ -286,6 +290,7 @@ class _NowBar extends StatelessWidget {
         Expanded(
           child: AnimatedSwitcher(
             duration: motionFast,
+            layoutBuilder: (cur, prev) => Stack(alignment: Alignment.centerLeft, children: [...prev, ?cur]), // keep the text at the left
             child: Text(run == null ? "Not tracking. Tap what you're doing to start." : run.cat + (run.note.isEmpty ? '' : ' · ${run.note}'), key: ValueKey(run?.id ?? 'idle'), style: TextStyle(fontSize: NextUpType.subtitle, fontWeight: FontWeight.w700, color: run == null ? NextUpColors.muted : null)),
           ),
         ),
@@ -329,8 +334,8 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
   }
 }
 
-class _Categories extends StatelessWidget {
-  const _Categories({required this.data, required this.onTap});
+class TrackCategories extends StatelessWidget {
+  const TrackCategories({super.key, required this.data, required this.onTap});
   final TrackData data;
   final void Function(String) onTap;
 

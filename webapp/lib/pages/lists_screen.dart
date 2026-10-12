@@ -12,6 +12,7 @@ import '../dashboard/deadline_box.dart';
 import '../dashboard/panel.dart';
 import '../motion.dart';
 import '../services.dart';
+import '../refresh.dart';
 
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key, required this.services, this.onEdit, this.now});
@@ -23,7 +24,10 @@ class ListsScreen extends StatefulWidget {
   State<ListsScreen> createState() => _ListsScreenState();
 }
 
-class _ListsScreenState extends State<ListsScreen> {
+class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
+  @override
+  Future<void> refreshData() => _load();
+
   List<Deadline>? _all;
   String? _error;
   ListViewKind _view = ListViewKind.matrix;
