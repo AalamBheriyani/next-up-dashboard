@@ -28,6 +28,7 @@ class AdherenceScreen extends StatefulWidget {
 }
 
 class _AdherenceScreenState extends State<AdherenceScreen> {
+  final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   HoursSummary? _summary;
   List<RateBlock>? _blocks;
   String? _error;
@@ -85,6 +86,12 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
       );
 
   @override
+  void dispose() {
+    _editing.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final s = _summary;
     return ListView(
@@ -94,6 +101,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
           const Text('Adherence', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
           if (widget.config.sheetId.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.sheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open sheet')),
+          if (s != null) CustomiseButton(editing: _editing),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
         if (s != null) Reveal(index: 1, child: Text('${s.title}. Adherence counts only blocks you have rated.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body))),
@@ -102,6 +110,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
         if (s != null) ...[
           const SizedBox(height: 8),
           PageBoard(
+            editing: _editing,
             layout: widget.layout,
             onLayout: widget.onLayout,
             items: [

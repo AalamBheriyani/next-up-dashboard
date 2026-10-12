@@ -109,3 +109,6 @@ String currentHash() => _location.hash;
 void clearHash() => _history.replaceState(null, '', _location.pathname + _location.search);
 
 void navigateTo(String url) => _location.href = url;
+
+/// Shows [hash] after the '#' in the address without reloading or adding a history entry.
+void setHash(String hash) => _history.replaceState(null, '', _location.pathname + _location.search + (hash.isEmpty ? '' : '#$hash'));

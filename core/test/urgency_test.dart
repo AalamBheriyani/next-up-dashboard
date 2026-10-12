@@ -18,5 +18,6 @@ void main() {
     expect(urgencyLine(due(const Duration(hours: 2, minutes: 10)), now), 'Due in 2h 10m. Start now.');
     expect(urgencyLine(due(const Duration(days: 3, hours: 5)), now), 'Due in 3 days.');
     expect(urgencyLine(due(const Duration(days: -11)), now), '11 days late. Start it now.');
+    expect(urgencyLine(due(const Duration(hours: -46, minutes: -58)), now), '1d 22h late. Start it now.');
   });
 }

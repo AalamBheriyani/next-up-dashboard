@@ -29,6 +29,7 @@ String urgencyLine(Deadline d, DateTime now) {
   String span(Duration x) {
     final m = x.inMinutes.abs();
     if (m >= 2880) return '${m ~/ 1440} days';
+    if (m >= 1440) return '1d ${m % 1440 ~/ 60}h'; // "1d 22h" reads faster than "46h 58m"
     if (m >= 60) return '${m ~/ 60}h ${m % 60}m';
     return '${m}m';
   }

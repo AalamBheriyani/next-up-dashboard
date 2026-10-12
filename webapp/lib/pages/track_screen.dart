@@ -46,6 +46,7 @@ class TrackScreen extends StatefulWidget {
 }
 
 class _TrackScreenState extends State<TrackScreen> {
+  final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   TrackData? _data;
   String? _error;
   bool _busy = false;
@@ -69,6 +70,7 @@ class _TrackScreenState extends State<TrackScreen> {
 
   @override
   void dispose() {
+    _editing.dispose();
     _tick?.cancel();
     super.dispose();
   }
@@ -136,12 +138,14 @@ class _TrackScreenState extends State<TrackScreen> {
           if (_busy) const Padding(padding: EdgeInsets.only(right: 12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
           if (widget.config.sheetId.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.sheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open sheet')),
           if (d != null) OutlinedButton.icon(onPressed: () => _editBlock(null), icon: const Icon(Icons.add_rounded), label: const Text('Add block')),
+          if (d != null) CustomiseButton(editing: _editing),
         ])),
         if (_error != null)
           Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Text(_error!, style: TextStyle(color: NextUpColors.muted)))),
         if (d == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (d != null)
           PageBoard(
+            editing: _editing,
             layout: widget.layout,
             onLayout: widget.onLayout,
             items: [
