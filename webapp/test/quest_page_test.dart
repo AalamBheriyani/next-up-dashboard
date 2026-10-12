@@ -63,4 +63,22 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Daily goal hit. Streak is safe.'), findsOneWidget);
   });
+
+  testWidgets('XP that fails to save waits on the device and goes up on Retry, even after a reload', (tester) async {
+    final xp = FakeXp()..offline = true;
+    final store = MemoryStore();
+    await pump(tester, xp, store: store);
+    await tester.tap(find.text('Daily Planning done'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(xp.appended, isEmpty);
+    expect(find.text('1 not saved yet · Retry'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await pump(tester, xp, store: store);
+    expect(find.text('1 not saved yet · Retry'), findsOneWidget, reason: 'the queue survives a reload');
+    xp.offline = false;
+    await tester.tap(find.text('1 not saved yet · Retry'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(xp.appended.single.q, 'plan');
+    expect(find.textContaining('not saved yet'), findsNothing);
+  });
 }

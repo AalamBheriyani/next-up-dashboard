@@ -16,6 +16,7 @@ import '../dashboard/panel.dart';
 import '../dashboard/tile_row.dart';
 import '../motion.dart';
 import '../services.dart';
+import '../xp_queue.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 const _muteKey = 'nu.web.mute';
@@ -49,6 +50,8 @@ class _QuestScreenState extends State<QuestScreen> {
   DateTime _now() => (widget.now ?? DateTime.now)();
   late final math.Random _rng = widget.random ?? math.Random();
   XpRepository get _repo => widget.services.xpFor(widget.config.questSheetId);
+  late final _queue = XpQueue(widget.services.store);
+  int _unsaved = 0; // rows still waiting on this device
   QuestModel get _model => QuestModel(_rows, _settings, _now().millisecondsSinceEpoch);
 
   @override
@@ -65,15 +68,34 @@ class _QuestScreenState extends State<QuestScreen> {
     try {
       final d = await _repo.load();
       if (!mounted) return;
+      // Rows still waiting on this device count too, so nothing earned offline disappears from the page.
+      final have = {for (final r in d.log) '${r.t}|${r.q}'};
+      final waiting = [for (final r in _queue.pending) if (!have.contains('${r.t}|${r.q}')) r];
       setState(() {
         _quests = d.quests;
-        _rows = d.log;
+        _rows = [...d.log, ...waiting];
+        _unsaved = waiting.length;
         _settings = d.settings;
         _loaded = true;
         _error = null;
       });
+      if (waiting.isNotEmpty) _retry();
     } on SourceException catch (e) {
       if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  Future<void> _retry() async {
+    try {
+      await _queue.flush(_repo, _settings.dayStartHour);
+      if (mounted) setState(() => _unsaved = 0);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _unsaved = _queue.pending.length;
+          _note = 'Not saved yet: ${e is SourceException ? e.message : 'no connection'}';
+        });
+      }
     }
   }
 
@@ -104,11 +126,8 @@ class _QuestScreenState extends State<QuestScreen> {
         _toast('Weekly goal hit.');
       }
     }
-    try {
-      await _repo.append([r], _settings.dayStartHour);
-    } on SourceException catch (e) {
-      if (mounted) setState(() => _note = 'Could not save: ${e.message}');
-    }
+    _queue.add([r]);
+    await _retry();
   }
 
   void _do(Quest q) {
@@ -155,6 +174,11 @@ class _QuestScreenState extends State<QuestScreen> {
         const SizedBox(width: 16),
         // The last XP gained shows beside the title, so the page doesn't jump down when it appears.
         Expanded(child: AnimatedSwitcher(duration: motionFast, child: _note == null ? const SizedBox.shrink() : Text(_note!, key: ValueKey(_note), overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
+        if (_unsaved > 0)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: ActionChip(avatar: const Icon(Icons.cloud_off_rounded, size: 16), label: Text('$_unsaved not saved yet · Retry'), onPressed: _retry),
+          ),
         IconButton(
           tooltip: _muted ? 'Turn sound on' : 'Turn sound off',
           icon: Icon(_muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20),

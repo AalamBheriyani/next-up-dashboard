@@ -34,6 +34,7 @@ import 'pages/adherence_screen.dart';
 import 'pages/settings_screen.dart';
 import 'pages/track_screen.dart';
 import 'services.dart';
+import 'xp_queue.dart';
 import 'web_auth.dart';
 
 void main() {
@@ -128,16 +129,19 @@ class _ShellState extends State<Shell> {
     // A short chime, and a notification if the tab is in the background, like the old site's phone alert.
     if (_svc.store.get('nu.web.mute') != '1') playBeep(focus ? const [660, 880, 1320] : const [1320, 880, 660]); // the Quest Log's sound switch
     notify(focus ? 'Pomodoro done' : 'Break over', focus ? 'Time for a break.' : 'Back to focus.');
-    if (_config.questSheetId.isEmpty || !_svc.signedIn()) return;
+    if (_config.questSheetId.isEmpty) return;
     final q = defaultQuests.firstWhere((x) => x.id == (focus ? 'timer' : 'break'));
     final row = XpRow(t: DateTime.now().millisecondsSinceEpoch, q: q.id, name: q.name, base: q.xp.toDouble(), mult: 1, xp: q.xp, kind: 'auto');
+    // Queued first, so XP earned signed out or offline reaches the sheet later instead of being lost.
+    final queue = XpQueue(_svc.store)..add([row]);
+    if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('+${q.xp} XP · ${q.name}')));
+    if (!_svc.signedIn()) return;
     try {
       final repo = _svc.xpFor(_config.questSheetId);
       // The day starts at the hour in the person's own XP sheet settings, so the row lands on the right day.
-      await repo.append([row], (await repo.load()).settings.dayStartHour);
-      if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('+${q.xp} XP · ${q.name}')));
+      await queue.flush(repo, (await repo.load()).settings.dayStartHour);
     } catch (_) {
-      // XP is a bonus; a failed write must never interrupt the timer.
+      // XP is a bonus; a failed write must never interrupt the timer. It stays queued for the next try.
     }
   }
 
