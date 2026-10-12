@@ -61,6 +61,19 @@ void main() {
     await t.pump();
   }
 
+  testWidgets('a task with notes opens them on a tap and shows its real deadline', (t) async {
+    final s = FakeSource([
+      Deadline(id: '1', projectId: 'p', title: 'Chem quiz', due: DateTime(2026, 10, 12, 9), allDay: false, priority: 5, list: 'School', notes: 'Real deadline: Tue 9am. Chapters 3 and 4.'),
+      d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59)),
+    ]);
+    await pump(t, s);
+    expect(find.text('School · Real: Tue 9am · High priority'), findsOneWidget);
+    expect(find.text('Real deadline: Tue 9am. Chapters 3 and 4.'), findsNothing);
+    await t.tap(find.text('Chem quiz').last);
+    await t.pumpAndSettle();
+    expect(find.text('Real deadline: Tue 9am. Chapters 3 and 4.'), findsOneWidget);
+  });
+
   testWidgets('Undo puts a finished task back and nothing is sent', (t) async {
     final s = FakeSource([d('1', 'Chem quiz', DateTime(2026, 10, 4, 23, 59)), d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59))]);
     await pump(t, s);

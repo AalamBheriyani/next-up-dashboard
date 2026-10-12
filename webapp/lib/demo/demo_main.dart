@@ -21,10 +21,10 @@ void main() {
   final now = DateTime.now();
   DateTime at(int dayOffset, int h, [int m = 0]) => DateTime(now.year, now.month, now.day + dayOffset, h, m);
   var n = 0;
-  Deadline dl(String title, DateTime due, {int p = 0, String list = 'School', bool allDay = false}) =>
-      Deadline(id: '${n++}', projectId: list, title: title, due: due, allDay: allDay, priority: p, list: list);
+  Deadline dl(String title, DateTime due, {int p = 0, String list = 'School', bool allDay = false, String notes = ''}) =>
+      Deadline(id: '${n++}', projectId: list, title: title, due: due, allDay: allDay, priority: p, list: list, notes: notes);
   final deadlines = _Deadlines([
-    dl('Physics lab report', at(-1, 17), p: 5),
+    dl('Physics lab report', at(-1, 17), p: 5, notes: 'Real deadline: Friday 9am. Write up method and results; graphs from Tuesday.'),
     dl('Reply to club email', at(-2, 12), list: 'Personal'),
     dl('Chem quiz revision', now.add(const Duration(hours: 3)), p: 5),
     dl('Maths problem set 4', at(0, 23, 59), p: 3, allDay: true),

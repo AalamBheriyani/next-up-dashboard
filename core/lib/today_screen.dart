@@ -223,7 +223,7 @@ class DeadlineSection extends StatelessWidget {
   }
 }
 
-class _Row extends StatelessWidget {
+class _Row extends StatefulWidget {
   const _Row({required this.d, required this.now, required this.onFinish, required this.showDate, this.onEdit, this.showList = true});
   final bool showList;
   final Deadline d;
@@ -233,8 +233,18 @@ class _Row extends StatelessWidget {
   final bool showDate;
 
   @override
+  State<_Row> createState() => _RowState();
+}
+
+class _RowState extends State<_Row> {
+  bool _open = false; // the task's notes, shown on a tap like the old site
+
+  @override
   Widget build(BuildContext context) {
+    final d = widget.d, now = widget.now, onFinish = widget.onFinish, onEdit = widget.onEdit;
     final late = d.isLate(now);
+    final real = d.realDeadline;
+    final meta = [if (widget.showList && d.list.isNotEmpty) d.list, if (real != null) 'Real: $real', if (d.priority >= 5) 'High priority'].join(' · ');
     return Dismissible(
       key: ValueKey(d.id),
       direction: DismissDirection.startToEnd,
@@ -258,17 +268,29 @@ class _Row extends StatelessWidget {
             onPressed: () => onFinish(d),
           ),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600)),
-              if (showList && d.list.isNotEmpty) Text(d.list, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
-            ]),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: d.notes.isEmpty ? null : () => setState(() => _open = !_open),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Flexible(child: Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.body, fontWeight: FontWeight.w600))),
+                  if (d.notes.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 6), child: Icon(_open ? Icons.expand_less_rounded : Icons.notes_rounded, size: 14, color: NextUpColors.muted)),
+                ]),
+                if (meta.isNotEmpty) Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 180),
+                  alignment: Alignment.topLeft,
+                  child: _open ? Padding(padding: const EdgeInsets.only(top: 6, bottom: 4), child: SelectableText(d.notes, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))) : const SizedBox(width: double.infinity),
+                ),
+              ]),
+            ),
           ),
           const SizedBox(width: 8),
           Text(
-            _relative(d, now, showDate),
+            _relative(d, now, widget.showDate),
             style: TextStyle(fontFamily: 'monospace', fontFeatures: monoFeatures, fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: late ? NextUpColors.deadline : (urgencyOf(d, now) == Urgency.week || urgencyOf(d, now) == Urgency.later ? NextUpColors.muted : urgencyColor(urgencyOf(d, now)))),
           ),
-          if (onEdit != null) IconButton(tooltip: 'Edit ${d.title}', icon: const Icon(Icons.edit_outlined, size: 18), color: NextUpColors.muted, visualDensity: VisualDensity.compact, onPressed: () => onEdit!(d)),
+          if (onEdit != null) IconButton(tooltip: 'Edit ${d.title}', icon: const Icon(Icons.edit_outlined, size: 18), color: NextUpColors.muted, visualDensity: VisualDensity.compact, onPressed: () => onEdit(d)),
         ]),
       ),
     );

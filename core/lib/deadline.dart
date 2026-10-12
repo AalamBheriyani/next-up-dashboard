@@ -9,6 +9,7 @@ class Deadline {
     required this.priority,
     required this.list,
     this.raw = '',
+    this.notes = '',
   });
 
   final String id;
@@ -20,6 +21,11 @@ class Deadline {
   final int priority; // TickTick: 0 none, 1 low, 3 medium, 5 high
   final String list;
   final String raw; // TickTick's own dueDate text, so an edit can change the day and keep the rest
+  final String notes; // the task's description in TickTick
+
+  /// The real (outside) deadline written in the notes as "Real deadline: Fri 3pm.", when the due date is an
+  /// earlier personal one. Same rule as the old site.
+  String? get realDeadline => RegExp(r'Real deadline:\s*([^\n]+?)(?:\.\s|\.$|\n|$)', caseSensitive: false).firstMatch(notes)?.group(1)?.trim();
 
   /// The dueDate text for moving this deadline to [day], keeping its time of day (or all-day-ness).
   String dueOn(DateTime day) {
@@ -58,6 +64,7 @@ class Deadline {
       priority: (t['priority'] as num?)?.toInt() ?? 0,
       list: listNames[projectId] ?? '',
       raw: raw,
+      notes: '${t['content'] ?? t['desc'] ?? ''}'.trim(),
     );
   }
 }
