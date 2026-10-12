@@ -124,6 +124,39 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     super.dispose();
   }
 
+  // The old Deadlines widget's "Search deadlines…" and list chips, opened from the header.
+  bool _searching = false;
+  String _query = '';
+  final Set<String> _lists = {};
+
+  Widget _searchBar() {
+    final lists = {for (final d in _deadlines ?? const <Deadline>[]) if (d.list.isNotEmpty) d.list}.toList()..sort();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        SizedBox(
+          width: 260,
+          child: TextField(
+            autofocus: true,
+            onChanged: (v) => setState(() => _query = v),
+            decoration: const InputDecoration(isDense: true, prefixIcon: Icon(Icons.search_rounded, size: 18), hintText: 'Search deadlines', border: OutlineInputBorder()),
+          ),
+        ),
+        if (lists.length > 1)
+          for (final l in lists)
+            FilterChip(
+              avatar: () {
+                final c = (_deadlines ?? const <Deadline>[]).firstWhere((d) => d.list == l).color;
+                return c == 0 ? null : Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle));
+              }(),
+              label: Text(l),
+              selected: _lists.contains(l),
+              onSelected: (on) => setState(() => on ? _lists.add(l) : _lists.remove(l)),
+            ),
+      ]),
+    );
+  }
+
   DateTime? _updatedAt; // when the last load finished, for the "updated" stamp
 
   Future<void> _load() async {
@@ -259,6 +292,15 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
                   if (!_loading) UpdatedStamp(at: _updatedAt),
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                  IconButton(
+                    tooltip: _searching ? 'Close search' : 'Search deadlines',
+                    onPressed: () => setState(() {
+                      _searching = !_searching;
+                      _query = '';
+                      _lists.clear();
+                    }),
+                    icon: Icon(_searching ? Icons.search_off_rounded : Icons.search_rounded),
+                  ),
                   if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
                   IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
                   IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
@@ -268,6 +310,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
                 return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: clock), tools]);
               }),
               const SizedBox(height: 20),
+              AnimatedSize(duration: motionFast, alignment: Alignment.topLeft, child: _searching ? _searchBar() : const SizedBox(width: double.infinity)),
               if (_deadlineError != null && _deadlines == null) _Banner(message: _deadlineError!, onSignIn: _needsSignIn ? _signIn : null, onConnect: _notConnected && widget.deadlines is TickTickConnector ? _connect : null, onRetry: _load),
               if (!_editing && doNowTarget(_deadlines ?? const [], now) != null) ...[
                 Builder(builder: (context) {
@@ -352,6 +395,11 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final all = _deadlines ?? const <Deadline>[];
     final g = DeadlineGroups(all, now);
     final next = g.next;
+    // The search bar narrows the four deadline lists only; the next deadline and the calendar stay whole.
+    final q = _query.trim().toLowerCase();
+    final f = !_searching || (q.isEmpty && _lists.isEmpty)
+        ? g
+        : DeadlineGroups([for (final d in all) if ((_lists.isEmpty || _lists.contains(d.list)) && (q.isEmpty || '${d.title} ${d.list} ${d.notes}'.toLowerCase().contains(q))) d], now);
     BoardItem list(String id, String title, Color color, List<Deadline> items, {String? hint, bool showDate = false}) => BoardItem(
           id: id,
           name: title,
@@ -380,10 +428,10 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
       BoardItem(id: 'day', name: 'Today hour by hour', span: 8, child: DayColumn(events: _events, now: now)),
       BoardItem(id: 'week', name: 'Next 7 days', span: 12, child: WeekStrip(deadlines: [...all], events: [...?_events], now: now)),
       if (_deadlines != null) ...[
-        if (g.overdue.isNotEmpty || _editing) list('overdue', 'Overdue', NextUpColors.deadline, g.overdue, hint: 'Oldest first', showDate: true),
-        if (g.today(now).any((d) => d != next) || _editing) list('today', 'Today', NextUpColors.accent, g.today(now).where((d) => d != next).toList()),
-        if (g.thisWeek(now).isNotEmpty || _editing) list('thisweek', 'This week', NextUpColors.accent, g.thisWeek(now), showDate: true),
-        if (g.later(now).isNotEmpty || _editing) list('later', 'Later', NextUpColors.muted, g.later(now), showDate: true),
+        if (f.overdue.isNotEmpty || _editing) list('overdue', 'Overdue', NextUpColors.deadline, f.overdue, hint: 'Oldest first', showDate: true),
+        if (f.today(now).any((d) => d != next) || _editing) list('today', 'Today', NextUpColors.accent, f.today(now).where((d) => d != next).toList()),
+        if (f.thisWeek(now).isNotEmpty || _editing) list('thisweek', 'This week', NextUpColors.accent, f.thisWeek(now), showDate: true),
+        if (f.later(now).isNotEmpty || _editing) list('later', 'Later', NextUpColors.muted, f.later(now), showDate: true),
       ],
       ...widget.extras,
     ];
