@@ -26,6 +26,7 @@ import 'clock_header.dart';
 import 'focus_timer.dart';
 import 'panel.dart';
 import 'week_strip.dart';
+import '../refresh.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
@@ -62,7 +63,10 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn {
+  @override
+  Future<void> refreshData() => _load();
+
   List<Deadline>? _deadlines;
   List<CalendarEvent>? _events;
   String? _deadlineError, _calendarError;

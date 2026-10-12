@@ -15,6 +15,7 @@ import '../dashboard/panel.dart';
 import '../dashboard/tile_row.dart';
 import '../motion.dart';
 import '../services.dart';
+import '../refresh.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 class AdherenceScreen extends StatefulWidget {
@@ -31,7 +32,10 @@ class AdherenceScreen extends StatefulWidget {
   State<AdherenceScreen> createState() => _AdherenceScreenState();
 }
 
-class _AdherenceScreenState extends State<AdherenceScreen> {
+class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn {
+  @override
+  Future<void> refreshData() => _load();
+
   final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   HoursSummary? _summary;
   List<RateBlock>? _blocks;

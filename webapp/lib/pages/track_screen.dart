@@ -19,6 +19,7 @@ import '../dashboard/panel.dart';
 import '../format.dart';
 import '../motion.dart';
 import '../services.dart';
+import '../refresh.dart';
 import 'settings_screen.dart' show sheetLinkFor;
 
 const trackPalette = [Color(0xFFE4572E), Color(0xFF2E86AB), Color(0xFFF6AE2D), Color(0xFF43AA8B), Color(0xFF9C4DCC), Color(0xFF00A6A6), Color(0xFFFF7F50), Color(0xFF6C6CD8), Color(0xFFD81B60), Color(0xFF8D6E63), Color(0xFF7CB342), Color(0xFFF3722C)];
@@ -46,7 +47,10 @@ class TrackScreen extends StatefulWidget {
   State<TrackScreen> createState() => _TrackScreenState();
 }
 
-class _TrackScreenState extends State<TrackScreen> {
+class _TrackScreenState extends State<TrackScreen> with RefreshOnReturn {
+  @override
+  Future<void> refreshData() => _load();
+
   final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   TrackData? _data;
   String? _error;
