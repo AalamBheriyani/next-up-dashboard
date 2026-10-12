@@ -82,4 +82,11 @@ void main() {
     expect(xp.appended.single.q, 'plan');
     expect(find.textContaining('not saved yet'), findsNothing);
   });
+
+  testWidgets('signed out, the Quest Log asks you to sign in rather than to add a sheet', (t) async {
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: QuestScreen(services: fakeServices(signedIn: false), config: const AppConfig(), now: () => now))));
+    await t.pump();
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Add it in Settings'), findsNothing);
+  });
 }

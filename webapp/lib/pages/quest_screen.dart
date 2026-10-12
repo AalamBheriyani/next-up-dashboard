@@ -76,7 +76,7 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
 
   Future<void> _load() async {
     if (widget.config.questSheetId.isEmpty) {
-      setState(() => _error = 'Add your XP Tracker sheet in Settings to use the Quest Log.');
+      setState(() => _error = widget.services.signedIn() ? 'Add your XP Tracker sheet in Settings to use the Quest Log.' : 'Sign in to use the Quest Log. XP from the timer is kept on this device until then.');
       return;
     }
     try {
@@ -204,7 +204,7 @@ class _QuestScreenState extends State<QuestScreen> with RefreshOnReturn {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load, onSettings: widget.config.questSheetId.isEmpty ? widget.onSettings : null);
+    if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load, onSettings: widget.config.questSheetId.isEmpty ? (widget.services.signedIn() ? widget.onSettings : widget.services.signIn) : null, signedOut: !widget.services.signedIn());
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final m = _model;
     final span = m.next - m.floor;
@@ -487,7 +487,8 @@ class _QuestButton extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message(this.text, {this.onRetry, this.onSettings});
+  const _Message(this.text, {this.onRetry, this.onSettings, this.signedOut = false});
+  final bool signedOut;
   final String text;
   final VoidCallback? onRetry, onSettings;
 
@@ -501,7 +502,7 @@ class _Message extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(text, style: TextStyle(color: NextUpColors.muted)),
             if (onRetry != null) Padding(padding: const EdgeInsets.only(top: 8), child: OutlinedButton(onPressed: onRetry, child: const Text('Try again'))),
-            if (onSettings != null) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: onSettings, child: const Text('Add it in Settings'))),
+            if (onSettings != null) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: onSettings, child: Text(signedOut ? 'Sign in' : 'Add it in Settings'))),
           ]),
         ),
       ]);

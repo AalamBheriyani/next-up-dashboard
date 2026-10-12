@@ -57,7 +57,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
 
   Future<void> _load() async {
     if (widget.config.sheetId.isEmpty) {
-      setState(() => _error = 'Add your Time Tracker sheet in Settings to see your adherence.');
+      setState(() => _error = widget.services.signedIn() ? 'Add your Time Tracker sheet in Settings to see your adherence.' : 'Sign in to see your adherence.');
       return;
     }
     try {
@@ -118,7 +118,11 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
         if (s != null) Reveal(index: 1, child: Text('${s.title}. Adherence counts only blocks you have rated.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.body))),
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_error!, style: TextStyle(color: NextUpColors.muted)), if (widget.onSettings != null && widget.config.sheetId.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.onSettings, child: const Text('Add it in Settings')))]))),
+        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_error!, style: TextStyle(color: NextUpColors.muted)), if (widget.config.sheetId.isEmpty)
+                    // Signed out, the sheet only looks missing: signing in brings the account's settings back.
+                    widget.services.signedIn()
+                        ? (widget.onSettings == null ? const SizedBox.shrink() : Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.onSettings, child: const Text('Add it in Settings'))))
+                        : Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.services.signIn, child: const Text('Sign in')))]))),
         if (s == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (s != null) ...[
           const SizedBox(height: 8),

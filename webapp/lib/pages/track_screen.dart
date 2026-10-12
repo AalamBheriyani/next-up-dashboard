@@ -95,7 +95,7 @@ class _TrackScreenState extends State<TrackScreen> with RefreshOnReturn {
 
   Future<void> _load() async {
     if (widget.config.sheetId.isEmpty) {
-      setState(() => _error = 'Add your Time Tracker sheet in Settings to start tracking.');
+      setState(() => _error = widget.services.signedIn() ? 'Add your Time Tracker sheet in Settings to start tracking.' : 'Sign in to track your time.');
       return;
     }
     try {
@@ -159,7 +159,11 @@ class _TrackScreenState extends State<TrackScreen> with RefreshOnReturn {
           if (d != null) CustomiseButton(editing: _editing),
         ])),
         if (_error != null)
-          Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_error!, style: TextStyle(color: NextUpColors.muted)), if (widget.onSettings != null && widget.config.sheetId.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.onSettings, child: const Text('Add it in Settings')))]))),
+          Padding(padding: const EdgeInsets.only(top: 12), child: Panel(title: 'Heads up', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_error!, style: TextStyle(color: NextUpColors.muted)), if (widget.config.sheetId.isEmpty)
+                    // Signed out, the sheet only looks missing: signing in brings the account's settings back.
+                    widget.services.signedIn()
+                        ? (widget.onSettings == null ? const SizedBox.shrink() : Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.onSettings, child: const Text('Add it in Settings'))))
+                        : Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton(onPressed: widget.services.signIn, child: const Text('Sign in')))]))),
         if (d == null && _error == null) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator())),
         if (d != null)
           PageBoard(
