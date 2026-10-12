@@ -53,13 +53,12 @@ class _ClockHeaderState extends State<ClockHeader> {
       spacing: 32,
       runSpacing: 12,
       children: [
-        Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 14, runSpacing: 4, children: [
           Text(DateFormat('h:mm a').format(now), style: const TextStyle(fontSize: NextUpType.clock, fontWeight: FontWeight.w800, height: 1, fontFeatures: monoFeatures)),
-          const SizedBox(width: 14),
-          Text(DateFormat('EEEE, MMMM d').format(now), style: muted),
+          Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(DateFormat('EEEE, MMMM d').format(now), style: muted)),
         ]),
         ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 260, maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 420),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (free != null) ...[
               _Card(label: free.title, value: free.value, fraction: free.fraction),
@@ -100,11 +99,16 @@ class _Card extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(color: NextUpColors.raised, borderRadius: BorderRadius.circular(10)),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: small)),
-          const SizedBox(width: 12),
-          Expanded(child: Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w600, fontFeatures: monoFeatures))),
-        ]),
+        // Label left, value right; on a narrow card the value goes under the label instead of squeezing it.
+        LayoutBuilder(builder: (context, box) {
+          final v = Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w600, fontFeatures: monoFeatures));
+          if (box.maxWidth < 330) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: small), const SizedBox(height: 2), v]);
+          return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: small)),
+            const SizedBox(width: 12),
+            Flexible(flex: 2, child: v),
+          ]);
+        }),
         const SizedBox(height: 8),
         GrowBar(value: fraction, color: NextUpColors.accent, height: 8, track: NextUpColors.line),
         if (from != null) ...[

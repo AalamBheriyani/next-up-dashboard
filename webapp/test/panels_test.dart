@@ -23,6 +23,19 @@ void main() {
   test('heat summary counts the streak back from today', () {
     final s = HeatSummary({'2026-10-10': 2, '2026-10-09': 1, '2026-10-07': 3}, now);
     expect((s.total, s.days, s.streak), (6, 3, 2));
+    // Nothing yet today: yesterday's streak still stands.
+    expect(HeatSummary({'2026-10-09': 1, '2026-10-08': 1}, now).streak, 2);
+  });
+
+  testWidgets('the heat grid fills a wide panel and shows fewer weeks on a narrow one', (tester) async {
+    Future<int> cellsAt(double width) async {
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: SizedBox(width: width, child: HeatGrid(counts: const {'2026-10-10': 3}, today: now))))));
+      return find.byType(Tooltip).evaluate().length;
+    }
+
+    expect(await cellsAt(1200), greaterThan(53 * 7 - 7)); // a full year
+    expect(await cellsAt(300), lessThan(30 * 7));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Anki shows total due and only decks with cards', (tester) async {

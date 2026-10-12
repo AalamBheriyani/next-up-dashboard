@@ -12,3 +12,6 @@ void clearHash() {}
 
 /// Leaves this page for [url] (the sign-in page).
 void navigateTo(String url) {}
+
+/// Shows [hash] after the '#' in the address without reloading or adding a history entry.
+void setHash(String hash) {}

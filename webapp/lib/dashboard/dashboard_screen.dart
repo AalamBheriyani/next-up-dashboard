@@ -208,13 +208,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: EdgeInsets.symmetric(horizontal: w >= 720 ? 28 : 16, vertical: 24),
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes)),
-                if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
-                if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
-                IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
-                IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
-              ]),
+              Builder(builder: (context) {
+                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes);
+                final tools = Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                  if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
+                  IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
+                  IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
+                ]);
+                // On a phone the buttons take their own line so the clock and date are never squeezed.
+                if (w < 600) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Align(alignment: Alignment.centerRight, child: tools), clock]);
+                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: clock), tools]);
+              }),
               const SizedBox(height: 20),
               if (_deadlineError != null && _deadlines == null) _Banner(message: _deadlineError!, onSignIn: _needsSignIn ? _signIn : null, onConnect: _notConnected && widget.deadlines is TickTickConnector ? _connect : null, onRetry: _load),
               if (!_editing && doNowTarget(_deadlines ?? const [], now) != null) ...[

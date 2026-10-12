@@ -36,6 +36,7 @@ class QuestScreen extends StatefulWidget {
 }
 
 class _QuestScreenState extends State<QuestScreen> {
+  final _editing = ValueNotifier(false); // shared by the header's customise button and the board
   List<Quest> _quests = defaultQuests;
   List<XpRow> _rows = [];
   XpSettings _settings = const XpSettings();
@@ -128,6 +129,12 @@ class _QuestScreenState extends State<QuestScreen> {
   }
 
   @override
+  void dispose() {
+    _editing.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_error != null && !_loaded) return _Message(_error!, onRetry: widget.config.questSheetId.isEmpty ? null : _load);
     if (!_loaded) return const Center(child: CircularProgressIndicator());
@@ -142,7 +149,9 @@ class _QuestScreenState extends State<QuestScreen> {
       duration: const Duration(milliseconds: 350),
       builder: (context, t, child) => Transform.translate(offset: Offset(math.sin(t * math.pi * 6) * (1 - t) * 6, 0), child: child),
       child: ListView(padding: const EdgeInsets.all(24), children: [
-      Align(alignment: Alignment.centerRight, child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Row(children: [
+        const Text('Quest Log', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
+        const Spacer(),
         IconButton(
           tooltip: _muted ? 'Turn sound on' : 'Turn sound off',
           icon: Icon(_muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20),
@@ -152,9 +161,11 @@ class _QuestScreenState extends State<QuestScreen> {
           },
         ),
         TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.questSheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open XP sheet')),
-      ])),
+        CustomiseButton(editing: _editing),
+      ]),
+      const SizedBox(height: 8),
       if (_note != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: AnimatedSwitcher(duration: motionFast, child: Text(_note!, key: ValueKey(_note), style: const TextStyle(color: _gold, fontWeight: FontWeight.w700)))),
-      PageBoard(layout: widget.layout, onLayout: widget.onLayout, items: [
+      PageBoard(editing: _editing, layout: widget.layout, onLayout: widget.onLayout, items: [
       BoardItem(id: 'quest-level', name: 'Level', span: 12, child: Reveal(
         child: Panel(
           title: 'Level ${m.level}',

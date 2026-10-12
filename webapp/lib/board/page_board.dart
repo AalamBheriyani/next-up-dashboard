@@ -7,8 +7,11 @@ import 'package:next_up_core/board_layout.dart';
 import 'widget_board.dart';
 
 class PageBoard extends StatefulWidget {
-  const PageBoard({super.key, required this.items, this.layout = const BoardLayout(), this.onLayout});
+  const PageBoard({super.key, required this.items, this.layout = const BoardLayout(), this.onLayout, this.editing});
   final List<BoardItem> items;
+
+  /// Shared with a [CustomiseButton] in the page's own header; without it the board shows its own button.
+  final ValueNotifier<bool>? editing;
 
   /// The whole account layout (every page); only this page's panels are read from it.
   final BoardLayout layout;
@@ -19,7 +22,10 @@ class PageBoard extends StatefulWidget {
 }
 
 class _PageBoardState extends State<PageBoard> {
-  bool _editing = false;
+  late final ValueNotifier<bool> _own = ValueNotifier(false);
+  ValueNotifier<bool> get _switch => widget.editing ?? _own;
+  bool get _editing => _switch.value;
+  set _editing(bool v) => _switch.value = v;
   late BoardLayout _layout = widget.layout;
 
   List<String> get _ids => [for (final i in widget.items) i.id];
@@ -29,6 +35,23 @@ class _PageBoardState extends State<PageBoard> {
     super.didUpdateWidget(old);
     // A layout arriving from the account replaces ours unless we're mid-edit.
     if (!_editing && old.layout != widget.layout) _layout = widget.layout;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _switch.addListener(_changed);
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _switch.removeListener(_changed);
+    _own.dispose();
+    super.dispose();
   }
 
   void _set(BoardLayout page) {
@@ -41,10 +64,7 @@ class _PageBoardState extends State<PageBoard> {
   Widget build(BuildContext context) {
     final mine = _layout.resolved(_ids);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Align(
-        alignment: Alignment.centerRight,
-        child: IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),
-      ),
+      if (widget.editing == null) Align(alignment: Alignment.centerRight, child: CustomiseButton(editing: _own)),
       if (_editing) ...[
         BoardBar(items: widget.items, layout: mine, onChanged: _set, onReset: () => _set(const BoardLayout()), onDone: () => setState(() => _editing = false)),
         const SizedBox(height: 16),
@@ -52,4 +72,20 @@ class _PageBoardState extends State<PageBoard> {
       WidgetBoard(items: widget.items, layout: mine, editing: _editing, onChanged: _set, onEdit: () => setState(() => _editing = true)),
     ]);
   }
+}
+
+/// The customise / done button, for a page header that shares its switch with a [PageBoard].
+class CustomiseButton extends StatelessWidget {
+  const CustomiseButton({super.key, required this.editing});
+  final ValueNotifier<bool> editing;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: editing,
+        builder: (context, on, _) => IconButton(
+          tooltip: on ? 'Done customising' : 'Customise panels',
+          onPressed: () => editing.value = !on,
+          icon: Icon(on ? Icons.check_rounded : Icons.dashboard_customize_outlined),
+        ),
+      );
 }

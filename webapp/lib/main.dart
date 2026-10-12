@@ -23,6 +23,7 @@ import 'dashboard/habits_panel.dart';
 import 'pages/lists_screen.dart';
 import 'pages/quest_screen.dart';
 import 'motion.dart';
+import 'platform/platform.dart';
 import 'scale.dart';
 import 'pages/adherence_screen.dart';
 import 'pages/settings_screen.dart';
@@ -39,7 +40,9 @@ void main() {
 final themeRevision = ValueNotifier<int>(0);
 
 class NextUpWeb extends StatelessWidget {
-  const NextUpWeb({super.key});
+  const NextUpWeb({super.key, this.services});
+  /// Replaced only by the local preview (lib/demo); the real site builds its own from the sign-in.
+  final Services? services;
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<int>(
@@ -50,15 +53,16 @@ class NextUpWeb extends StatelessWidget {
           theme: buildNextUpTheme(),
           themeMode: ThemeMode.dark,
           builder: (context, child) => ScaleToScreen(child: child!),
-          home: const Shell(),
+          home: Shell(services: services),
         ),
       );
 }
 
 /// A rail on wide screens and a bottom bar on narrow ones; pages ease in as you move between them.
 class Shell extends StatefulWidget {
-  const Shell({super.key, this.auth, this.services});
+  const Shell({super.key, this.auth, this.services, this.hash});
   final WebAuth? auth;
+  final String? hash; // tests pass the starting address
   final Services? services; // tests pass fakes
 
   @override
@@ -74,7 +78,8 @@ class _ShellState extends State<Shell> {
   // The focus timer lives here so it keeps running while you move between pages, and so a finished session
   // can earn XP and a running one can track your time.
   late final FocusController _focus = FocusController(store: _svc.store, hooks: FocusHooks(onFinished: _timerFinished, onFocusRunning: _followTimer));
-  int _page = 0;
+  // The page shows in the address (#track, #quests, ...) so a reload or a bookmark opens the same page.
+  late int _page = pageForHash(widget.hash ?? currentHash());
   // Bumped on sign-in or out so every page reloads.
   int _session = 0;
 
@@ -177,6 +182,11 @@ class _ShellState extends State<Shell> {
         _session++;
       });
 
+  void _go(int i) {
+    setState(() => _page = i);
+    setHash(pageHashes[i]);
+  }
+
   Future<void> _openClassic() => launchUrl(Uri.parse(classicSite));
 
   Widget _pageFor(int i) {
@@ -251,7 +261,7 @@ class _ShellState extends State<Shell> {
                 backgroundColor: NextUpColors.panel,
                 selectedIndex: _page,
                 labelType: NavigationRailLabelType.all,
-                onDestinationSelected: (i) => setState(() => _page = i),
+                onDestinationSelected: _go,
                 trailing: Expanded(
                   child: Align(
                     alignment: Alignment.bottomCenter,
@@ -271,11 +281,29 @@ class _ShellState extends State<Shell> {
           : page,
       bottomNavigationBar: wide
           ? null
-          : NavigationBar(
-              selectedIndex: _page,
-              onDestinationSelected: (i) => setState(() => _page = i),
-              destinations: [for (final d in destinations) NavigationDestination(icon: Icon(d.$1), label: d.$2)],
+          // Seven items share a phone's width, so the labels are short and small enough to stay on one line.
+          : NavigationBarTheme(
+              data: NavigationBarThemeData(labelTextStyle: WidgetStatePropertyAll(const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)), height: 64),
+              child: NavigationBar(
+                selectedIndex: _page,
+                onDestinationSelected: _go,
+                destinations: [for (final d in destinations) NavigationDestination(icon: Icon(d.$1), label: _short(d.$2), tooltip: d.$2)],
+              ),
             ),
     );
   }
+}
+
+/// 'DASHBOARD' -> 'Home', others in title case, for the phone's bottom bar.
+String _short(String label) => label == 'DASHBOARD' ? 'Home' : label[0] + label.substring(1).toLowerCase();
+
+/// Each page's name in the address, in the order of the navigation.
+const pageHashes = ['', 'deadlines', 'lists', 'track', 'adherence', 'quests', 'settings'];
+
+/// The page for an address like '#track' (or the current site's '#departures', '#hours', '#rate'); the dashboard otherwise.
+int pageForHash(String hash) {
+  final h = hash.replaceFirst(RegExp(r'^#/?'), '').toLowerCase();
+  const old = {'departures': 1, 'hours': 4, 'rate': 4};
+  final i = pageHashes.indexOf(h);
+  return i > 0 ? i : old[h] ?? 0;
 }
