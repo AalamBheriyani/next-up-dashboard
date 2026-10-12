@@ -22,8 +22,10 @@ const webScopes = <String>['openid', 'email', 'https://www.googleapis.com/auth/c
 const _sessionKey = 'nu.web.session';
 
 class WebAuth {
-  WebAuth({LocalStore? store, WorkerSession? server, String Function()? readHash, void Function()? clearAddressHash, void Function(String)? navigate})
-      : _store = store ?? openLocalStore(),
+  WebAuth({LocalStore? store, WorkerSession? server, String Function()? readHash, void Function()? clearAddressHash, void Function(String)? navigate, bool? native, void Function(Map<String, Object?>)? post, void Function(void Function(String?, int, String?))? listen})
+      : _native = native ?? inNativeApp,
+        _post = post ?? postNative,
+        _store = store ?? openLocalStore(),
         _server = server ?? WorkerSession(),
         _clearHash = clearAddressHash ?? clearHash,
         _navigate = navigate ?? navigateTo {
@@ -36,8 +38,12 @@ class WebAuth {
     final saved = _store.get(_sessionKey);
     _session = saved == null || saved.isEmpty ? null : saved;
     _permanent = _server.permanent();
+    if (_native) (listen ?? onNativeAuth)(_nativeAnswer);
   }
 
+  final bool _native; // inside the Android/iOS app, which signs in with Google natively
+  final void Function(Map<String, Object?>) _post;
+  Completer<void>? _nativeWait;
   final LocalStore _store;
   final WorkerSession _server;
   final void Function() _clearHash;
@@ -59,6 +65,12 @@ class WebAuth {
   bool get signedIn => _fresh || _session != null || (_token != null && DateTime.now().isBefore(_expires));
 
   Future<void> signIn() async {
+    // Google refuses sign-in inside an app's web view, so the app signs in and hands over an access token.
+    if (_native) {
+      final wait = _nativeWait = Completer<void>();
+      _post({'type': 'signin'});
+      return wait.future;
+    }
     if (await _permanent) {
       _navigate(_server.startUrl());
       return Completer<void>().future; // the page is leaving for Google; nothing more to do here
@@ -69,7 +81,20 @@ class WebAuth {
     _expires = DateTime.now().add(const Duration(minutes: 50)); // Google tokens last an hour
   }
 
+  void _nativeAnswer(String? token, int expiresIn, String? error) {
+    final wait = _nativeWait;
+    _nativeWait = null;
+    if (token != null && token.isNotEmpty) {
+      _token = token;
+      _expires = DateTime.now().add(Duration(seconds: expiresIn > 0 ? expiresIn : 3300));
+      wait?.complete();
+    } else {
+      wait?.completeError(Exception(error ?? 'Sign-in failed.'));
+    }
+  }
+
   void signOut() {
+    if (_native) _post({'type': 'signout'});
     final s = _session;
     _token = null;
     _session = null;

@@ -224,7 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     final c = widget.deadlines;
     if (c is! TickTickConnector) return;
     try {
-      await launchUrl(Uri.parse(await (c as TickTickConnector).connectUrl(back: 'beta')), webOnlyWindowName: '_self');
+      await launchUrl(Uri.parse(await (c as TickTickConnector).connectUrl()), webOnlyWindowName: '_self');
     } on SourceException catch (e) {
       if (mounted) setState(() => _deadlineError = e.message);
     }
@@ -428,7 +428,9 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
         child: Panel(
           title: 'Deadlines',
           trailing: Text('${sections.fold<int>(0, (n, s) => n + s.$3.length)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
-          child: _DeadlineList(sections: sections, now: now, onFinish: _finish, onEdit: widget.deadlines is DeadlineEditor ? _edit : null, loading: _deadlines == null),
+          child: _deadlines == null && _needsSignIn
+              ? Text('Sign in to see your deadlines.', style: TextStyle(color: NextUpColors.muted))
+              : _DeadlineList(sections: sections, now: now, onFinish: _finish, onEdit: widget.deadlines is DeadlineEditor ? _edit : null, loading: _deadlines == null),
         ),
       ),
       if (widget.ask != null)

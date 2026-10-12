@@ -20,7 +20,8 @@ from a Google Sheet. Two people use it (Aalam = owner, Aaliya), each with their 
 
 | Path | What | Notes |
 |---|---|---|
-| `docs/index.html` | The whole dashboard: HTML, CSS (one `<style>`), JS (one IIFE `<script>` at the end) | ~2400 lines. No build step, no framework. |
+| `webapp/` | The main site (Flutter web), published at the root | Shares models and theme with the app in `core/` |
+| `docs/index.html` | The old site, archived at `/classic/`: HTML, CSS (one `<style>`), JS (one IIFE `<script>` at the end) | ~2400 lines. No build step, no framework. |
 | `docs/quest.html`, `docs/xp.js` | Quest Log (XP) page and the shared XP writer | XP goes to the user's XP Tracker sheet |
 | `docs/config.js` | Public config: Google web client id, Worker URL | Not secret |
 | `worker/src/index.js` | Cloudflare Worker: auth, per-user settings, TickTick proxy, relay queue | One file. Durable Object class `Relay` holds all state |

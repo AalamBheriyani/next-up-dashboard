@@ -24,3 +24,12 @@ void vibrate() {}
 
 /// A system notification, shown only while the page is in the background.
 void notify(String title, String body) {}
+
+/// True inside the Android/iOS app, which wraps this site and signs in natively. Never outside the browser.
+bool get inNativeApp => false;
+
+/// Sends a message to the Android/iOS app around the page.
+void postNative(Map<String, Object?> msg) {}
+
+/// Where the app's native sign-in answers (an access token and its lifetime in seconds, or an error).
+void onNativeAuth(void Function(String? token, int expiresIn, String? error) handler) {}

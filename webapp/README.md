@@ -1,7 +1,8 @@
 # Next Up on the web (Flutter)
 
-The Flutter version of the website. It is published at `/next-up-dashboard/beta/` next to the current
-site, which stays at the root, so nothing breaks while pages move over one by one.
+The main website, published at the root of `/next-up-dashboard/`. The original site (`docs/`) is archived at
+`/next-up-dashboard/classic/`, and old `/beta/` links forward to the root. Inside the Android/iOS app it signs
+in through the app (the `NextUpNative` channel), because Google won't sign in inside a web view.
 
 Now:
 - **Dashboard**: clock and day progress, next deadline with a flip-clock countdown, Now and next from
@@ -27,7 +28,7 @@ real site, not on `localhost`.
 cd webapp
 flutter pub get
 flutter test
-flutter build web --release --no-web-resources-cdn --base-href /next-up-dashboard/beta/
+flutter build web --release --no-web-resources-cdn --base-href /next-up-dashboard/
 ```
 
 `.github/workflows/site.yml` builds it on every push to `main`.

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Builds the GitHub Pages site into $1: docs/ at the root, plus docs/ as it was at every version tag
-# under v/<tag>/, a version.json in each, and v/index.html listing them all.
+# Builds the GitHub Pages site into $1: the old site (docs/) archived at classic/, plus docs/ as it was at every
+# version tag under v/<tag>/, a version.json in each, and v/index.html listing them all. The Flutter site goes at
+# the root (site.yml builds it after this).
 set -euo pipefail
 out=${1:-_site}
-rm -rf "$out"; mkdir -p "$out/v"
+rm -rf "$out"; mkdir -p "$out/v" "$out/classic"
 cur=$(git tag --points-at HEAD -l 'v0.*' 'v[2-9]*' --sort=-v:refname | head -1)
-cp -r docs/. "$out/"
-printf '{"version":"%s","date":"%s"}\n' "${cur:-dev}" "$(git log -1 --format=%cs)" > "$out/version.json"
+cp -r docs/. "$out/classic/"
+printf '{"version":"%s","date":"%s"}\n' "${cur:-dev}" "$(git log -1 --format=%cs)" > "$out/classic/version.json"
 rows=""
 for t in $(git tag -l 'v0.*' 'v[2-9]*' --sort=-v:refname) $(git tag -l 'v1.*' --sort=-v:refname); do
   d=$(git log -1 --format=%cs "$t")

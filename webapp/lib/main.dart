@@ -1,5 +1,4 @@
-// Next Up on the web, built with Flutter. Published beside the current site (under /beta/) so nothing
-// breaks while it grows page by page. It shares its theme, deadline model and Today screen with the
+// Next Up on the web, built with Flutter: the main site. The old site is archived at /classic/. It shares its theme, deadline model and Today screen with the
 // phone app in ../core.
 import 'dart:async';
 import 'dart:convert';
@@ -15,7 +14,6 @@ import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/theme.dart';
 import 'package:next_up_core/today_screen.dart';
 import 'package:next_up_core/worker_api.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard/dashboard_screen.dart';
 import 'dashboard/deadline_editor.dart';
@@ -95,6 +93,7 @@ class _ShellState extends State<Shell> {
     super.initState();
     _focus.restore();
     _focus.addListener(_showTimerInTab);
+    if (inNativeApp) _focus.addListener(_tellAppAboutTimer);
     // Flutter resets the address as it starts; put the page's name back once it has.
     WidgetsBinding.instance.addPostFrameCallback((_) => Timer(const Duration(milliseconds: 300), () {
           if (mounted) setHash(pageHashes[_page]);
@@ -238,6 +237,17 @@ class _ShellState extends State<Shell> {
         _session++;
       });
 
+  // Inside the Android/iOS app, a native notification fires when the running session ends, even with the app
+  // closed; an end time of 0 cancels it.
+  int _toldEnd = -1;
+  void _tellAppAboutTimer() {
+    final end = _focus.endsAt?.millisecondsSinceEpoch ?? 0;
+    if (end == _toldEnd) return;
+    _toldEnd = end;
+    final focus = _focus.mode == FocusMode.focus;
+    postNative({'type': 'timer', 'end': end, 'title': focus ? 'Focus session done' : 'Break over', 'body': focus ? (_focus.label.isEmpty ? 'Time for a break.' : _focus.label) : 'Back to it.'});
+  }
+
   // While the focus timer runs, the browser tab shows the time left, so it can be seen from another tab.
   String _tab = '';
   void _showTimerInTab() {
@@ -252,7 +262,6 @@ class _ShellState extends State<Shell> {
     setHash(pageHashes[i]);
   }
 
-  Future<void> _openClassic() => launchUrl(Uri.parse(classicSite));
 
   Widget _pageFor(int i) {
     switch (i) {
@@ -338,7 +347,6 @@ class _ShellState extends State<Shell> {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        IconButton(tooltip: 'Open the current site', onPressed: _openClassic, icon: const Icon(Icons.open_in_new_rounded)),
                         IconButton(tooltip: 'Sign out', onPressed: _signOut, icon: const Icon(Icons.logout_rounded)),
                       ]),
                     ),
