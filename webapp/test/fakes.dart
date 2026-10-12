@@ -32,11 +32,13 @@ class FakeConfig implements ConfigSource {
   final saved = <String>[];
   final savedLayouts = <BoardLayout>[];
   final savedHours = <String>[];
+  final savedAccents = <String>[];
   @override
   Future<AppConfig> load() async => config;
   @override
   Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown}) async {
     if (layout != null) savedLayouts.add(layout);
+    if (accent != null) savedAccents.add(accent);
     if (wake != null || windDown != null) savedHours.add('$wake-$windDown');
     saved.add('$sheetId|$questSheetId');
     config = AppConfig(email: config.email, sheetId: sheetId ?? config.sheetId, questSheetId: questSheetId ?? config.questSheetId);

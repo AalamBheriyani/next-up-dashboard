@@ -46,4 +46,13 @@ void main() {
     final g = groupsFor(ListViewKind.list, all, now);
     expect(g.map((x) => x.title), ['Home', 'Uni', 'No list']);
   });
+
+  test('the week view has Overdue, then one box per day', () {
+    final g = groupsFor(ListViewKind.week, [d('late', const Duration(hours: -3)), d('today', const Duration(hours: 2)), d('fri', const Duration(days: 6))], now);
+    expect(g.map((x) => x.title), ['Overdue', 'Sat 10', 'Sun 11', 'Mon 12', 'Tue 13', 'Wed 14', 'Thu 15', 'Fri 16', 'Later']);
+    expect(g[0].items.single.id, 'late');
+    expect(g[1].items.single.id, 'today');
+    expect(g[1].hint, 'Today');
+    expect(g[7].items.single.id, 'fri');
+  });
 }
