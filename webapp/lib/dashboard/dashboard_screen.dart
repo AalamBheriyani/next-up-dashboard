@@ -124,6 +124,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     super.dispose();
   }
 
+  DateTime? _updatedAt; // when the last load finished, for the "updated" stamp
+
   Future<void> _load() async {
     if (!widget.signedIn()) {
       setState(() {
@@ -143,7 +145,12 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
       _guard(widget.calendar.load(start, start.add(const Duration(days: 7))), (c) => _events = c, (m) => _calendarError = m, 'Calendar failed to load.'),
       if (widget.hours != null) _loadHours(),
     ]);
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        if (_deadlineError == null || _calendarError == null) _updatedAt = _now();
+      });
+    }
   }
 
   // Only Ask Claude reads this, so a failure just leaves it out.
@@ -238,6 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
               Builder(builder: (context) {
                 final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes);
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (!_loading) UpdatedStamp(at: _updatedAt),
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                   if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),
                   IconButton(tooltip: _editing ? 'Done customising' : 'Customise panels', onPressed: () => setState(() => _editing = !_editing), icon: Icon(_editing ? Icons.check_rounded : Icons.dashboard_customize_outlined)),

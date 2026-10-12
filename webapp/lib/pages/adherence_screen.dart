@@ -52,6 +52,8 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
     _load();
   }
 
+  DateTime? _updatedAt;
+
   Future<void> _load() async {
     if (widget.config.sheetId.isEmpty) {
       setState(() => _error = 'Add your Time Tracker sheet in Settings to see your adherence.');
@@ -64,6 +66,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
         _summary = r[0] as HoursSummary;
         _blocks = blocksToRate(r[1] as List<List<String>>, _now());
         _error = null;
+        _updatedAt = _now();
       });
     } on SourceException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -109,6 +112,7 @@ class _AdherenceScreenState extends State<AdherenceScreen> with RefreshOnReturn 
           const Text('Adherence', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
           if (widget.config.sheetId.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(sheetLinkFor(widget.config.sheetId))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open sheet')),
+          UpdatedStamp(at: _updatedAt),
           if (s != null) CustomiseButton(editing: _editing),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),

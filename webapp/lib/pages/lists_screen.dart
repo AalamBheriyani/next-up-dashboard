@@ -64,6 +64,8 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
     _load();
   }
 
+  DateTime? _updatedAt;
+
   Future<void> _load() async {
     if (!widget.services.signedIn()) {
       setState(() => _error = 'Sign in to see your deadlines.');
@@ -75,6 +77,7 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
         setState(() {
           _all = all;
           _error = null;
+          _updatedAt = _now();
         });
       }
     } on SourceException catch (e) {
@@ -112,6 +115,7 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
         Reveal(child: Row(children: [
           const Text('Lists', style: TextStyle(fontSize: NextUpType.heading, fontWeight: FontWeight.w800)),
           const Spacer(),
+          UpdatedStamp(at: _updatedAt),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ])),
         const SizedBox(height: 8),

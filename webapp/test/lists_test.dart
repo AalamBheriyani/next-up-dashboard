@@ -29,6 +29,7 @@ void main() {
     expect(find.text('Essay'), findsOneWidget);
     final heights = {for (final b in t.widgetList(find.byType(DeadlineBox))) t.getSize(find.byWidget(b)).height};
     expect(heights, {deadlineBoxHeight}, reason: 'a box with 30 items is as tall as one with 1; long lists scroll');
+    expect(find.text('updated 12:00 PM'), findsOneWidget, reason: 'shows when the lists last loaded');
   });
 
   testWidgets('switching the view regroups the same deadlines', (t) async {

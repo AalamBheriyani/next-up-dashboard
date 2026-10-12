@@ -26,3 +26,17 @@ class Panel extends StatelessWidget {
     );
   }
 }
+
+/// "updated 1:42 PM" beside a page's refresh button, as the old site showed, so stale data is easy to spot.
+class UpdatedStamp extends StatelessWidget {
+  const UpdatedStamp({super.key, required this.at});
+  final DateTime? at;
+
+  @override
+  Widget build(BuildContext context) {
+    if (at == null) return const SizedBox.shrink();
+    final h = at!.hour % 12 == 0 ? 12 : at!.hour % 12;
+    final text = 'updated $h:${'${at!.minute}'.padLeft(2, '0')} ${at!.hour < 12 ? 'AM' : 'PM'}';
+    return Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(text, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)));
+  }
+}
