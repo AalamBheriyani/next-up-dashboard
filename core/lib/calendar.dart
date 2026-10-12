@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'deadline.dart';
 import 'deadline_source.dart';
 
 class CalendarEvent {
@@ -91,12 +92,34 @@ class DaySchedule {
       });
 }
 
+/// Puts events into Google Calendar ("Add to Calendar" on a deadline).
+abstract class CalendarWriter {
+  Future<void> add(Map<String, dynamic> event);
+}
+
+/// A deadline as a calendar event, like the old site: a timed one becomes a 1-hour block ending at its due
+/// time, an all-day one an all-day event on its date. The notes carry the task's notes and its list.
+Map<String, dynamic> eventForDeadline(Deadline d) {
+  String ymd(DateTime t) => '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+  final note = [if (d.notes.isNotEmpty) d.notes, 'From Next Up (TickTick: ${d.list.isEmpty ? 'Inbox' : d.list})'].join('\n\n');
+  if (d.allDay) {
+    final day = DateTime(d.due.year, d.due.month, d.due.day);
+    return {'summary': d.title, 'description': note, 'start': {'date': ymd(day)}, 'end': {'date': ymd(DateTime(day.year, day.month, day.day + 1))}};
+  }
+  return {
+    'summary': d.title,
+    'description': note,
+    'start': {'dateTime': d.due.subtract(const Duration(hours: 1)).toUtc().toIso8601String()},
+    'end': {'dateTime': d.due.toUtc().toIso8601String()},
+  };
+}
+
 abstract class CalendarSource {
   Future<List<CalendarEvent>> load(DateTime from, DateTime to);
 }
 
 /// Reads the primary calendar with a Google access token.
-class GoogleCalendarSource implements CalendarSource {
+class GoogleCalendarSource implements CalendarSource, CalendarWriter {
   GoogleCalendarSource(this.token);
   final Future<String?> Function() token;
 
@@ -124,5 +147,20 @@ class GoogleCalendarSource implements CalendarSource {
     return [
       for (final e in (data['items'] as List? ?? const [])) ?CalendarEvent.fromJson(e as Map<String, dynamic>),
     ];
+  }
+
+  @override
+  Future<void> add(Map<String, dynamic> event) async {
+    final t = await token();
+    if (t == null) throw SourceException('Sign in to add it to your calendar.', signedOut: true);
+    http.Response res;
+    try {
+      res = await http.post(Uri.https('www.googleapis.com', '/calendar/v3/calendars/primary/events'), headers: {'Authorization': 'Bearer $t', 'Content-Type': 'application/json'}, body: jsonEncode(event));
+    } on http.ClientException {
+      throw SourceException("Can't reach Google Calendar. Check your connection.");
+    }
+    if (res.statusCode == 401) throw SourceException('Your sign-in expired. Sign in again.', signedOut: true);
+    if (res.statusCode == 403) throw SourceException('Sign in again and allow calendar access to add events.', signedOut: true);
+    if (res.statusCode >= 400) throw SourceException("Couldn't add it to Google Calendar (${res.statusCode}).");
   }
 }

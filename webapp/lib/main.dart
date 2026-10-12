@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:next_up_core/ask_claude.dart';
+import 'package:next_up_core/calendar.dart' show CalendarWriter;
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
@@ -171,7 +172,7 @@ class _ShellState extends State<Shell> {
   Future<void> _editDeadline(Deadline d) async {
     final editor = _svc.deadlines;
     if (editor is! DeadlineEditor) return;
-    if (await showDeadlineEditor(context, editor as DeadlineEditor, d: d)) setState(() => _session++);
+    if (await showDeadlineEditor(context, editor as DeadlineEditor, d: d, calendar: _svc.calendar is CalendarWriter ? _svc.calendar as CalendarWriter : null)) setState(() => _session++);
   }
 
   /// Keeps the config and applies its accent and deadline colour to the whole app.

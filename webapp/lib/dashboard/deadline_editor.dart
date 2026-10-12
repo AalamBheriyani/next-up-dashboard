@@ -1,6 +1,7 @@
 // Edit a deadline beyond marking it done: rename it, move the day, change its priority, or delete it.
 // These are the changes TickTick's API allows; the same sheet also adds a new deadline.
 import 'package:flutter/material.dart';
+import 'package:next_up_core/calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
@@ -11,7 +12,7 @@ import '../motion.dart';
 const _priorities = [(0, 'None'), (1, 'Low'), (3, 'Medium'), (5, 'High')];
 
 /// Shows the editor for [d], or the "add" form when [d] is null. Returns true when something changed.
-Future<bool> showDeadlineEditor(BuildContext context, DeadlineEditor editor, {Deadline? d, DateTime Function()? now}) async {
+Future<bool> showDeadlineEditor(BuildContext context, DeadlineEditor editor, {Deadline? d, DateTime Function()? now, CalendarWriter? calendar}) async {
   final changed = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -19,15 +20,16 @@ Future<bool> showDeadlineEditor(BuildContext context, DeadlineEditor editor, {De
     showDragHandle: true,
     builder: (_) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: _EditorSheet(editor: editor, d: d, now: now ?? DateTime.now),
+      child: _EditorSheet(editor: editor, d: d, now: now ?? DateTime.now, calendar: calendar),
     ),
   );
   return changed ?? false;
 }
 
 class _EditorSheet extends StatefulWidget {
-  const _EditorSheet({required this.editor, required this.d, required this.now});
+  const _EditorSheet({required this.editor, required this.d, required this.now, this.calendar});
   final DeadlineEditor editor;
+  final CalendarWriter? calendar; // for "Add to Calendar"; null hides it
   final Deadline? d;
   final DateTime Function() now;
 
@@ -39,7 +41,7 @@ class _EditorSheetState extends State<_EditorSheet> {
   late final _title = TextEditingController(text: widget.d?.title ?? '');
   late DateTime? _day = widget.d == null ? null : DateTime(widget.d!.due.year, widget.d!.due.month, widget.d!.due.day);
   late int _priority = widget.d?.priority ?? 0;
-  bool _busy = false, _confirmDelete = false;
+  bool _busy = false, _confirmDelete = false, _added = false;
   String? _error;
 
   @override
@@ -81,6 +83,22 @@ class _EditorSheetState extends State<_EditorSheet> {
         title: title == d.title ? null : title, day: sameDay ? null : _day, priority: _priority == d.priority ? null : _priority));
   }
 
+  /// Puts the deadline into Google Calendar so it can be scheduled; the sheet stays open.
+  Future<void> _addToCalendar() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.calendar!.add(eventForDeadline(widget.d!));
+      if (mounted) setState(() => _added = true);
+    } on SourceException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _pick() async {
     final picked = await showDatePicker(context: context, initialDate: _day ?? _today, firstDate: DateTime(2020), lastDate: DateTime(2100));
     if (picked != null) setState(() => _day = picked);
@@ -118,6 +136,14 @@ class _EditorSheetState extends State<_EditorSheet> {
               duration: motionFast,
               child: _error == null ? const SizedBox(width: double.infinity) : Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: TextStyle(color: NextUpColors.deadline))),
             ),
+            if (!adding && widget.calendar != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _busy || _added ? null : _addToCalendar,
+                icon: Icon(_added ? Icons.check_rounded : Icons.event_available_outlined, size: 18),
+                label: Text(_added ? 'In your calendar' : (widget.d!.allDay ? 'Add to Calendar (all day)' : 'Add to Calendar (the hour before it is due)')),
+              ),
+            ],
             const SizedBox(height: 20),
             Row(children: [
               if (!adding)

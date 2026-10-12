@@ -141,11 +141,16 @@ class _Deadlines implements DeadlineSource, DeadlineEditor {
   }
 }
 
-class _Calendar implements CalendarSource {
+class _Calendar implements CalendarSource, CalendarWriter {
   _Calendar(this.events);
   final List<CalendarEvent> events;
   @override
   Future<List<CalendarEvent>> load(DateTime from, DateTime to) async => [for (final e in events) if (e.end.isAfter(from) && e.start.isBefore(to)) e];
+  @override
+  Future<void> add(Map<String, dynamic> event) async {
+    final e = CalendarEvent.fromJson({...event, 'id': 'new${events.length}'});
+    if (e != null) events.add(e);
+  }
 }
 
 class _Config implements ConfigSource {
