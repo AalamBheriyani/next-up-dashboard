@@ -49,7 +49,7 @@ class _PageBoardState extends State<PageBoard> {
         BoardBar(items: widget.items, layout: mine, onChanged: _set, onReset: () => _set(const BoardLayout()), onDone: () => setState(() => _editing = false)),
         const SizedBox(height: 16),
       ],
-      WidgetBoard(items: widget.items, layout: mine, editing: _editing, onChanged: _set),
+      WidgetBoard(items: widget.items, layout: mine, editing: _editing, onChanged: _set, onEdit: () => setState(() => _editing = true)),
     ]);
   }
 }

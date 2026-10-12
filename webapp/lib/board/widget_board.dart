@@ -34,11 +34,13 @@ double autoScrollSpeed(double y, double top, double bottom, {double edge = 90, d
 }
 
 class WidgetBoard extends StatefulWidget {
-  const WidgetBoard({super.key, required this.items, required this.layout, required this.editing, required this.onChanged});
+  const WidgetBoard({super.key, required this.items, required this.layout, required this.editing, required this.onChanged, this.onEdit});
   final List<BoardItem> items;
   final BoardLayout layout;
   final bool editing;
   final ValueChanged<BoardLayout> onChanged;
+  /// Asked to start customising when a panel is held (Android-style); null leaves long-press alone.
+  final VoidCallback? onEdit;
 
   @override
   State<WidgetBoard> createState() => _WidgetBoardState();
@@ -74,7 +76,23 @@ class _WidgetBoardState extends State<WidgetBoard> {
 
   void _drag(bool on) {
     _dragging = on;
+    _over = null;
     if (!on) _stop();
+  }
+
+  // Moving a held panel over another one swaps their places at once, once per visit, so the others reflow
+  // while you drag. Passing over the held panel's own slot lets you go back.
+  String? _over;
+  void _hover(String dragged, String target) {
+    if (dragged == target) {
+      _over = null;
+      return;
+    }
+    if (_over == target) return;
+    _over = target;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onChanged(layout.resolved([for (final i in items) i.id]).moveTo(dragged, target));
+    });
   }
 
   @override
@@ -93,7 +111,6 @@ class _WidgetBoardState extends State<WidgetBoard> {
     final byId = {for (final i in items) i.id: i};
     final l = layout.resolved([for (final i in items) i.id]);
     final shown = [for (final id in l.order) if (editing || !l.isHidden(id)) byId[id]!];
-    final visibleIds = [for (final i in shown) if (!l.isHidden(i.id)) i.id];
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth;
       double widthFor(int cols) => ((w - boardGap * 11) / 12 * cols + boardGap * (cols - 1)).floorToDouble();
@@ -112,11 +129,12 @@ class _WidgetBoardState extends State<WidgetBoard> {
               item: item,
               layout: l,
               editing: editing,
-              visibleIds: visibleIds,
               span: l.spanOf(item.id, item.span),
               boardWidth: w,
               onChanged: onChanged,
               onDrag: _drag,
+              onHover: _hover,
+              onEdit: widget.onEdit,
             ),
           ),
         ]),
@@ -126,25 +144,56 @@ class _WidgetBoardState extends State<WidgetBoard> {
 }
 
 class _Tile extends StatefulWidget {
-  const _Tile({required this.item, required this.layout, required this.editing, required this.visibleIds, required this.span, required this.boardWidth, required this.onChanged, required this.onDrag});
+  const _Tile({required this.item, required this.layout, required this.editing, required this.span, required this.boardWidth, required this.onChanged, required this.onDrag, required this.onHover, this.onEdit});
   final BoardItem item;
   final BoardLayout layout;
   final bool editing;
-  final List<String> visibleIds;
   final int span;
   final double boardWidth;
   final ValueChanged<BoardLayout> onChanged;
   final ValueChanged<bool> onDrag;
+  /// A dragged panel ([String] 1) is over this one ([String] 2): the board makes room.
+  final void Function(String dragged, String over) onHover;
+  /// Long-pressing a panel outside customise mode starts customising, as holding a widget does on Android.
+  final VoidCallback? onEdit;
 
   @override
   State<_Tile> createState() => _TileState();
 }
 
-class _TileState extends State<_Tile> {
-  bool _over = false;
+class _TileState extends State<_Tile> with SingleTickerProviderStateMixin {
+  // The small wiggle that says "these can be moved", like Android's home screen.
+  late final AnimationController _wiggle = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
   double _startW = 0, _startH = 0;
   Offset _acc = Offset.zero;
   String? _badge;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_Tile old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  void _sync() {
+    if (widget.editing && !reduceMotion(context)) {
+      if (!_wiggle.isAnimating) _wiggle.repeat(reverse: true);
+    } else {
+      _wiggle.stop();
+      _wiggle.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _wiggle.dispose();
+    super.dispose();
+  }
 
   /// Drag the corner: width snaps to the nearest of the allowed shares, height to compact, medium or tall
   /// (drag back up past compact for automatic height), as on the current site.
@@ -176,113 +225,106 @@ class _TileState extends State<_Tile> {
   @override
   Widget build(BuildContext context) {
     final id = widget.item.id;
-    final hidden = widget.layout.isHidden(id);
-    final h = _heightPx[widget.layout.height[id]];
+    final layout = widget.layout;
+    final hidden = layout.isHidden(id);
+    final h = _heightPx[layout.height[id]];
     Widget body = widget.item.child;
     if (h != null) body = SizedBox(height: h, child: SingleChildScrollView(child: body));
-    if (!widget.editing) return body;
+    if (!widget.editing) return widget.onEdit == null ? body : GestureDetector(behavior: HitTestBehavior.translucent, onLongPress: widget.onEdit, child: body);
 
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (d) {
-        final ok = d.data != id;
-        if (ok) setState(() => _over = true);
-        return ok;
-      },
-      onLeave: (_) => setState(() => _over = false),
-      onAcceptWithDetails: (d) {
-        setState(() => _over = false);
-        widget.onChanged(widget.layout.moveTo(d.data, id));
-      },
-      builder: (context, _, _) => AnimatedOpacity(
-        duration: motionFast,
-        opacity: hidden ? .4 : 1,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: NextUpColors.accent.withValues(alpha: _over ? 1 : .6), width: _over ? 3 : 1.5),
-          ),
-          padding: const EdgeInsets.all(4),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            _Tools(item: widget.item, layout: widget.layout, visibleIds: widget.visibleIds, span: widget.span, onChanged: widget.onChanged, onDrag: widget.onDrag),
-            const SizedBox(height: 4),
-            Stack(children: [
-              IgnorePointer(child: body),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanStart: (_) => _resizeStart(),
-                  onPanUpdate: (d) {
-                    _acc += d.delta;
-                    _resize(_acc);
-                  },
-                  onPanEnd: (_) => setState(() => _badge = null),
-                  child: MouseRegion(cursor: SystemMouseCursors.resizeDownRight, child: Container(width: 36, height: 36, alignment: Alignment.bottomRight, padding: const EdgeInsets.all(6), child: Icon(Icons.south_east_rounded, size: 18, color: NextUpColors.accent))),
-                ),
-              ),
-              if (_badge != null) Positioned(left: 8, bottom: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(8)), child: Text(_badge!, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white)))),
+    Widget pill(Widget child) => Material(color: NextUpColors.panel.withValues(alpha: .92), shape: const StadiumBorder(), elevation: 2, child: child);
+    final tile = Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: NextUpColors.accent.withValues(alpha: .6), width: 1.5)),
+      padding: const EdgeInsets.all(4),
+      child: Stack(children: [
+        AnimatedOpacity(duration: motionFast, opacity: hidden ? .35 : 1, child: IgnorePointer(child: body)),
+        Positioned(
+          left: 8,
+          top: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(20)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.open_with_rounded, size: 14, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(widget.item.name, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white)),
             ]),
+          ),
+        ),
+        Positioned(
+          right: 8,
+          top: 8,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            pill(PopupMenuButton<String>(
+              tooltip: 'Size',
+              padding: EdgeInsets.zero,
+              icon: Icon(Icons.aspect_ratio_rounded, size: 18, color: NextUpColors.muted),
+              onSelected: (v) {
+                final l = v.startsWith('w') ? layout.withSpan(id, int.parse(v.substring(1))) : layout.withHeight(id, v == 'h' ? null : v.substring(1));
+                widget.onChanged(l);
+              },
+              itemBuilder: (_) => [
+                for (final e in _spanNames.entries) CheckedPopupMenuItem(value: 'w${e.key}', checked: e.key == widget.span, child: Text(e.value)),
+                const PopupMenuDivider(),
+                for (final e in _heightNames.entries) CheckedPopupMenuItem(value: e.key == null ? 'h' : 'h${e.key}', checked: layout.height[id] == e.key, child: Text(e.value)),
+              ],
+            )),
+            const SizedBox(width: 6),
+            pill(IconButton(
+              tooltip: hidden ? 'Show' : 'Hide',
+              onPressed: () => widget.onChanged(layout.toggleHidden(id)),
+              visualDensity: VisualDensity.compact,
+              icon: Icon(hidden ? Icons.visibility_outlined : Icons.close_rounded, size: 18, color: NextUpColors.muted),
+            )),
           ]),
         ),
-      ),
-    );
-  }
-}
-
-/// The strip above a panel in edit mode: drag handle, earlier/later, width, height, hide.
-class _Tools extends StatelessWidget {
-  const _Tools({required this.item, required this.layout, required this.visibleIds, required this.span, required this.onChanged, required this.onDrag});
-  final BoardItem item;
-  final BoardLayout layout;
-  final List<String> visibleIds;
-  final int span;
-  final ValueChanged<BoardLayout> onChanged;
-  final ValueChanged<bool> onDrag;
-
-  @override
-  Widget build(BuildContext context) {
-    final id = item.id;
-    final hidden = layout.isHidden(id);
-    Widget icon(IconData i, String tip, VoidCallback? f) => IconButton(tooltip: tip, onPressed: f, icon: Icon(i, size: 18), visualDensity: VisualDensity.compact, color: NextUpColors.muted);
-    return Container(
-      decoration: BoxDecoration(color: NextUpColors.raised, borderRadius: BorderRadius.circular(14)),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(children: [
-        LongPressDraggable<String>(
-          data: id,
-          delay: const Duration(milliseconds: 120),
-          onDragStarted: () => onDrag(true),
-          onDragEnd: (_) => onDrag(false),
-          feedback: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(blurRadius: 24, color: Colors.black54)]),
-              child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
-            ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => _resizeStart(),
+            onPanUpdate: (d) {
+              _acc += d.delta;
+              _resize(_acc);
+            },
+            onPanEnd: (_) => setState(() => _badge = null),
+            child: MouseRegion(cursor: SystemMouseCursors.resizeDownRight, child: Container(width: 40, height: 40, alignment: Alignment.bottomRight, padding: const EdgeInsets.all(8), child: Icon(Icons.south_east_rounded, size: 20, color: NextUpColors.accent))),
           ),
-          child: Tooltip(message: 'Hold and drag to move', child: Padding(padding: const EdgeInsets.all(8), child: Icon(Icons.drag_indicator_rounded, size: 20, color: NextUpColors.muted))),
         ),
-        Expanded(child: Text(item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700))),
-        icon(Icons.arrow_back_rounded, 'Move earlier', hidden ? null : () => onChanged(layout.step(id, -1, visibleIds))),
-        icon(Icons.arrow_forward_rounded, 'Move later', hidden ? null : () => onChanged(layout.step(id, 1, visibleIds))),
-        PopupMenuButton<int>(
-          tooltip: 'Width',
-          icon: Icon(Icons.width_normal_rounded, size: 18, color: NextUpColors.muted),
-          initialValue: span,
-          onSelected: (s) => onChanged(layout.withSpan(id, s)),
-          itemBuilder: (_) => [for (final e in _spanNames.entries) PopupMenuItem(value: e.key, child: Text(e.value))],
-        ),
-        PopupMenuButton<String>(
-          tooltip: 'Height',
-          icon: Icon(Icons.height_rounded, size: 18, color: NextUpColors.muted),
-          initialValue: layout.height[id] ?? '',
-          onSelected: (s) => onChanged(layout.withHeight(id, s.isEmpty ? null : s)),
-          itemBuilder: (_) => [for (final e in _heightNames.entries) PopupMenuItem(value: e.key ?? '', child: Text(e.value))],
-        ),
-        icon(hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined, hidden ? 'Show' : 'Hide', () => onChanged(layout.toggleHidden(id))),
+        if (_badge != null) Positioned(left: 8, bottom: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(8)), child: Text(_badge!, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w700, color: Colors.white)))),
       ]),
+    );
+
+    // Hold anywhere on the panel and drag; the others move aside as you go over them.
+    final draggable = LongPressDraggable<String>(
+      data: id,
+      delay: const Duration(milliseconds: 150),
+      hapticFeedbackOnStart: true,
+      hitTestBehavior: HitTestBehavior.opaque,
+      onDragStarted: () => widget.onDrag(true),
+      onDragEnd: (_) => widget.onDrag(false),
+      childWhenDragging: Opacity(opacity: .3, child: tile),
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(color: NextUpColors.accent, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(blurRadius: 28, color: Colors.black54)]),
+          child: Text(widget.item.name, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+        ),
+      ),
+      child: tile,
+    );
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (d) {
+        widget.onHover(d.data, id);
+        return false;
+      },
+      builder: (context, _, _) => AnimatedBuilder(
+        animation: _wiggle,
+        builder: (context, child) => Transform.rotate(angle: (_wiggle.value - .5) * .006, child: child),
+        child: draggable,
+      ),
     );
   }
 }
@@ -303,7 +345,7 @@ class BoardBar extends StatelessWidget {
       decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: NextUpColors.accent.withValues(alpha: .6))),
       child: Wrap(spacing: 10, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
         const Text('Customising:', style: TextStyle(fontWeight: FontWeight.w800)),
-        Text('hold ⠿ and drag a panel, or use the arrows and menus.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+        Text('hold a panel and drag it, pull the corner to resize, ✕ hides.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
         for (final i in hidden) ActionChip(label: Text('+ ${i.name}'), onPressed: () => onChanged(layout.toggleHidden(i.id))),
         OutlinedButton(onPressed: onReset, child: const Text('Reset layout')),
         FilledButton(onPressed: onDone, child: const Text('Done')),

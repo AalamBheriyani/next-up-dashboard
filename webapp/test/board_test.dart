@@ -6,9 +6,9 @@ import 'package:next_up_web/board/widget_board.dart';
 void main() {
   resizeTests();
   const items = [
-    BoardItem(id: 'a', name: 'Alpha', span: 6, child: SizedBox(height: 50, child: Text('A body'))),
-    BoardItem(id: 'b', name: 'Beta', span: 6, child: SizedBox(height: 50, child: Text('B body'))),
-    BoardItem(id: 'c', name: 'Gamma', span: 12, child: SizedBox(height: 50, child: Text('C body'))),
+    BoardItem(id: 'a', name: 'Alpha', span: 6, child: SizedBox(height: 160, child: Text('A body'))),
+    BoardItem(id: 'b', name: 'Beta', span: 6, child: SizedBox(height: 160, child: Text('B body'))),
+    BoardItem(id: 'c', name: 'Gamma', span: 12, child: SizedBox(height: 160, child: Text('C body'))),
   ];
 
   Future<BoardLayout> pump(WidgetTester t, {required double width, BoardLayout layout = const BoardLayout(), bool editing = false, ValueChanged<BoardLayout>? onChanged}) async {
@@ -49,22 +49,43 @@ void main() {
     expect(find.text('B body'), findsOneWidget);
   });
 
-  testWidgets('arrows reorder and the menu hides a panel', (t) async {
+  testWidgets('holding a panel and dragging it over another swaps their places', (t) async {
     final saved = <BoardLayout>[];
     await pump(t, width: 1400, editing: true, onChanged: saved.add);
-    await t.tap(find.byTooltip('Move later').first);
+    final g = await t.startGesture(t.getCenter(find.text('Alpha')));
+    await t.pump(const Duration(milliseconds: 400));
+    await g.moveTo(t.getCenter(find.text('Beta')));
+    await t.pump(const Duration(milliseconds: 200));
+    await t.pump(const Duration(milliseconds: 200));
+    await g.up();
     await t.pump(const Duration(seconds: 1));
     expect(saved.last.order, ['b', 'a', 'c']);
+  });
+
+  testWidgets('the cross hides a panel', (t) async {
+    final saved = <BoardLayout>[];
+    await pump(t, width: 1400, editing: true, onChanged: saved.add);
     await t.tap(find.byTooltip('Hide').last);
     await t.pump(const Duration(seconds: 1));
     expect(saved.last.hidden, ['c']);
   });
 
-  testWidgets('width menu changes a panel to full width', (t) async {
+  testWidgets('holding a panel outside customise mode asks to start customising', (t) async {
+    var asked = 0;
+    t.view.physicalSize = const Size(1400, 1200);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: WidgetBoard(items: items, layout: const BoardLayout(), editing: false, onChanged: (_) {}, onEdit: () => asked++)))));
+    await t.longPress(find.text('A body'));
+    expect(asked, 1);
+  });
+
+  testWidgets('the size menu changes a panel to full width', (t) async {
     final saved = <BoardLayout>[];
     await pump(t, width: 1400, editing: true, onChanged: saved.add);
-    await t.tap(find.byTooltip('Width').first);
-    await t.pumpAndSettle();
+    await t.tap(find.byTooltip('Size').first);
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
     expect(find.text('Full width'), findsWidgets);
     await t.tap(find.text('Full width').last);
     await t.pump(const Duration(seconds: 1));
