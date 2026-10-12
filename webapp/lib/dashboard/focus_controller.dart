@@ -78,6 +78,19 @@ class FocusController extends ChangeNotifier {
 
   void reset() => setMode(mode);
 
+  /// Ends this session early and moves on to the next one (focus to a break, a break to focus), with no XP
+  /// and no count, as the old site's Skip did.
+  void skip() {
+    final wasFocus = mode == FocusMode.focus;
+    _halt();
+    if (wasFocus) hooks.onFocusRunning?.call(false, label);
+    mode = wasFocus ? ((done + 1) % every == 0 ? FocusMode.longBreak : FocusMode.shortBreak) : FocusMode.focus;
+    label = '';
+    _left = _duration(mode);
+    _save();
+    notifyListeners();
+  }
+
   /// Moves the time left by whole minutes (1 to 60), as the arrow keys on the old site's dial did.
   void nudge(int minutes) {
     final m = ((left.inSeconds + 59) ~/ 60 + minutes).clamp(1, 60);

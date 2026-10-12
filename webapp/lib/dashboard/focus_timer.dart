@@ -107,10 +107,10 @@ class TimerBody extends StatelessWidget {
         ),
       ),
       SizedBox(height: 14 * k),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 4, children: [
         FilledButton(onPressed: c.running ? c.pause : c.start, child: Text(c.running ? 'Pause' : 'Start')),
-        const SizedBox(width: 8),
         OutlinedButton(onPressed: c.reset, child: const Text('Reset')),
+        TextButton(onPressed: c.skip, child: const Text('Skip')),
       ]),
     ]);
   }

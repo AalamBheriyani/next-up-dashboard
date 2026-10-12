@@ -81,8 +81,7 @@ class _TodayScreenState extends State<TodayScreen> {
     setState(() => _items = before?.where((x) => x.id != d.id).toList());
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await widget.source.complete(d);
-      messenger.showSnackBar(SnackBar(content: Text('Done: ${d.title}')));
+      if (!await finishWithUndo(messenger, widget.source, d) && mounted) setState(() => _items = [...?_items, d]);
     } on SourceException catch (e) {
       if (mounted) setState(() => _items = before);
       messenger.showSnackBar(SnackBar(content: Text("Couldn't finish it. ${e.message}")));
@@ -324,4 +323,19 @@ class _Empty extends StatelessWidget {
         padding: EdgeInsets.only(top: 80),
         child: Center(child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted))),
       );
+}
+
+/// Shows "Done" with an Undo for a few seconds and only then finishes [d] in TickTick, so a slip of the
+/// finger costs nothing. Returns false when Undo was tapped. Throws [SourceException] if finishing fails.
+Future<bool> finishWithUndo(ScaffoldMessengerState messenger, DeadlineSource source, Deadline d) async {
+  messenger.hideCurrentSnackBar();
+  final bar = messenger.showSnackBar(SnackBar(
+    content: Text('Done: ${d.title}'),
+    duration: const Duration(seconds: 4),
+    persist: false, // with an action it would otherwise stay up and the task never finish
+    action: SnackBarAction(label: 'Undo', onPressed: () {}),
+  ));
+  if (await bar.closed == SnackBarClosedReason.action) return false;
+  await source.complete(d);
+  return true;
 }

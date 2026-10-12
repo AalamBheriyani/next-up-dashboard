@@ -74,6 +74,18 @@ void main() {
     c.dispose();
   });
 
+  test('skip moves to the next session without counting it', () {
+    final c = FocusController();
+    c.start();
+    c.skip();
+    expect(c.mode, FocusMode.shortBreak);
+    expect(c.running, isFalse);
+    expect(c.done, 0);
+    c.skip();
+    expect(c.mode, FocusMode.focus);
+    c.dispose();
+  });
+
   test('nudging moves the time left by whole minutes, between 1 and 60', () {
     final c = FocusController();
     c.nudge(1);

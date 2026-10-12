@@ -6,6 +6,7 @@ import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/list_views.dart';
 import 'package:next_up_core/theme.dart';
+import 'package:next_up_core/today_screen.dart' show finishWithUndo;
 
 import '../dashboard/deadline_box.dart';
 import '../dashboard/panel.dart';
@@ -58,8 +59,7 @@ class _ListsScreenState extends State<ListsScreen> {
     setState(() => _all = before?.where((x) => x.id != d.id).toList());
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await widget.services.deadlines.complete(d);
-      messenger.showSnackBar(SnackBar(content: Text('Done: ${d.title}')));
+      if (!await finishWithUndo(messenger, widget.services.deadlines, d) && mounted) setState(() => _all = [...?_all, d]);
     } on SourceException catch (e) {
       if (mounted) setState(() => _all = before);
       messenger.showSnackBar(SnackBar(content: Text("Couldn't finish it. ${e.message}")));

@@ -1,6 +1,7 @@
 // Track: tap what you are doing, see the day as a timeline next to your calendar plan, and watch
 // totals against daily and weekly targets. Everything lives in the Tracked tab of your Time Tracker sheet.
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -53,7 +54,19 @@ class _TrackScreenState extends State<TrackScreen> {
   int _dayOffset = 0;
   bool _week = false;
   final Map<int, List<CalendarEvent>> _plan = {};
-  final Set<String> _hit = {};
+  // Targets already celebrated, kept on this device so the confetti fires once per day or week, not on
+  // every visit (the old site's track.hit).
+  late final Set<String> _hit = _loadHits();
+  static const _hitKey = 'track.hit';
+
+  Set<String> _loadHits() {
+    try {
+      final j = jsonDecode(widget.services.store.get(_hitKey) ?? '[]');
+      return {if (j is List) ...j.whereType<String>()};
+    } catch (_) {
+      return {};
+    }
+  }
   Timer? _tick;
 
   DateTime _now() => (widget.now ?? DateTime.now)();
@@ -206,6 +219,8 @@ class _TrackScreenState extends State<TrackScreen> {
     final hit = targetMs > 0 && v.inMilliseconds >= targetMs;
     final key = '${_week ? 'w' : 'd'}${from.toIso8601String()}|$cat';
     if (hit && _hit.add(key)) {
+      final keep = _hit.toList();
+      widget.services.store.set(_hitKey, jsonEncode(keep.sublist(keep.length > 40 ? keep.length - 40 : 0)));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         showConfetti(context);

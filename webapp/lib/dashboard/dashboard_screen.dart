@@ -186,8 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _deadlines = before?.where((x) => x.id != d.id).toList());
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await widget.deadlines.complete(d);
-      messenger.showSnackBar(SnackBar(content: Text('Done: ${d.title}')));
+      if (!await finishWithUndo(messenger, widget.deadlines, d) && mounted) setState(() => _deadlines = [...?_deadlines, d]);
     } on SourceException catch (e) {
       if (mounted) setState(() => _deadlines = before);
       messenger.showSnackBar(SnackBar(content: Text("Couldn't finish it. ${e.message}")));
