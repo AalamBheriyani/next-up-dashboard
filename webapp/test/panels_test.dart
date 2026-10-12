@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:next_up_core/anki.dart';
+import 'package:next_up_core/calendar.dart';
 import 'package:next_up_core/quest.dart';
 import 'package:next_up_core/worker_api.dart';
 import 'package:next_up_web/dashboard/anki_panel.dart';
+import 'package:next_up_web/dashboard/day_column.dart';
 import 'package:next_up_web/dashboard/habits_panel.dart';
 import 'package:next_up_web/dashboard/heat_grid.dart';
 import 'package:next_up_web/dashboard/links_panel.dart';
@@ -83,5 +85,15 @@ void main() {
     expect(find.text('XP Tracker'), findsNothing);
     await tester.tap(find.text('Notion'));
     expect(opened.single.toString(), 'https://notion.so');
+  });
+
+  test('overlapping events share lanes; separate ones get the full width', () {
+    CalendarEvent e(String id, int h, int m, int h2, int m2) => CalendarEvent(id: id, title: id, start: DateTime(2026, 10, 12, h, m), end: DateTime(2026, 10, 12, h2, m2), allDay: false);
+    final a = e('a', 12, 0, 12, 45), b = e('b', 12, 30, 13, 15), c = e('c', 15, 0, 16, 0), d = e('d', 12, 50, 13, 0);
+    final l = dayLanes([a, b, c, d]);
+    expect(l[a], (0, 2));
+    expect(l[b], (1, 2));
+    expect(l[d], (0, 2)); // fits in a's lane once a has ended
+    expect(l[c], (0, 1));
   });
 }

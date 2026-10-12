@@ -63,7 +63,7 @@ void main() {
     t = t.add(const Duration(hours: 1));
     final b = FocusController(store: store, now: () => t)..restore();
     expect(b.running, isFalse);
-    expect(b.left.inMinutes, 25);
+    expect(b.left.inMinutes, 5); // the start of that same 5-minute session
     b.dispose();
   });
 
@@ -144,6 +144,26 @@ void main() {
     await tester.pump();
     expect(find.text('30 min'), findsOneWidget);
     expect(c.left, const Duration(minutes: 30));
+    c.dispose();
+  });
+
+  testWidgets('dragging round the dial sets the minutes and letting go starts', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = FocusController();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: SizedBox(width: 360, child: FocusTimer(controller: c))))));
+    final dial = tester.getCenter(find.byTooltip('Drag round the dial to set the minutes; let go to start'));
+    final g = await tester.startGesture(dial + const Offset(0, -60));
+    await g.moveTo(dial + const Offset(-30, -52));
+    await g.moveTo(dial + const Offset(-60, 0)); // a quarter turn counterclockwise: 15 minutes
+    await tester.pump();
+    expect(find.text('15:00'), findsOneWidget);
+    await g.up();
+    await tester.pump();
+    expect(c.running, isTrue);
+    expect(c.total, const Duration(minutes: 15));
+    c.pause();
     c.dispose();
   });
 }

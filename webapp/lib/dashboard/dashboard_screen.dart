@@ -286,7 +286,6 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     return [
       BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
       BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: next?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
-      BoardItem(id: 'day', name: 'Today hour by hour', span: 4, child: DayColumn(events: _events, now: now)),
       BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
       if (widget.ask != null)
         BoardItem(
@@ -295,6 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
           span: 4,
           child: AskPanel(key: _askKey, service: widget.ask!, tools: _tools, snapshot: () => askSnapshot(now: _now(), deadlines: _deadlines ?? const [], events: _events ?? const [], focus: _focus)),
         ),
+      BoardItem(id: 'day', name: 'Today hour by hour', span: 8, child: DayColumn(events: _events, now: now)),
       BoardItem(id: 'week', name: 'Next 7 days', span: 12, child: WeekStrip(deadlines: [...all], events: [...?_events], now: now)),
       if (_deadlines != null) ...[
         if (g.overdue.isNotEmpty || _editing) list('overdue', 'Overdue', NextUpColors.deadline, g.overdue, hint: 'Oldest first', showDate: true),

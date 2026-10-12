@@ -74,18 +74,37 @@ KeyEventResult timerKeys(FocusController c, KeyEvent e) {
 }
 
 /// The modes, the dial and the buttons; the panel and the fullscreen view both use it.
-class TimerBody extends StatelessWidget {
+class TimerBody extends StatefulWidget {
   const TimerBody({super.key, required this.controller, required this.dial});
   final FocusController controller;
   final double dial;
 
   @override
+  State<TimerBody> createState() => _TimerBodyState();
+}
+
+class _TimerBodyState extends State<TimerBody> {
+  int? _pick; // minutes while dragging the dial
+
+  /// Minutes at a point on the dial: counterclockwise from the top, a full turn is an hour (the old dial).
+  int _minutesAt(Offset p) {
+    final c = Offset(widget.dial / 2, widget.dial / 2), d = p - c;
+    var a = math.atan2(-d.dx, -d.dy);
+    if (a < 0) a += 2 * math.pi;
+    var m = (a / (2 * math.pi) * 60).round();
+    if (m == 0) m = (_pick ?? 0) > 30 ? 60 : 1;
+    return m.clamp(1, 60);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = controller;
-    final left = c.left;
+    final c = widget.controller, dial = widget.dial;
+    final left = _pick == null ? c.left : Duration(minutes: _pick!);
     final mm = left.inSeconds ~/ 60, ss = left.inSeconds % 60;
     final k = dial / 170;
+    final tone = c.mode == FocusMode.focus ? (c.classicFace ? NextUpColors.deadline : NextUpColors.accent) : NextUpColors.ok;
     const modes = [(FocusMode.focus, 'Focus'), (FocusMode.shortBreak, 'Break'), (FocusMode.longBreak, 'Long')];
+    final time = Text('${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}', style: TextStyle(fontSize: (c.classicFace ? NextUpType.title : NextUpType.display) * k, fontWeight: FontWeight.w800, fontFeatures: monoFeatures));
     return Column(mainAxisSize: MainAxisSize.min, children: [
       SegmentedButton<FocusMode>(
         showSelectedIcon: false,
@@ -94,19 +113,46 @@ class TimerBody extends StatelessWidget {
         onSelectionChanged: (s) => c.setMode(s.first),
       ),
       SizedBox(height: 16 * k),
-      SizedBox(
-        width: dial,
-        height: dial,
-        child: CustomPaint(
-          painter: _DialPainter(c.fraction, c.mode == FocusMode.focus ? NextUpColors.accent : NextUpColors.ok, 8 * k),
-          child: Center(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}', style: TextStyle(fontSize: NextUpType.display * k, fontWeight: FontWeight.w800, fontFeatures: monoFeatures)),
-              if (c.label.isNotEmpty) Padding(padding: EdgeInsets.symmetric(horizontal: 12 * k), child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k))),
-            ]),
+      Tooltip(
+        message: 'Drag round the dial to set the minutes; let go to start',
+        waitDuration: const Duration(seconds: 1),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: GestureDetector(
+            onPanStart: (e) => setState(() => _pick = _minutesAt(e.localPosition)),
+            onPanUpdate: (e) => setState(() => _pick = _minutesAt(e.localPosition)),
+            onPanEnd: (_) {
+              final m = _pick;
+              setState(() => _pick = null);
+              if (m != null) c.pickAndStart(m);
+            },
+            onPanCancel: () => setState(() => _pick = null),
+            child: SizedBox(
+              width: dial,
+              height: dial,
+              child: CustomPaint(
+                painter: c.classicFace
+                    ? _FacePainter(left.inSeconds / 3600, tone, k)
+                    : _DialPainter(_pick == null ? c.fraction : 1, tone, 8 * k),
+                child: Center(
+                  child: c.classicFace
+                      // On the classic face the time sits in a small dark disc over the wedge.
+                      ? Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8 * k, vertical: 2 * k),
+                          decoration: BoxDecoration(color: NextUpColors.panel.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(8 * k)),
+                          child: time,
+                        )
+                      : Column(mainAxisSize: MainAxisSize.min, children: [
+                          time,
+                          if (c.label.isNotEmpty) Padding(padding: EdgeInsets.symmetric(horizontal: 12 * k), child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k))),
+                        ]),
+                ),
+              ),
+            ),
           ),
         ),
       ),
+      if (c.classicFace && c.label.isNotEmpty) Padding(padding: EdgeInsets.only(top: 6 * k), child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k))),
       SizedBox(height: 14 * k),
       Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 4, children: [
         FilledButton(onPressed: c.running ? c.pause : c.start, child: Text(c.running ? 'Pause' : 'Start')),
@@ -131,11 +177,18 @@ class TimerSettings extends StatelessWidget {
         width: 340,
         child: ListenableBuilder(
           listenable: c,
-          builder: (context, _) => Column(mainAxisSize: MainAxisSize.min, children: [
+          builder: (context, _) => SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             _Step('Pomodoro', '${c.focusMin} min', () => c.setSettings(focus: c.focusMin - 5 < 1 ? 1 : c.focusMin - 5), () => c.setSettings(focus: c.focusMin + 5)),
             _Step('Short break', '${c.shortMin} min', () => c.setSettings(short: c.shortMin - 1), () => c.setSettings(short: c.shortMin + 1)),
             _Step('Long break', '${c.longMin} min', () => c.setSettings(long: c.longMin - 5 < 1 ? 1 : c.longMin - 5), () => c.setSettings(long: c.longMin + 5)),
             _Step('Long break every', '${c.every} pomodoros', () => c.setSettings(every: c.every - 1), () => c.setSettings(every: c.every + 1)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Time Timer face'),
+              subtitle: const Text('A red disc for the minutes left; off shows a thin ring'),
+              value: c.classicFace,
+              onChanged: (v) => c.setSettings(classic: v),
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Start the next session by itself'),
@@ -146,7 +199,7 @@ class TimerSettings extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton(onPressed: () => c.setSettings(focus: 25, short: 5, long: 15, every: 4, auto: true), child: const Text('Back to 25 / 5 / 15')),
             ),
-          ]),
+          ])),
         ),
       ),
       actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done'))],
@@ -194,6 +247,40 @@ class _FullTimer extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// The old site's Time Timer face: minute ticks, numbers every five, and a disc for the time left out of an
+/// hour, counterclockwise from the top.
+class _FacePainter extends CustomPainter {
+  _FacePainter(this.hours, this.color, this.k);
+  final double hours, k; // time left as a fraction of an hour; k scales with the dial
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero), r = size.shortestSide / 2;
+    canvas.drawCircle(c, r - 1, Paint()..color = NextUpColors.raised);
+    final tick = Paint()..color = NextUpColors.muted..strokeCap = StrokeCap.round;
+    for (var m = 0; m < 60; m++) {
+      final a = m / 60 * 2 * math.pi, major = m % 5 == 0;
+      final dir = Offset(-math.sin(a), -math.cos(a));
+      tick.strokeWidth = (major ? 2 : 1) * k;
+      canvas.drawLine(c + dir * (r * .95), c + dir * (r * (major ? .84 : .89)), tick);
+      if (major && k >= .9) {
+        final tp = TextPainter(text: TextSpan(text: '$m', style: TextStyle(color: NextUpColors.muted, fontSize: 9 * k)), textDirection: TextDirection.ltr)..layout();
+        tp.paint(canvas, c + dir * (r * .72) - Offset(tp.width / 2, tp.height / 2));
+      }
+    }
+    final f = hours.clamp(0.0, 1.0);
+    if (f > 0) {
+      final wedge = Rect.fromCircle(center: c, radius: r * .62);
+      canvas.drawArc(wedge, -math.pi / 2, -2 * math.pi * f, true, Paint()..color = color.withValues(alpha: .9));
+    }
+    canvas.drawCircle(c, 5 * k, Paint()..color = NextUpColors.muted);
+  }
+
+  @override
+  bool shouldRepaint(_FacePainter old) => old.hours != hours || old.color != color || old.k != k;
 }
 
 class _DialPainter extends CustomPainter {
