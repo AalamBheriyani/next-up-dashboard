@@ -412,7 +412,7 @@ class _Timeline extends StatelessWidget {
             const SizedBox(height: 22),
             lane('tracked', [
               for (final b in blocks)
-                at(b.start, b.endOr(now), Tooltip(message: '${b.cat}${b.note.isEmpty ? '' : ' · ${b.note}'}', child: InkWell(onTap: () => onEdit(b), borderRadius: BorderRadius.circular(6), child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), alignment: Alignment.centerLeft, decoration: BoxDecoration(color: colorFor(b.cat, cats), borderRadius: BorderRadius.circular(6)), child: Text(b.cat, maxLines: 1, overflow: TextOverflow.clip, style: const TextStyle(fontSize: NextUpType.label, fontWeight: FontWeight.w700, color: Colors.white)))))),
+                at(b.start, b.endOr(now), Tooltip(message: '${DateFormat('h:mm a').format(b.start)} to ${b.end == null ? 'now' : DateFormat('h:mm a').format(b.endOr(now))} ${b.cat}${b.note.isEmpty ? '' : ' · ${b.note}'}', child: InkWell(onTap: () => onEdit(b), borderRadius: BorderRadius.circular(6), child: Container(padding: const EdgeInsets.symmetric(horizontal: 6), alignment: Alignment.centerLeft, decoration: BoxDecoration(color: colorFor(b.cat, cats), borderRadius: BorderRadius.circular(6)), child: Text(b.cat, maxLines: 1, overflow: TextOverflow.clip, style: const TextStyle(fontSize: NextUpType.label, fontWeight: FontWeight.w700, color: Colors.white)))))),
             ]),
           ]),
           if (isToday) Positioned(left: pos(now) * w, top: -4, bottom: -4, child: Container(width: 2, color: NextUpColors.deadline)),
