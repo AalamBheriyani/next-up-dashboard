@@ -298,7 +298,15 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
       return const Panel(title: 'Next deadline', child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
     }
     final next = DeadlineGroups(items, now).next;
-    if (next == null) return Panel(title: 'Next deadline', child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)));
+    if (next == null) {
+      return Panel(
+        title: 'Next deadline',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Clear', style: TextStyle(fontSize: NextUpType.display, fontWeight: FontWeight.w800)),
+          Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)),
+        ]),
+      );
+    }
     return NextBoard(deadline: next, now: widget.now, onStart: onStart, overdue: DeadlineGroups(items, now).overdue.length);
   }
 
@@ -359,7 +367,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
         );
     return [
       BoardItem(id: 'next', name: 'Next deadline', span: 4, child: _board(now, onStart: () => next == null ? null : _startOn(next))),
-      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: next?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
+      // "Use it on" suggests the oldest late task first, as Do this first does.
+      BoardItem(id: 'calendar', name: 'Now and next', span: 4, child: CalendarPanel(events: _events, now: now, useOn: (g.overdue.isNotEmpty ? g.overdue.first : next)?.title, error: _calendarError ?? (_needsSignIn && _events == null ? 'Sign in to see today\'s calendar.' : null), onSignIn: _calendarError != null && _needsSignIn ? _signIn : null)),
       BoardItem(id: 'timer', name: 'Focus timer', span: 4, child: FocusTimer(controller: _focus)),
       if (widget.ask != null)
         BoardItem(

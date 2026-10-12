@@ -23,6 +23,17 @@ class DayColumn extends StatefulWidget {
 class _DayColumnState extends State<DayColumn> {
   late final ScrollController _scroll = ScrollController(initialScrollOffset: (_y(widget.now, _range().$1) - DayColumn.hourPx).clamp(0.0, double.infinity));
 
+  bool _userScrolled = false; // once you scroll it yourself, it stays where you put it
+
+  // A dashboard left open keeps "now" in view as the day goes on, like the old site.
+  @override
+  void didUpdateWidget(DayColumn old) {
+    super.didUpdateWidget(old);
+    if (_userScrolled || !_scroll.hasClients || old.now.minute == widget.now.minute) return;
+    final target = (_y(widget.now, _range().$1) - DayColumn.hourPx).clamp(0.0, _scroll.position.maxScrollExtent);
+    if ((target - _scroll.offset).abs() > 1) _scroll.jumpTo(target);
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -58,7 +69,12 @@ class _DayColumnState extends State<DayColumn> {
           ? Text('Your calendar shows here once it loads.', style: TextStyle(color: NextUpColors.muted))
           : SizedBox(
               height: widget.height,
-              child: SingleChildScrollView(
+              child: NotificationListener<UserScrollNotification>(
+                onNotification: (_) {
+                  _userScrolled = true;
+                  return false;
+                },
+                child: SingleChildScrollView(
                 controller: _scroll,
                 child: LayoutBuilder(builder: (context, box) {
                   final lanes = dayLanes(_timed);
@@ -102,6 +118,7 @@ class _DayColumnState extends State<DayColumn> {
                   ]),
                 );
                 }),
+              ),
               ),
             ),
     );
