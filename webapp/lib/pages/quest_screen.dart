@@ -203,10 +203,15 @@ class _QuestScreenState extends State<QuestScreen> {
             index: 2 + i,
             child: Panel(
               title: cats[i],
-              child: Wrap(spacing: 10, runSpacing: 10, children: [
+              // Buttons share the row evenly (about 240 px each), so a phone gets one full-width column.
+              child: LayoutBuilder(builder: (context, box) {
+                final cols = math.max(1, (box.maxWidth + 10) ~/ 250);
+                final w = (box.maxWidth - 10 * (cols - 1)) / cols;
+                return Wrap(spacing: 10, runSpacing: 10, children: [
                 for (final q in _quests.where((q) => q.cat == cats[i]))
-                  _QuestButton(q: q, done: m.counts[q.id] ?? 0, mult: m.multiplier, onTap: () => _do(q)),
-              ]),
+                  _QuestButton(q: q, width: w, done: m.counts[q.id] ?? 0, mult: m.multiplier, onTap: () => _do(q)),
+                ]);
+              }),
             ),
           ),
         ),
@@ -279,10 +284,10 @@ class _Stat extends StatelessWidget {
 }
 
 class _QuestButton extends StatelessWidget {
-  const _QuestButton({required this.q, required this.done, required this.mult, required this.onTap});
+  const _QuestButton({required this.q, required this.width, required this.done, required this.mult, required this.onTap});
   final Quest q;
   final int done;
-  final double mult;
+  final double mult, width;
   final VoidCallback onTap;
 
   @override
@@ -298,7 +303,7 @@ class _QuestButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Container(
-            width: 250,
+            width: width,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: maxed ? NextUpColors.line : _gold.withValues(alpha: .35))),
             child: Row(children: [

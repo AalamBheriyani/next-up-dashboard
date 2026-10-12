@@ -186,8 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _deadlines = before?.where((x) => x.id != d.id).toList());
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await widget.deadlines.complete(d);
-      messenger.showSnackBar(SnackBar(content: Text('Done: ${d.title}')));
+      if (!await finishWithUndo(messenger, widget.deadlines, d) && mounted) setState(() => _deadlines = [...?_deadlines, d]);
     } on SourceException catch (e) {
       if (mounted) setState(() => _deadlines = before);
       messenger.showSnackBar(SnackBar(content: Text("Couldn't finish it. ${e.message}")));
@@ -274,7 +273,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: title,
             accent: color,
             trailing: hint == null ? null : Text(hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
-            child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null),
+            child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null,
+                // On a phone the panels stack, so a short list needn't keep the shared height.
+                height: MediaQuery.sizeOf(context).width < 600 ? (items.length * 56.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
           ),
         );
     return [

@@ -61,6 +61,18 @@ void main() {
     await t.pump();
   }
 
+  testWidgets('Undo puts a finished task back and nothing is sent', (t) async {
+    final s = FakeSource([d('1', 'Chem quiz', DateTime(2026, 10, 4, 23, 59)), d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59))]);
+    await pump(t, s);
+    await t.tap(find.byTooltip('Finish Chem quiz'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Undo'));
+    await t.pumpAndSettle();
+    expect(find.text('Chem quiz'), findsOneWidget);
+    await t.pump(const Duration(seconds: 5));
+    expect(s.finished, isEmpty);
+  });
+
   testWidgets('shows the next deadline, overdue list and finishes a task', (t) async {
     final s = FakeSource([
       d('1', 'Chem quiz', DateTime(2026, 10, 4, 23, 59)),
@@ -74,8 +86,11 @@ void main() {
     expect(find.text('6d late'), findsOneWidget);
     await t.tap(find.byTooltip('Finish Chem quiz'));
     await t.pumpAndSettle();
-    expect(s.finished, ['1']);
     expect(find.text('Chem quiz'), findsNothing);
+    expect(s.finished, isEmpty); // waits for the Undo window
+    await t.pump(const Duration(seconds: 5));
+    await t.pumpAndSettle();
+    expect(s.finished, ['1']);
   });
 
   testWidgets('asks to sign in when signed out', (t) async {

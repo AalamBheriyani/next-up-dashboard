@@ -102,7 +102,7 @@ class _Card extends StatelessWidget {
         // Label left, value right; on a narrow card the value goes under the label instead of squeezing it.
         LayoutBuilder(builder: (context, box) {
           final v = Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: NextUpType.caption, fontWeight: FontWeight.w600, fontFeatures: monoFeatures));
-          if (box.maxWidth < 330) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: small), const SizedBox(height: 2), v]);
+          if (box.maxWidth < 380) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: small), const SizedBox(height: 2), v]);
           return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
             Flexible(flex: 3, child: Text(label, overflow: TextOverflow.ellipsis, style: small)),
             const SizedBox(width: 12),

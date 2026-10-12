@@ -6,6 +6,7 @@ import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
 import 'package:next_up_core/list_views.dart';
 import 'package:next_up_core/theme.dart';
+import 'package:next_up_core/today_screen.dart' show finishWithUndo;
 
 import '../dashboard/deadline_box.dart';
 import '../dashboard/panel.dart';
@@ -58,8 +59,7 @@ class _ListsScreenState extends State<ListsScreen> {
     setState(() => _all = before?.where((x) => x.id != d.id).toList());
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await widget.services.deadlines.complete(d);
-      messenger.showSnackBar(SnackBar(content: Text('Done: ${d.title}')));
+      if (!await finishWithUndo(messenger, widget.services.deadlines, d) && mounted) setState(() => _all = [...?_all, d]);
     } on SourceException catch (e) {
       if (mounted) setState(() => _all = before);
       messenger.showSnackBar(SnackBar(content: Text("Couldn't finish it. ${e.message}")));
@@ -113,7 +113,9 @@ class _ListsScreenState extends State<ListsScreen> {
                     trailing: Text('${groups[i].items.length}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       if (groups[i].hint.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(groups[i].hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
-                      DeadlineBox(title: groups[i].title, color: _tone(_view, i), items: groups[i].items, now: now, onFinish: _finish, onEdit: widget.onEdit, showDate: true, showList: _view != ListViewKind.list),
+                      DeadlineBox(title: groups[i].title, color: _tone(_view, i), items: groups[i].items, now: now, onFinish: _finish, onEdit: widget.onEdit, showDate: true, showList: _view != ListViewKind.list,
+                          // Side by side the boxes share one height; in a single column a short list doesn't leave a gap.
+                          height: cols == 1 ? (groups[i].items.length * 56.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
                     ]),
                   ),
                 ),
