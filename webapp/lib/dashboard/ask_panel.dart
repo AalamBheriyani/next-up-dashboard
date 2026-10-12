@@ -166,13 +166,24 @@ class AskPanelState extends State<AskPanel> {
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(
-            child: TextField(
+            // Enter sends and Shift+Enter starts a new line, as on the old site.
+            child: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: (node, e) {
+                if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
+                  _send(_text.text);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
               controller: _text,
               minLines: 1,
               maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: _send,
+              textInputAction: TextInputAction.newline,
               decoration: const InputDecoration(hintText: 'Type a question…', isDense: true),
+            ),
             ),
           ),
           const SizedBox(width: 8),
