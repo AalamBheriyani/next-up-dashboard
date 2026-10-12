@@ -7,7 +7,7 @@ import 'deadline.dart';
 import 'deadline_source.dart';
 
 class CalendarEvent {
-  CalendarEvent({required this.id, required this.title, required this.start, required this.end, required this.allDay, this.location = '', this.description = ''});
+  CalendarEvent({required this.id, required this.title, required this.start, required this.end, required this.allDay, this.location = '', this.description = '', this.link = ''});
   final String id;
   final String title;
   final DateTime start;
@@ -16,6 +16,8 @@ class CalendarEvent {
   final String location;
   /// The event's notes as plain text (Google sends simple HTML).
   final String description;
+  /// The event's page in Google Calendar (https only), opened when the event is tapped.
+  final String link;
 
   /// "First step: ..." and "Done when: ..." lines in the notes, which planned blocks carry.
   String? get firstStep => _line('First step');
@@ -34,7 +36,7 @@ class CalendarEvent {
     final start = _parse(s), end = _parse(en);
     if (start == null || end == null) return null;
     final title = '${e['summary'] ?? ''}'.trim();
-    return CalendarEvent(id: '${e['id']}', title: title.isEmpty ? '(no title)' : title, start: start, end: end, allDay: allDay, location: '${e['location'] ?? ''}', description: plainNotes('${e['description'] ?? ''}'));
+    return CalendarEvent(id: '${e['id']}', title: title.isEmpty ? '(no title)' : title, start: start, end: end, allDay: allDay, location: '${e['location'] ?? ''}', description: plainNotes('${e['description'] ?? ''}'), link: '${e['htmlLink'] ?? ''}'.startsWith('https://') ? '${e['htmlLink']}' : '');
   }
 
   /// Google's notes HTML as text: line breaks kept, tags dropped, the common entities decoded.

@@ -128,6 +128,7 @@ class _ShellState extends State<Shell> {
   Future<void> _timerFinished(bool focus) async {
     // A short chime, and a notification if the tab is in the background, like the old site's phone alert.
     if (_svc.store.get('nu.web.mute') != '1') playBeep(focus ? const [660, 880, 1320] : const [1320, 880, 660]); // the Quest Log's sound switch
+    vibrate();
     notify(focus ? 'Pomodoro done' : 'Break over', focus ? 'Time for a break.' : 'Back to focus.');
     if (_config.questSheetId.isEmpty) return;
     final q = defaultQuests.firstWhere((x) => x.id == (focus ? 'timer' : 'break'));

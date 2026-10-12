@@ -159,6 +159,11 @@ class _TimerBodyState extends State<TimerBody> {
         OutlinedButton(onPressed: c.reset, child: const Text('Reset')),
         TextButton(onPressed: c.skip, child: const Text('Skip')),
       ]),
+      // The old timer's note line: which pomodoro this is, or a nudge to actually rest.
+      Padding(
+        padding: EdgeInsets.only(top: 6 * k),
+        child: Text(c.mode == FocusMode.focus ? 'Pomodoro #${c.done + 1}' : 'Stand up, water, back soon.', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption * k)),
+      ),
     ]);
   }
 }

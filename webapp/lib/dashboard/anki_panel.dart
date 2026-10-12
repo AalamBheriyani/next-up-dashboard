@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:next_up_core/anki.dart';
 import 'package:next_up_core/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'heat_grid.dart';
 import 'panel.dart';
@@ -45,6 +46,7 @@ class _AnkiPanelState extends State<AnkiPanel> {
             title: 'Anki',
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               if (s.at != null) Text('updated ${DateFormat('MMM d, h:mm a').format(s.at!)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
+              TextButton(onPressed: () => launchUrl(Uri.parse('https://ankiweb.net/decks'), webOnlyWindowName: '_blank'), child: const Text('Review on AnkiWeb')),
               IconButton(tooltip: 'Refresh Anki', onPressed: _reload, visualDensity: VisualDensity.compact, iconSize: 18, color: NextUpColors.muted, icon: const Icon(Icons.refresh_rounded)),
             ]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

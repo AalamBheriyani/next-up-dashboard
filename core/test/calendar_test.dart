@@ -54,4 +54,10 @@ void main() {
     expect(e.doneWhen, '300 words & a title');
     expect(e.description, 'First step: open the outline\nDone when: 300 words & a title\nBring notes');
   });
+
+  test('the Google Calendar link is kept when it is https', () {
+    CalendarEvent ev(String link) => CalendarEvent.fromJson({'id': 'x', 'summary': 'A', 'htmlLink': link, 'start': {'dateTime': iso(9)}, 'end': {'dateTime': iso(10)}})!;
+    expect(ev('https://www.google.com/calendar/event?eid=abc').link, 'https://www.google.com/calendar/event?eid=abc');
+    expect(ev('javascript:alert(1)').link, '');
+  });
 }
