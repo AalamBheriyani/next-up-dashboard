@@ -18,7 +18,7 @@ int clockMinutes(Object? text, int fallback) {
 }
 
 class AppConfig {
-  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes});
+  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.links = const []});
   final String email;
   final bool owner;
   final String sheetId; // Weekly Time Tracker
@@ -31,6 +31,7 @@ class AppConfig {
   final String profileName, profileRules; // from the server's PROFILE (owner only), used by Ask Claude
   final int wakeMinutes, windDownMinutes; // the waking day, as minutes after midnight
   final BoardLayout? layout; // the arrangement of dashboard panels, shared by every device
+  final List<QuickLink> links; // the owner's own "Jump to" links (the Worker's LINKS)
 
   factory AppConfig.fromJson(Map<String, dynamic> j) {
     final profile = j['profile'] is Map ? j['profile'] as Map : const {};
@@ -53,7 +54,23 @@ class AppConfig {
       wakeMinutes: pick('wake', defaultWakeMinutes),
       windDownMinutes: pick('windDown', defaultWindDownMinutes),
       layout: j['webLayout'] is Map ? BoardLayout.fromJson(j['webLayout']) : null,
+      links: [for (final l in (j['links'] is List ? j['links'] as List : const [])) ?QuickLink.fromJson(l)],
     );
+  }
+}
+
+/// A link on the dashboard's "Jump to" panel.
+class QuickLink {
+  const QuickLink(this.name, this.url, {this.note = ''});
+  final String name, url, note;
+
+  /// Only https links are kept, as on the current site.
+  static QuickLink? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final url = '${j['url'] ?? ''}';
+    if (!url.startsWith('https://')) return null;
+    final name = '${j['name'] ?? ''}'.trim();
+    return QuickLink(name.isEmpty ? 'Link' : name, url, note: '${j['note'] ?? ''}');
   }
 }
 

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:next_up_core/anki.dart';
 import 'package:next_up_core/quest.dart';
+import 'package:next_up_core/worker_api.dart';
 import 'package:next_up_web/dashboard/anki_panel.dart';
 import 'package:next_up_web/dashboard/habits_panel.dart';
 import 'package:next_up_web/dashboard/heat_grid.dart';
+import 'package:next_up_web/dashboard/links_panel.dart';
 
 import 'fakes.dart';
 
@@ -70,5 +72,16 @@ void main() {
     await tester.tap(find.byTooltip('Refresh habits'));
     await tester.pump(const Duration(milliseconds: 50));
     expect(xp.loads, 2);
+  });
+
+  testWidgets('Jump to lists TickTick, Calendar, your sheets and the owner\'s links, and opens them', (tester) async {
+    final opened = <Uri>[];
+    const cfg = AppConfig(sheetId: 'abc', links: [QuickLink('Notion', 'https://notion.so')]);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: LinksPanel(links: quickLinks(cfg), open: opened.add))));
+    expect(find.text('TickTick'), findsOneWidget);
+    expect(find.text('Time Tracker'), findsOneWidget);
+    expect(find.text('XP Tracker'), findsNothing);
+    await tester.tap(find.text('Notion'));
+    expect(opened.single.toString(), 'https://notion.so');
   });
 }

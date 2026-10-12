@@ -70,6 +70,7 @@ class _Now extends StatelessWidget {
     final done = (now.difference(event.start).inSeconds / event.length.inSeconds).clamp(0.0, 1.0);
     final left = event.end.difference(now);
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: NextUpColors.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -95,6 +96,7 @@ class _Free extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = next;
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: NextUpColors.raised, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
