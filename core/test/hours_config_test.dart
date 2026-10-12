@@ -30,4 +30,11 @@ void main() {
     });
     expect([for (final l in c.links) '${l.name} ${l.url} ${l.note}'], ['Notion https://notion.so archive', 'Link https://example.com ']);
   });
+
+  test('place and sleep come from the profile, and a bad sleep time is dropped', () {
+    final c = AppConfig.fromJson({'profile': {'place': 'Toronto', 'sleep': '23:30'}});
+    expect((c.profilePlace, c.sleepMinutes), ('Toronto', 1410));
+    expect(AppConfig.fromJson({'profile': {'sleep': 'late'}}).sleepMinutes, null);
+    expect(AppConfig.fromJson({}).sleepMinutes, null);
+  });
 }

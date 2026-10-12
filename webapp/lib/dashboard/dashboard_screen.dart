@@ -40,6 +40,8 @@ class DashboardScreen extends StatefulWidget {
     this.layout = const BoardLayout(),
     this.wakeMinutes = defaultWakeMinutes,
     this.windDownMinutes = defaultWindDownMinutes,
+    this.place = '',
+    this.sleepMinutes,
     this.onLayout,
     this.focus,
     this.ask,
@@ -54,6 +56,8 @@ class DashboardScreen extends StatefulWidget {
   /// The saved arrangement of panels, and where to report a change (saved to the account by the shell).
   final BoardLayout layout;
   final int wakeMinutes, windDownMinutes; // the waking day for the header's bars
+  final String place;
+  final int? sleepMinutes;
   final ValueChanged<BoardLayout>? onLayout;
   /// The focus timer (owned by the shell so it keeps running between pages) and Ask Claude, when available.
   final FocusController? focus;
@@ -213,7 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               Builder(builder: (context) {
-                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes);
+                final clock = ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes);
                 final tools = Row(mainAxisSize: MainAxisSize.min, children: [
                   if (_loading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                   if (widget.deadlines is DeadlineEditor) IconButton(tooltip: 'Add a deadline', onPressed: () => _edit(null), icon: const Icon(Icons.add_rounded)),

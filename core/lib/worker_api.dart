@@ -18,7 +18,7 @@ int clockMinutes(Object? text, int fallback) {
 }
 
 class AppConfig {
-  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.links = const []});
+  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.profilePlace = '', this.sleepMinutes, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.links = const []});
   final String email;
   final bool owner;
   final String sheetId; // Weekly Time Tracker
@@ -30,6 +30,8 @@ class AppConfig {
   final bool relay;
   final String profileName, profileRules; // from the server's PROFILE (owner only), used by Ask Claude
   final int wakeMinutes, windDownMinutes; // the waking day, as minutes after midnight
+  final String profilePlace; // where the owner is, shown next to the date (the old "Next up · place")
+  final int? sleepMinutes; // lights out, shown under the day bar when set
   final BoardLayout? layout; // the arrangement of dashboard panels, shared by every device
   final List<QuickLink> links; // the owner's own "Jump to" links (the Worker's LINKS)
 
@@ -51,6 +53,8 @@ class AppConfig {
       relay: j['relay'] == true,
       profileName: '${profile['name'] ?? ''}',
       profileRules: '${profile['rules'] ?? ''}',
+      profilePlace: '${profile['place'] ?? ''}',
+      sleepMinutes: switch (clockMinutes(profile['sleep'], -1)) { < 0 => null, final m => m },
       wakeMinutes: pick('wake', defaultWakeMinutes),
       windDownMinutes: pick('windDown', defaultWindDownMinutes),
       layout: j['webLayout'] is Map ? BoardLayout.fromJson(j['webLayout']) : null,
