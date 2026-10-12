@@ -177,7 +177,7 @@ class _ListsScreenState extends State<ListsScreen> with RefreshOnReturn {
                       if (groups[i].hint.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(groups[i].hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption))),
                       DeadlineBox(title: groups[i].title, color: _tone(_view, i), items: groups[i].items, now: now, onFinish: _finish, onEdit: widget.onEdit, showDate: true, showList: _view != ListViewKind.list,
                           // Side by side the boxes share one height; in a single column a short list doesn't leave a gap.
-                          height: cols == 1 ? (groups[i].items.length * 56.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
+                          height: cols == 1 ? (groups[i].items.length * 64.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
                     ]),
                   ),
                 ),

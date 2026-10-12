@@ -278,7 +278,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
     }
     final next = DeadlineGroups(items, now).next;
     if (next == null) return Panel(title: 'Next deadline', child: Text('Nothing due. Enjoy the free time.', style: TextStyle(color: NextUpColors.muted)));
-    return NextBoard(deadline: next, now: widget.now, onStart: onStart);
+    return NextBoard(deadline: next, now: widget.now, onStart: onStart, overdue: DeadlineGroups(items, now).overdue.length);
   }
 
   late final AskTools _tools = _DashboardTools(this);
@@ -310,7 +310,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
             trailing: hint == null ? null : Text(hint, style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.label)),
             child: DeadlineBox(title: title, color: color, items: items, now: now, onFinish: _finish, showDate: showDate, onEdit: widget.deadlines is DeadlineEditor ? _edit : null,
                 // On a phone the panels stack, so a short list needn't keep the shared height.
-                height: MediaQuery.sizeOf(context).width < 600 ? (items.length * 56.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
+                height: MediaQuery.sizeOf(context).width < 600 ? (items.length * 64.0 + 8).clamp(64.0, deadlineBoxHeight) : deadlineBoxHeight),
           ),
         );
     return [
