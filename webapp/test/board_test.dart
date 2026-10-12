@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_web/board/widget_board.dart';
+import 'package:next_up_web/dashboard/dashboard_screen.dart' show migrateDashboardLayout;
 
 void main() {
   resizeTests();
@@ -153,5 +154,15 @@ void resizeTests() {
     await t.pump(const Duration(seconds: 1));
     expect(t.getSize(find.byKey(const Key('panel-a'))).height, 300);
     expect(t.getSize(find.byKey(const Key('panel-b'))).height, 300);
+  });
+
+  test('a layout saved with the four deadline lists starts again from the old-site order', () {
+    const old = BoardLayout(order: ['overdue', 'next', 'calendar', 'quest-level', 'links'], span: {'next': 6, 'quest-level': 6}, hidden: ['later', 'anki']);
+    final m = migrateDashboardLayout(old);
+    expect(m.order, ['quest-level'], reason: 'other pages keep their order');
+    expect(m.span, {'quest-level': 6});
+    expect(m.hidden, ['anki']);
+    const fresh = BoardLayout(order: ['deadlines', 'next'], span: {'next': 8});
+    expect(identical(migrateDashboardLayout(fresh), fresh), isTrue, reason: 'a new layout is left alone');
   });
 }
