@@ -4,6 +4,7 @@ import 'package:next_up_core/ask_claude.dart';
 import 'package:next_up_core/hours.dart';
 import 'package:next_up_core/track.dart';
 import 'package:next_up_core/worker_api.dart';
+import 'package:next_up_web/dashboard/track_panel.dart';
 import 'package:next_up_web/pages/adherence_screen.dart';
 import 'package:next_up_web/pages/settings_screen.dart';
 import 'package:next_up_web/pages/track_screen.dart';
@@ -26,6 +27,20 @@ void main() {
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
   }
+
+  testWidgets('the dashboard Track panel starts and stops blocks', (tester) async {
+    await big(tester);
+    final track = FakeTrack(data());
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: TrackPanel(repo: track, now: () => now))));
+    await tester.pump();
+    expect(find.text('1:00:00'), findsOneWidget);
+    await tester.tap(find.text('Homework').first);
+    await tester.pump();
+    await tester.tap(find.text('Stop'));
+    await tester.pump();
+    expect(track.calls, ['start Homework', 'stop']);
+    await tester.pumpWidget(const SizedBox()); // stops its timers
+  });
 
   testWidgets('Track shows the running block, switches category and stops', (tester) async {
     await big(tester);
