@@ -33,6 +33,7 @@ class FocusController extends ChangeNotifier {
   /// Where the timer is remembered on this device, so a reload does not lose it.
   final LocalStore? store;
   static const storeKey = 'nu.web.focus';
+  static const settingsKey = 'nu.web.focus.settings';
   final DateTime Function() _now;
 
   FocusMode mode = FocusMode.focus;
@@ -77,6 +78,38 @@ class FocusController extends ChangeNotifier {
   }
 
   void reset() => setMode(mode);
+
+  /// Changes the lengths (minutes, 1 to 60 or 90 for a long break), the long-break rhythm and auto-start, and
+  /// keeps them on this device like the old site's timer settings. A timer that hasn't started yet takes the
+  /// new length at once.
+  void setSettings({int? focus, int? short, int? long, int? every, bool? auto}) {
+    final fresh = !running && _left == _duration(mode);
+    focusMin = (focus ?? focusMin).clamp(1, 60);
+    shortMin = (short ?? shortMin).clamp(1, 60);
+    longMin = (long ?? longMin).clamp(1, 90);
+    this.every = (every ?? this.every).clamp(2, 12);
+    autoContinue = auto ?? autoContinue;
+    store?.set(settingsKey, jsonEncode({'focus': focusMin, 'short': shortMin, 'long': longMin, 'every': this.every, 'auto': autoContinue}));
+    if (fresh) _left = _duration(mode);
+    _save();
+    notifyListeners();
+  }
+
+  void _loadSettings() {
+    try {
+      final j = jsonDecode(store?.get(settingsKey) ?? 'null');
+      if (j is! Map) return;
+      int n(String k, int d, int max) => ((j[k] as num?)?.toInt() ?? d).clamp(1, max);
+      focusMin = n('focus', focusMin, 60);
+      shortMin = n('short', shortMin, 60);
+      longMin = n('long', longMin, 90);
+      every = n('every', every, 12).clamp(2, 12);
+      if (j['auto'] is bool) autoContinue = j['auto'] as bool;
+      _left = _duration(mode);
+    } catch (_) {
+      // Damaged settings fall back to the defaults.
+    }
+  }
 
   /// Ends this session early and moves on to the next one (focus to a break, a break to focus), with no XP
   /// and no count, as the old site's Skip did.
@@ -141,6 +174,7 @@ class FocusController extends ChangeNotifier {
   /// Puts back what [_save] kept. A timer that was running and has not run out carries on; one that ran out
   /// while the page was closed comes back stopped at the start of the same session (nothing is logged for it).
   void restore() {
+    _loadSettings();
     try {
       final j = jsonDecode(store?.get(storeKey) ?? 'null');
       if (j is! Map) return;
@@ -149,7 +183,7 @@ class FocusController extends ChangeNotifier {
       done = (j['done'] as num?)?.toInt() ?? 0;
       final ends = (j['endsAt'] as num?)?.toInt();
       final remaining = ends == null ? Duration(milliseconds: (j['leftMs'] as num?)?.toInt() ?? 0) : DateTime.fromMillisecondsSinceEpoch(ends).difference(_now());
-      _left = remaining > Duration.zero && remaining <= _duration(mode) ? remaining : _duration(mode);
+      _left = remaining > Duration.zero && remaining <= const Duration(minutes: 90) ? remaining : _duration(mode);
       if (ends != null && remaining > Duration.zero) {
         _endsAt = _now().add(remaining);
         _tick = Timer.periodic(const Duration(milliseconds: 250), (_) => _step());

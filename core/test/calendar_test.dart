@@ -41,4 +41,17 @@ void main() {
     final e = CalendarEvent.fromJson({'id': 'x', 'start': {'dateTime': iso(9)}, 'end': {'dateTime': iso(10)}})!;
     expect(e.title, '(no title)');
   });
+
+  test('block notes come through as text with the first step and done-when lines', () {
+    final e = CalendarEvent.fromJson({
+      'id': 'x',
+      'summary': 'Essay block',
+      'description': 'First step: open the outline<br>Done when: 300 words &amp; a title<br><b>Bring</b> notes',
+      'start': {'dateTime': iso(9)},
+      'end': {'dateTime': iso(10)},
+    })!;
+    expect(e.firstStep, 'open the outline');
+    expect(e.doneWhen, '300 words & a title');
+    expect(e.description, 'First step: open the outline\nDone when: 300 words & a title\nBring notes');
+  });
 }

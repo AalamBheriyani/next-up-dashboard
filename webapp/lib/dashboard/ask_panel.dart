@@ -25,11 +25,17 @@ String askSnapshot({required DateTime now, required List<Deadline> deadlines, re
   }
 
   final today = DateTime(now.year, now.month, now.day);
-  final evs = events.where((e) => !e.allDay && e.end.isAfter(now) && e.start.isBefore(today.add(const Duration(days: 1)))).take(10).map((e) => '- ${t(e.start)}-${t(e.end)} ${e.title}').join('\n');
+  final evs = events.where((e) => !e.allDay && e.end.isAfter(now) && e.start.isBefore(today.add(const Duration(days: 1)))).take(10).map((e) => '- ${t(e.start)}-${t(e.end)} ${e.title}${e.description.isEmpty ? '' : ' | notes: ${_short(e.description)}'}').join('\n');
   final sorted = [...deadlines]..sort((a, b) => a.due.compareTo(b.due));
   final ts = sorted.take(20).map((d) => '- [${d.id}] ${d.title} | list: ${d.list} | personal deadline ${day(d.due)}${d.allDay ? '' : ' ${t(d.due)}'} (${left(d.due.difference(now))}${d.isLate(now) ? '' : ' from now'}) | priority ${d.priority}').join('\n');
   final timer = focus.running ? '${focusLabels[focus.mode]}, ${focus.left.inMinutes}m left' : 'not running';
   return 'Current time: $now\n\nCalendar, rest of today:\n${evs.isEmpty ? '(none loaded)' : evs}\n\nOpen TickTick tasks (overdue and next 7 days), soonest first:\n${ts.isEmpty ? '(none loaded)' : ts}\n\nFocus timer: $timer';
+}
+
+// Notes on one line and capped, so a long agenda doesn't crowd out the rest of the day.
+String _short(String s) {
+  final one = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return one.length > 200 ? '${one.substring(0, 200)}…' : one;
 }
 
 const _quick = ['What should I do right now?', 'Break my most urgent task into a 2-minute first step', "I'm procrastinating. Help me start.", 'Plan the rest of today'];

@@ -48,10 +48,11 @@ class _FocusTimerState extends State<FocusTimer> {
     return Panel(
       title: 'Focus timer',
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('${c.done} finished', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+        Text('${c.done} done', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+        IconButton(tooltip: 'Timer settings', visualDensity: VisualDensity.compact, iconSize: 18, onPressed: () => showDialog<void>(context: context, builder: (_) => TimerSettings(controller: c)), icon: const Icon(Icons.tune_rounded)),
         IconButton(tooltip: 'Fullscreen', visualDensity: VisualDensity.compact, iconSize: 18, onPressed: _full, icon: const Icon(Icons.fullscreen_rounded)),
       ]),
-      child: Focus(onKeyEvent: (_, e) => timerKeys(c, e), child: TimerBody(controller: c, dial: 170)),
+      child: Focus(onKeyEvent: (_, e) => timerKeys(c, e), child: Center(child: TimerBody(controller: c, dial: 170))),
     );
   }
 }
@@ -114,6 +115,60 @@ class TimerBody extends StatelessWidget {
       ]),
     ]);
   }
+}
+
+/// The timer's lengths, the long-break rhythm and auto-start. Each change applies and is kept at once.
+class TimerSettings extends StatelessWidget {
+  const TimerSettings({super.key, required this.controller});
+  final FocusController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+    return AlertDialog(
+      title: const Text('Timer settings'),
+      content: SizedBox(
+        width: 340,
+        child: ListenableBuilder(
+          listenable: c,
+          builder: (context, _) => Column(mainAxisSize: MainAxisSize.min, children: [
+            _Step('Pomodoro', '${c.focusMin} min', () => c.setSettings(focus: c.focusMin - 5 < 1 ? 1 : c.focusMin - 5), () => c.setSettings(focus: c.focusMin + 5)),
+            _Step('Short break', '${c.shortMin} min', () => c.setSettings(short: c.shortMin - 1), () => c.setSettings(short: c.shortMin + 1)),
+            _Step('Long break', '${c.longMin} min', () => c.setSettings(long: c.longMin - 5 < 1 ? 1 : c.longMin - 5), () => c.setSettings(long: c.longMin + 5)),
+            _Step('Long break every', '${c.every} pomodoros', () => c.setSettings(every: c.every - 1), () => c.setSettings(every: c.every + 1)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Start the next session by itself'),
+              value: c.autoContinue,
+              onChanged: (v) => c.setSettings(auto: v),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(onPressed: () => c.setSettings(focus: 25, short: 5, long: 15, every: 4, auto: true), child: const Text('Back to 25 / 5 / 15')),
+            ),
+          ]),
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done'))],
+    );
+  }
+}
+
+class _Step extends StatelessWidget {
+  const _Step(this.label, this.value, this.less, this.more);
+  final String label, value;
+  final VoidCallback less, more;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Expanded(child: Text(label)),
+          IconButton(tooltip: 'Less $label', onPressed: less, icon: const Icon(Icons.remove_rounded, size: 18)),
+          SizedBox(width: 100, child: Text(value, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontFeatures: monoFeatures))),
+          IconButton(tooltip: 'More $label', onPressed: more, icon: const Icon(Icons.add_rounded, size: 18)),
+        ]),
+      );
 }
 
 /// The timer filling the window, for a focus block on a second screen. Esc or the button closes it.

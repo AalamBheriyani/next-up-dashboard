@@ -16,8 +16,8 @@ class Panel extends StatelessWidget {
       decoration: BoxDecoration(color: NextUpColors.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: NextUpColors.line)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
-          Text(title.toUpperCase(), style: TextStyle(color: accent ?? NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
-          const Spacer(),
+          // A narrow panel shortens its title before its buttons.
+          Expanded(child: Text(title.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: accent ?? NextUpColors.muted, fontSize: NextUpType.label, fontWeight: FontWeight.w700, letterSpacing: 1.4))),
           ?trailing,
         ]),
         const SizedBox(height: 12),

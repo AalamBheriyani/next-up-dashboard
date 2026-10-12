@@ -7,7 +7,9 @@ import 'package:next_up_core/theme.dart';
 import 'panel.dart';
 
 class CalendarPanel extends StatelessWidget {
-  const CalendarPanel({super.key, required this.events, required this.now, this.error, this.onSignIn});
+  const CalendarPanel({super.key, required this.events, required this.now, this.error, this.onSignIn, this.useOn});
+  /// While free, the task to spend the gap on (the next deadline), as the old site's "Use it on".
+  final String? useOn;
   final List<CalendarEvent>? events;
   final DateTime now;
   final String? error;
@@ -39,7 +41,7 @@ class CalendarPanel extends StatelessWidget {
               Chip(label: Text(e.title), visualDensity: VisualDensity.compact, backgroundColor: NextUpColors.raised, side: BorderSide.none),
           ]),
         ),
-      if (current != null) _Now(event: current, now: now) else _Free(next: next, now: now),
+      if (current != null) _Now(event: current, now: now) else _Free(next: next, now: now, useOn: useOn),
       if (day.upcoming.isNotEmpty) ...[
         const SizedBox(height: 14),
         for (final e in day.upcoming)
@@ -82,14 +84,30 @@ class _Now extends StatelessWidget {
         ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: done, minHeight: 6, backgroundColor: NextUpColors.raised, color: NextUpColors.accent)),
         const SizedBox(height: 6),
         Text('${_len(left)} left, until ${DateFormat('h:mm a').format(event.end)}', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+        // A planned block's notes: its first step and when it counts as done, then the rest folded away.
+        if (event.firstStep != null) _Line('First step', event.firstStep!),
+        if (event.doneWhen != null) _Line('Done when', event.doneWhen!),
+        if (event.description.isNotEmpty)
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 4),
+              dense: true,
+              expandedAlignment: Alignment.centerLeft,
+              title: Text('Block notes', style: TextStyle(color: NextUpColors.muted, fontSize: NextUpType.caption)),
+              children: [SelectableText(event.description, style: TextStyle(fontSize: NextUpType.caption, color: NextUpColors.muted))],
+            ),
+          ),
       ]),
     );
   }
 }
 
 class _Free extends StatelessWidget {
-  const _Free({required this.next, required this.now});
+  const _Free({required this.next, required this.now, this.useOn});
   final CalendarEvent? next;
+  final String? useOn;
   final DateTime now;
 
   @override
@@ -103,9 +121,24 @@ class _Free extends StatelessWidget {
         const Text('FREE', style: TextStyle(color: NextUpColors.ok, fontSize: NextUpType.label, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
         const SizedBox(height: 4),
         Text(n == null ? 'Nothing else today.' : '${_len(n.start.difference(now))} until ${n.title}', style: const TextStyle(fontSize: NextUpType.title, fontWeight: FontWeight.w700)),
+        if (useOn != null) _Line('Use it on', useOn!),
       ]),
     );
   }
+}
+
+class _Line extends StatelessWidget {
+  const _Line(this.label, this.text);
+  final String label, text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text.rich(TextSpan(children: [
+          TextSpan(text: '$label  ', style: TextStyle(color: NextUpColors.accent, fontWeight: FontWeight.w700, fontSize: NextUpType.caption)),
+          TextSpan(text: text),
+        ])),
+      );
 }
 
 String _len(Duration d) {

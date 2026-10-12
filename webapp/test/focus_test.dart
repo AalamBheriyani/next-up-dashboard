@@ -124,4 +124,26 @@ void main() {
     c.pause();
     c.dispose();
   });
+
+  test('timer settings change the lengths, apply to a fresh timer and come back after a reload', () {
+    final store = MemoryStore();
+    final a = FocusController(store: store);
+    a.setSettings(focus: 50, short: 10, every: 3, auto: false);
+    expect(a.left, const Duration(minutes: 50));
+    final b = FocusController(store: store)..restore();
+    expect((b.focusMin, b.shortMin, b.every, b.autoContinue), (50, 10, 3, false));
+    expect(b.left, const Duration(minutes: 50));
+    a.dispose();
+    b.dispose();
+  });
+
+  testWidgets('the settings dialog steps the pomodoro length', (tester) async {
+    final c = FocusController();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: TimerSettings(controller: c))));
+    await tester.tap(find.byTooltip('More Pomodoro'));
+    await tester.pump();
+    expect(find.text('30 min'), findsOneWidget);
+    expect(c.left, const Duration(minutes: 30));
+    c.dispose();
+  });
 }

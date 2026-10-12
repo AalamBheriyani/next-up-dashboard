@@ -123,6 +123,9 @@ class _ShellState extends State<Shell> {
 
   /// A finished pomodoro or break earns XP in the Quest Log automatically (quests "timer" and "break").
   Future<void> _timerFinished(bool focus) async {
+    // A short chime, and a notification if the tab is in the background, like the old site's phone alert.
+    if (_svc.store.get('nu.web.mute') != '1') playBeep(focus ? const [660, 880, 1320] : const [1320, 880, 660]); // the Quest Log's sound switch
+    notify(focus ? 'Pomodoro done' : 'Break over', focus ? 'Time for a break.' : 'Back to focus.');
     if (_config.questSheetId.isEmpty || !_svc.signedIn()) return;
     final q = defaultQuests.firstWhere((x) => x.id == (focus ? 'timer' : 'break'));
     final row = XpRow(t: DateTime.now().millisecondsSinceEpoch, q: q.id, name: q.name, base: q.xp.toDouble(), mult: 1, xp: q.xp, kind: 'auto');
@@ -138,6 +141,7 @@ class _ShellState extends State<Shell> {
 
   /// Starting a pomodoro starts tracking time (Study, or the first category); stopping it stops the block.
   Future<void> _followTimer(bool on, String label) async {
+    if (on) askNotifyPermission();
     if (_config.sheetId.isEmpty || !_svc.signedIn()) return;
     try {
       final repo = _svc.trackFor(_config.sheetId);
