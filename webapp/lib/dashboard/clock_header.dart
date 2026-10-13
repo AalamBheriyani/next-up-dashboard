@@ -10,7 +10,7 @@ import 'package:next_up_core/worker_api.dart' show defaultWakeMinutes, defaultWi
 import '../motion.dart';
 
 class ClockHeader extends StatefulWidget {
-  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.place = '', this.sleepMinutes, this.tools, this.centre, this.jump});
+  const ClockHeader({super.key, this.now, this.events, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.place = '', this.sleepMinutes, this.tools, this.centre, this.jump, this.doNow});
   /// The waking day, as minutes after midnight (from the person's settings).
   final int wakeMinutes, windDownMinutes;
   final String place;
@@ -21,6 +21,8 @@ class ClockHeader extends StatefulWidget {
   final Widget? centre;
   /// Quick links: under the buttons beside the next deadline, or last on a phone.
   final Widget? jump;
+  /// "Do this first": the one task to start, under the bars on the right.
+  final Widget? doNow;
   final List<CalendarEvent>? events; // today's calendar, for the "until free" bar
   final DateTime Function()? now; // for tests
 
@@ -81,6 +83,7 @@ class _ClockHeaderState extends State<ClockHeader> {
     final cards = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (freeCard != null) ...[freeCard, const SizedBox(height: 8)],
       work,
+      if (widget.doNow != null) ...[const SizedBox(height: 8), widget.doNow!],
     ]);
     final centre = widget.centre;
     return LayoutBuilder(builder: (context, box) {

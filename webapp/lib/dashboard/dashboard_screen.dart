@@ -310,6 +310,13 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
                 // The stamp and buttons sit under the time, so the cards get the whole width beside the clock.
                 return ClockHeader(now: widget.now, events: _events, wakeMinutes: widget.wakeMinutes, windDownMinutes: widget.windDownMinutes, place: widget.place, sleepMinutes: widget.sleepMinutes,
                     tools: tools,
+                    // "Do this first" sits with the day's bars on the right.
+                    doNow: _editing
+                        ? null
+                        : switch (doNowTarget(_deadlines ?? const [], now)) {
+                            final t? => DoNowStrip(deadline: t, now: now, onStart: () => _startOn(t), onFirstStep: widget.ask == null || _layout.isHidden('ask') ? null : () => _firstStep(t)),
+                            null => null,
+                          },
                     jump: widget.jump,
                     // The next deadline sits beside the clock, as on the old site; Jump to goes under the buttons.
                     centre: Builder(builder: (context) {
@@ -320,13 +327,6 @@ class _DashboardScreenState extends State<DashboardScreen> with RefreshOnReturn 
               const SizedBox(height: 20),
               AnimatedSize(duration: motionFast, alignment: Alignment.topLeft, child: _searching ? _searchBar() : const SizedBox(width: double.infinity)),
               if (_deadlineError != null && _deadlines == null) _Banner(message: _deadlineError!, onSignIn: _needsSignIn ? _signIn : null, onConnect: _notConnected && widget.deadlines is TickTickConnector ? _connect : null, onRetry: _load),
-              if (!_editing && doNowTarget(_deadlines ?? const [], now) != null) ...[
-                Builder(builder: (context) {
-                  final t = doNowTarget(_deadlines ?? const [], now)!;
-                  return DoNowStrip(deadline: t, now: now, onStart: () => _startOn(t), onFirstStep: widget.ask == null || _layout.isHidden('ask') ? null : () => _firstStep(t));
-                }),
-                const SizedBox(height: 16),
-              ],
               if (_editing) ...[
                 BoardBar(items: items, layout: _layout.resolved([for (final i in items) i.id]), onChanged: _setLayout, onReset: () => _setLayout(const BoardLayout()), onDone: () => setState(() => _editing = false)),
                 const SizedBox(height: 16),
