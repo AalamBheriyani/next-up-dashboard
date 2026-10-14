@@ -18,7 +18,7 @@ int clockMinutes(Object? text, int fallback) {
 }
 
 class AppConfig {
-  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.profilePlace = '', this.sleepMinutes, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.links = const []});
+  const AppConfig({this.email = '', this.owner = false, this.sheetId = '', this.questSheetId = '', this.accent = '', this.redDeadlines = true, this.ticktick = false, this.claudeApi = false, this.relay = false, this.layout, this.profileName = '', this.profileRules = '', this.profilePlace = '', this.sleepMinutes, this.wakeMinutes = defaultWakeMinutes, this.windDownMinutes = defaultWindDownMinutes, this.links = const [], this.calendars = const []});
   final String email;
   final bool owner;
   final String sheetId; // Weekly Time Tracker
@@ -34,6 +34,7 @@ class AppConfig {
   final int? sleepMinutes; // lights out, shown under the day bar when set
   final BoardLayout? layout; // the arrangement of dashboard panels, shared by every device
   final List<QuickLink> links; // the owner's own "Jump to" links (the Worker's LINKS)
+  final List<String> calendars; // calendar ids shown with the primary one
 
   factory AppConfig.fromJson(Map<String, dynamic> j) {
     final profile = j['profile'] is Map ? j['profile'] as Map : const {};
@@ -59,6 +60,7 @@ class AppConfig {
       windDownMinutes: pick('windDown', defaultWindDownMinutes),
       layout: j['webLayout'] is Map ? BoardLayout.fromJson(j['webLayout']) : null,
       links: [for (final l in (j['links'] is List ? j['links'] as List : const [])) ?QuickLink.fromJson(l)],
+      calendars: [for (final c in (j['calendars'] is List ? j['calendars'] as List : const [])) if (c is String && c.isNotEmpty) c],
     );
   }
 }
@@ -80,7 +82,7 @@ class QuickLink {
 
 abstract class ConfigSource {
   Future<AppConfig> load();
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown});
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown, List<String>? calendars});
 }
 
 class WorkerConfigSource implements ConfigSource {
@@ -114,10 +116,11 @@ class WorkerConfigSource implements ConfigSource {
   }
 
   @override
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown}) async {
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown, List<String>? calendars}) async {
     final body = <String, Object?>{
       'sheetId': ?sheetId,
       'questSheetId': ?questSheetId,
+      'calendars': ?calendars,
       if (layout != null) 'webLayout': layout.toJson(),
       if (wake != null || windDown != null) 'hours': {'wake': wake ?? '', 'windDown': windDown ?? ''},
       if (accent != null || redDeadlines != null) 'theme': {'accent': accent ?? '', 'redDeadlines': redDeadlines ?? true},

@@ -63,6 +63,9 @@ class CalendarEvent {
     return null;
   }
 
+  /// The same event under another id, so events from two calendars never share one.
+  CalendarEvent withId(String id) => CalendarEvent(id: id, title: title, start: start, end: end, allDay: allDay, location: location, description: description, link: link);
+
   Duration get length => end.difference(start);
   bool isOn(DateTime day) {
     final a = DateTime(day.year, day.month, day.day), b = a.add(const Duration(days: 1));
@@ -120,16 +123,35 @@ abstract class CalendarSource {
   Future<List<CalendarEvent>> load(DateTime from, DateTime to);
 }
 
-/// Reads the primary calendar with a Google access token.
+/// Reads the primary calendar, plus any other calendars the person added in Settings (a shared school
+/// calendar, say), as one list. Each extra calendar is read by its id, which the calendar.events scope allows.
 class GoogleCalendarSource implements CalendarSource, CalendarWriter {
-  GoogleCalendarSource(this.token);
+  GoogleCalendarSource(this.token, {this.calendars = const []});
   final Future<String?> Function() token;
+  /// Calendar ids read besides the primary one; set from the person's saved settings.
+  List<String> calendars;
 
   @override
   Future<List<CalendarEvent>> load(DateTime from, DateTime to) async {
     final t = await token();
     if (t == null) throw SourceException('Sign in to see your calendar.', signedOut: true);
-    final uri = Uri.https('www.googleapis.com', '/calendar/v3/calendars/primary/events', {
+    final extra = calendars.where((c) => c.isNotEmpty && c != 'primary').toSet();
+    final lists = await Future.wait([
+      _read('primary', t, from, to),
+      // An extra calendar that is gone or no longer shared is skipped, so it can't hide the main one.
+      for (final c in extra) _read(c, t, from, to).catchError((Object _) => <CalendarEvent>[], test: (e) => e is SourceException && !e.signedOut),
+    ]);
+    // An event on both calendars (an invite from the school account, say) shows once.
+    final seen = <String>{};
+    return [
+      for (final l in lists)
+        for (final e in l)
+          if (seen.add('${e.title}|${e.start}|${e.end}')) e,
+    ];
+  }
+
+  Future<List<CalendarEvent>> _read(String calendar, String t, DateTime from, DateTime to) async {
+    final uri = Uri.https('www.googleapis.com', '/calendar/v3/calendars/${Uri.encodeComponent(calendar)}/events', {
       'singleEvents': 'true',
       'orderBy': 'startTime',
       'maxResults': '100',
@@ -143,11 +165,12 @@ class GoogleCalendarSource implements CalendarSource, CalendarWriter {
       throw SourceException("Can't reach Google Calendar. Check your connection.");
     }
     if (res.statusCode == 401) throw SourceException('Your sign-in expired. Sign in again.', signedOut: true);
-    if (res.statusCode == 403) throw SourceException('Calendar needs your permission. Sign in again and allow Calendar.', signedOut: true);
+    if (calendar == 'primary' && res.statusCode == 403) throw SourceException('Calendar needs your permission. Sign in again and allow Calendar.', signedOut: true);
     if (res.statusCode >= 400) throw SourceException('Calendar failed to load (${res.statusCode}).');
     final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     return [
-      for (final e in (data['items'] as List? ?? const [])) ?CalendarEvent.fromJson(e as Map<String, dynamic>),
+      for (final e in (data['items'] as List? ?? const []))
+        if (CalendarEvent.fromJson(e as Map<String, dynamic>) case final ev?) calendar == 'primary' ? ev : ev.withId('$calendar/${ev.id}'),
     ];
   }
 

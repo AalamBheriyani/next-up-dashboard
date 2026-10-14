@@ -147,6 +147,22 @@ void main() {
     expect(cfg.saved, ['$id|']);
     expect(saved?.sheetId, id);
   });
+
+  testWidgets('Settings saves other calendars by id', (tester) async {
+    await big(tester);
+    final cfg = FakeConfig();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SettingsScreen(services: fakeServices(config: cfg), config: const AppConfig(email: 'a@b.c'), onSaved: (_) {}, onSignOut: () {}))));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.enterText(find.widgetWithText(TextField, 'Other calendars'), 'not a calendar');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(cfg.savedCalendars, isEmpty);
+    await tester.enterText(find.widgetWithText(TextField, 'Other calendars'), 'me@school.example, team@group.calendar.google.com');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(cfg.savedCalendars, [['me@school.example', 'team@group.calendar.google.com']]);
+  });
 }
 
 class _Claude implements AskTransport {
