@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:next_up_core/ask_claude.dart';
-import 'package:next_up_core/calendar.dart' show CalendarWriter;
+import 'package:next_up_core/calendar.dart' show CalendarWriter, GoogleCalendarSource;
 import 'package:next_up_core/board_layout.dart';
 import 'package:next_up_core/deadline.dart';
 import 'package:next_up_core/deadline_source.dart';
@@ -218,6 +218,7 @@ class _ShellState extends State<Shell> {
       if (last != c.email) _svc.store.set(lastEmailKey, c.email);
     }
     NextUpColors.apply(accentHex: c.accent, redDeadlines: c.redDeadlines);
+    if (_svc.calendar case final GoogleCalendarSource g) g.calendars = c.calendars;
     setState(() => _config = c);
     _saveLook();
     themeRevision.value++;
@@ -322,7 +323,7 @@ class _ShellState extends State<Shell> {
       duration: motionBase,
       switchInCurve: motionCurve,
       transitionBuilder: (child, anim) => pageTransition(child, anim),
-      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}-${_config.questSheetId}-${_config.accent}-${_config.redDeadlines}'), child: _pageFor(_page)),
+      child: KeyedSubtree(key: ValueKey('$_page-$_session-${_config.sheetId}-${_config.questSheetId}-${_config.accent}-${_config.redDeadlines}-${_config.calendars.join(',')}'), child: _pageFor(_page)),
     );
     const destinations = <(IconData, String)>[
       (Icons.space_dashboard_outlined, 'DASHBOARD'),

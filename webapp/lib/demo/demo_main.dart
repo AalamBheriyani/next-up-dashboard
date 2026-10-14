@@ -159,7 +159,7 @@ class _Config implements ConfigSource {
   @override
   Future<AppConfig> load() async => config;
   @override
-  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown}) async {
+  Future<void> save({String? sheetId, String? questSheetId, String? accent, bool? redDeadlines, BoardLayout? layout, String? wake, String? windDown, List<String>? calendars}) async {
     config = AppConfig(
       email: config.email,
       owner: config.owner,
@@ -174,6 +174,7 @@ class _Config implements ConfigSource {
       sleepMinutes: config.sleepMinutes,
       wakeMinutes: wake == null ? config.wakeMinutes : clockMinutes(wake, config.wakeMinutes),
       windDownMinutes: windDown == null ? config.windDownMinutes : clockMinutes(windDown, config.windDownMinutes),
+      calendars: calendars ?? config.calendars,
     );
   }
 }

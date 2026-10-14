@@ -137,6 +137,7 @@ export default {
           hours: mine.hours || null,
           layout: mine.layout || null,
           webLayout: mine.webLayout || null,
+          calendars: mine.calendars || [],
           claudeApi: !!env.ANTHROPIC_API_KEY,
           relay: who.owner && !!env.RELAY_TOKEN,
           ticktick: !!(await store(env).get(ttKey(who.email))),
@@ -151,6 +152,12 @@ export default {
           const v = String(body[k] || "").trim();
           if (v && !/^[\w-]{20,100}$/.test(v)) return fail(400, "That doesn't look like a Google Sheet id");
           mine[k] = v;
+        }
+        // Calendars shown with the primary one: ids like a shared calendar's email address.
+        if (Array.isArray(body.calendars)) {
+          const ids = body.calendars.map((c) => String(c || "").trim()).filter(Boolean);
+          if (ids.some((c) => !/^[\w.+-]{1,100}@[\w.-]{1,100}$/.test(c))) return fail(400, "That doesn't look like a calendar id");
+          mine.calendars = [...new Set(ids)].slice(0, 10);
         }
         // Each person's dashboard theme: accent colour and whether deadlines are red.
         if (body.theme && typeof body.theme === "object") {

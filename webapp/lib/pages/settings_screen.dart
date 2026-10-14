@@ -42,6 +42,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late final _time = TextEditingController(text: sheetLinkFor(widget.config.sheetId));
   late final _xp = TextEditingController(text: sheetLinkFor(widget.config.questSheetId));
+  late final _cals = TextEditingController(text: widget.config.calendars.join(', '));
   String? _msg;
   bool _bad = false;
   bool _saving = false;
@@ -88,6 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _time.dispose();
     _xp.dispose();
+    _cals.dispose();
     super.dispose();
   }
 
@@ -100,9 +102,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
       return;
     }
+    final cals = _cals.text.split(RegExp(r'[,\s]+')).where((c) => c.isNotEmpty).toList();
+    if (cals.any((c) => !c.contains('@'))) {
+      setState(() {
+        _msg = 'Add other calendars by their id, like name@school.ca (Google Calendar → the calendar\'s settings → Calendar ID).';
+        _bad = true;
+      });
+      return;
+    }
     setState(() => _saving = true);
     try {
-      await widget.services.config.save(sheetId: t, questSheetId: x);
+      await widget.services.config.save(sheetId: t, questSheetId: x, calendars: cals);
       widget.onSaved(await widget.services.config.load());
       if (mounted) {
         setState(() {
@@ -150,6 +160,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 TextField(controller: _time, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: 'Weekly Time Tracker (Adherence) sheet', helperText: 'Used by Track and Adherence', suffixIcon: _openButton(_time))),
                 const SizedBox(height: 12),
                 TextField(controller: _xp, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: 'XP Tracker sheet', helperText: 'Used by the Quest Log', suffixIcon: _openButton(_xp))),
+                const SizedBox(height: 12),
+                TextField(controller: _cals, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Other calendars', helperText: 'Shown with your main calendar. Calendar ids, separated by commas')),
                 const SizedBox(height: 16),
                 Row(children: [
                   FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving…' : 'Save')),

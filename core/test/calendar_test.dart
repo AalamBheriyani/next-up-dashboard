@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:next_up_core/calendar.dart';
 
 Map<String, dynamic> ev(String id, String s, String e, {String? summary, bool allDay = false, Map? extra}) => {
@@ -59,5 +63,23 @@ void main() {
     CalendarEvent ev(String link) => CalendarEvent.fromJson({'id': 'x', 'summary': 'A', 'htmlLink': link, 'start': {'dateTime': iso(9)}, 'end': {'dateTime': iso(10)}})!;
     expect(ev('https://www.google.com/calendar/event?eid=abc').link, 'https://www.google.com/calendar/event?eid=abc');
     expect(ev('javascript:alert(1)').link, '');
+  });
+
+  test('reads extra calendars with the primary one and skips one that fails', () async {
+    final asked = <String>[];
+    final client = MockClient((req) async {
+      final cal = Uri.decodeComponent(req.url.pathSegments[3]);
+      asked.add(cal);
+      if (cal == 'gone@x.example') return http.Response('{}', 404);
+      final items = {
+        'primary': [ev('p1', iso(9), iso(10)), ev('both', iso(13), iso(14))],
+        'school@x.example': [ev('s1', iso(11), iso(12)), ev('both', iso(13), iso(14))],
+      }[cal];
+      return http.Response(jsonEncode({'items': items}), 200);
+    });
+    final src = GoogleCalendarSource(() async => 'tok', calendars: ['school@x.example', 'gone@x.example']);
+    final events = await http.runWithClient(() => src.load(DateTime(2026, 10, 10), DateTime(2026, 10, 11)), () => client);
+    expect(asked.toSet(), {'primary', 'school@x.example', 'gone@x.example'});
+    expect(events.map((e) => e.id), ['p1', 'both', 'school@x.example/s1']);
   });
 }
