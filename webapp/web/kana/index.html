@@ -52,8 +52,7 @@ input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:ce
     <div class="row" id="scriptrow" hidden><label class="t" for="script">Words in</label>
       <select id="script"><option value="all">All words</option><option value="hiragana">Hiragana words only</option><option value="katakana">Katakana words only (loanwords)</option><option value="mixed">Mixed hiragana + katakana</option></select></div>
     <div class="row" id="lessonsrow" hidden><label class="t">Lessons</label>
-      <label class="c"><input type="checkbox" id="l-0" checked> 0</label><label class="c"><input type="checkbox" id="l-1" checked> 1</label>
-      <label class="c"><input type="checkbox" id="l-2" checked> 2</label><label class="c"><input type="checkbox" id="l-3" checked> 3</label></div>
+      <label class="c"><input type="checkbox" id="l-0" checked> 0</label><label class="c"><input type="checkbox" id="l-1" checked> 1</label><label class="c"><input type="checkbox" id="l-2" checked> 2</label><label class="c"><input type="checkbox" id="l-3" checked> 3</label><label class="c"><input type="checkbox" id="l-4" checked> 4</label><label class="c"><input type="checkbox" id="l-5" checked> 5</label><label class="c"><input type="checkbox" id="l-6" checked> 6</label><label class="c"><input type="checkbox" id="l-7" checked> 7</label><label class="c"><input type="checkbox" id="l-8" checked> 8</label><label class="c"><input type="checkbox" id="l-9" checked> 9</label><label class="c"><input type="checkbox" id="l-10" checked> 10</label><label class="c"><input type="checkbox" id="l-11" checked> 11</label><label class="c"><input type="checkbox" id="l-12" checked> 12</label></div>
     <div class="row" id="groupsrow"><label class="t">Groups</label>
       <label class="c"><input type="checkbox" id="g-basic" checked> Basic</label>
       <label class="c"><input type="checkbox" id="g-dakuten"> Dakuten (が ぱ)</label>
@@ -312,7 +311,7 @@ function build(){
   let cards;
   if(deck==="kanji")cards=kanjiCards(flip);
   else if(["vocab","other","allwords"].includes(deck)){
-    const lessons=new Set([0,1,2,3].filter(n=>$("l-"+n).checked));
+    const lessons=new Set([0,1,2,3,4,5,6,7,8,9,10,11,12].filter(n=>$("l-"+n).checked));
     cards=wordCards(deck==="vocab"?["vocab"]:deck==="other"?["other"]:["vocab","other"],lessons,flip,typed);
   }
   else{const g=["basic","dakuten","yoon","extended","lookalike"].filter(x=>$("g-"+x).checked);cards=kanaCards(deck,g,flip)}
