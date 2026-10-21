@@ -1,0 +1,120 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:next_up_core/deadline.dart';
+import 'package:next_up_core/deadline_source.dart';
+import 'package:next_up_core/today_screen.dart';
+import 'package:next_up_core/theme.dart';
+
+class FakeSource implements DeadlineSource {
+  FakeSource(this.items, {this.fail});
+  final List<Deadline> items;
+  final SourceException? fail;
+  final finished = <String>[];
+
+  @override
+  Future<List<Deadline>> load() async {
+    if (fail != null) throw fail!;
+    return items;
+  }
+
+  @override
+  Future<void> complete(Deadline d) async => finished.add(d.id);
+}
+
+Deadline d(String id, String title, DateTime due, {bool allDay = true}) =>
+    Deadline(id: id, projectId: 'p', title: title, due: due, allDay: allDay, priority: 3, list: '🏫School');
+
+void main() {
+  final now = DateTime(2026, 10, 10, 9, 0);
+
+  test('parses TickTick dates: all-day uses the date part, timed uses the offset', () {
+    final allDay = Deadline.fromTask(
+      {'id': 'a', 'projectId': 'p', 'title': 'x', 'dueDate': '2026-10-04T00:00:00-0600', 'isAllDay': true},
+      {'p': 'School'},
+    )!;
+    expect(allDay.due, DateTime(2026, 10, 4, 23, 59, 59));
+    expect(allDay.list, 'School');
+    final timed = Deadline.fromTask({'id': 'b', 'title': 'y', 'dueDate': '2026-10-04T15:30:00+0000', 'isAllDay': false}, {})!;
+    expect(timed.due.toUtc(), DateTime.utc(2026, 10, 4, 15, 30));
+    expect(Deadline.fromTask({'id': 'c', 'title': 'no date'}, {}), isNull);
+  });
+
+  test('groups overdue oldest first and picks the next upcoming deadline', () {
+    final g = DeadlineGroups([
+      d('1', 'late newer', DateTime(2026, 10, 6, 23, 59)),
+      d('2', 'late older', DateTime(2026, 10, 4, 23, 59)),
+      d('3', 'today', DateTime(2026, 10, 10, 23, 59)),
+      d('4', 'next month', DateTime(2026, 11, 1, 23, 59)),
+    ], now);
+    expect(g.overdue.map((x) => x.id), ['2', '1']);
+    expect(g.next!.id, '3');
+    expect(g.later(now).map((x) => x.id), ['4']);
+  });
+
+  Future<void> pump(WidgetTester t, FakeSource s, {bool signedIn = true}) async {
+    await t.binding.setSurfaceSize(const Size(400, 900));
+    await t.pumpWidget(MaterialApp(
+      theme: buildNextUpTheme(),
+      home: TodayScreen(source: s, signedIn: () => signedIn, onSignIn: () async {}, now: () => now),
+    ));
+    await t.pump();
+    await t.pump();
+  }
+
+  testWidgets('a task with notes opens them on a tap and shows its real deadline', (t) async {
+    final s = FakeSource([
+      Deadline(id: '1', projectId: 'p', title: 'Chem quiz', due: DateTime(2026, 10, 12, 9), allDay: false, priority: 5, list: 'School', notes: 'Real deadline: Tue 9am. Chapters 3 and 4.'),
+      d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59)),
+    ]);
+    await pump(t, s);
+    expect(find.text('Mon Oct 12, 9:00 AM · School · Real: Tue 9am · High priority'), findsOneWidget);
+    expect(find.text('Boarding'), findsWidgets, reason: 'each row carries the old board\'s status pill');
+    expect(find.text('Real deadline: Tue 9am. Chapters 3 and 4.'), findsNothing);
+    await t.tap(find.text('Chem quiz').last);
+    await t.pumpAndSettle();
+    expect(find.text('Real deadline: Tue 9am. Chapters 3 and 4.'), findsOneWidget);
+  });
+
+  testWidgets('Undo puts a finished task back and nothing is sent', (t) async {
+    final s = FakeSource([d('1', 'Chem quiz', DateTime(2026, 10, 4, 23, 59)), d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59))]);
+    await pump(t, s);
+    await t.tap(find.byTooltip('Finish Chem quiz'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Undo'));
+    await t.pumpAndSettle();
+    expect(find.text('Chem quiz'), findsOneWidget);
+    await t.pump(const Duration(seconds: 5));
+    expect(s.finished, isEmpty);
+  });
+
+  testWidgets('shows the next deadline, overdue list and finishes a task', (t) async {
+    final s = FakeSource([
+      d('1', 'Chem quiz', DateTime(2026, 10, 4, 23, 59)),
+      d('3', 'Math exam prep', DateTime(2026, 10, 10, 23, 59)),
+      d('4', 'Specsavers', DateTime(2026, 11, 1, 23, 59)),
+    ]);
+    await pump(t, s);
+    expect(find.text('NEXT DEADLINE'), findsOneWidget);
+    expect(find.text('Math exam prep'), findsOneWidget);
+    expect(find.text('OVERDUE'), findsOneWidget);
+    expect(find.text('6d late'), findsOneWidget);
+    await t.tap(find.byTooltip('Finish Chem quiz'));
+    await t.pumpAndSettle();
+    expect(find.text('Chem quiz'), findsNothing);
+    expect(s.finished, isEmpty); // waits for the Undo window
+    await t.pump(const Duration(seconds: 5));
+    await t.pumpAndSettle();
+    expect(s.finished, ['1']);
+  });
+
+  testWidgets('asks to sign in when signed out', (t) async {
+    await pump(t, FakeSource([]), signedIn: false);
+    expect(find.text('Sign in with Google'), findsOneWidget);
+  });
+
+  testWidgets('explains when TickTick is not connected', (t) async {
+    await pump(t, FakeSource([], fail: SourceException('Connect TickTick once in the Classic tab.', notConnected: true)));
+    expect(find.textContaining('Connect TickTick'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+  });
+}

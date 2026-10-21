@@ -1,0 +1,21 @@
+name = "next-up-dashboard"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+# Keep variables set in the Cloudflare dashboard (GOOGLE_CLIENT_ID) when deploying.
+keep_vars = true
+
+# Holds the TickTick token and the queue between the dashboard and Claude Code on your laptop
+# (free plan, SQLite-backed).
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "Relay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Relay"]
+
+[vars]
+SITE_URL = "https://aalambheriyani.github.io/next-up-dashboard/"
+# Set GOOGLE_CLIENT_ID in the dashboard: Worker > Settings > Variables and Secrets (type: Text).
+# Private values (email, sheet ids, keys) go there too, as type Secret.

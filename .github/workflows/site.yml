@@ -1,0 +1,95 @@
+# Every push to main gets a version number (a git tag like v0.4.2 and a GitHub Release with the
+# changes; 0.x versions are marked as pre-releases), then publishes the website to GitHub Pages: the newest version at the root, and every
+# earlier version at /v/<version>/ so any of them can be opened again later.
+#
+# Version bumps: patch by default (0.1.0, 0.1.1, ...). Put [minor] or [major] in a commit message (or run this workflow
+# by hand and pick) to bump that part instead.
+name: Site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version part to bump"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: site
+  cancel-in-progress: false
+jobs:
+  release-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Mark the early 1.x builds as pre-releases (one-time; no-op once done)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --tags --force
+          for t in $(git tag -l 'v1.*'); do
+            gh release view "$t" --json isPrerelease -q .isPrerelease 2>/dev/null | grep -q true \
+              || gh release edit "$t" --prerelease --latest=false --title "$t (early build, before 0.1)" || true
+          done
+      - name: Version and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP_INPUT: ${{ inputs.bump }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          git fetch --tags --force
+          if git tag --points-at HEAD | grep -q '^v[0-9]'; then echo "HEAD already has a version"; exit 0; fi
+          # Numbering starts at 0.1.0; the early v1.x builds are kept but don't count.
+          last=$(git tag -l 'v0.*' 'v[2-9]*' --sort=-v:refname | head -1)
+          msgs=$(git log --format=%B "${BEFORE:-HEAD~1}..HEAD" 2>/dev/null || git log -1 --format=%B)
+          bump=${BUMP_INPUT:-patch}
+          grep -qi '\[minor\]' <<<"$msgs" && bump=minor
+          grep -qi '\[major\]' <<<"$msgs" && bump=major
+          if [ -z "$last" ]; then next=v0.1.0; else
+            IFS=. read -r ma mi pa <<<"${last#v}"
+            case $bump in major) next="v$((ma+1)).0.0";; minor) next="v$ma.$((mi+1)).0";; *) next="v$ma.$mi.$((pa+1))";; esac
+          fi
+          git tag "$next" && git push origin "$next"
+          if [ -n "$last" ]; then notes=$(git log --format='- %s' "$last..HEAD"); else notes=$(git log -20 --format='- %s'); fi
+          printf '%s\n\nOpen this version: https://aalambheriyani.github.io/next-up-dashboard/v/%s/\n' "$notes" "$next" > notes.md
+          # 0.x versions are pre-releases; from 1.0.0 on they become normal releases.
+          if [[ $next == v0.* ]]; then kind=--prerelease; else kind=--latest; fi
+          gh release create "$next" --title "$next" --notes-file notes.md $kind
+      - name: Build site with every version
+        run: bash scripts/build-site.sh _site
+      # The Flutter site (webapp/) is the site, at the root. The old one (docs/) is no longer published.
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Build the Flutter site into the root
+        working-directory: webapp
+        run: |
+          flutter pub get
+          flutter build web --release --no-web-resources-cdn --base-href /next-up-dashboard/
+          cp -r build/web/. ../_site/
+      # Old links and bookmarks to /beta/ and /classic/ (and sign-ins started there) land on the root, keeping
+      # the address's ?query and #session so a sign-in still completes.
+      - name: Send /beta/ and /classic/ to the root
+        run: |
+          mkdir -p _site/beta _site/classic
+          cat > _site/beta/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><title>Next Up</title><meta name="robots" content="noindex">
+          <script>location.replace("../" + location.search + location.hash)</script>
+          <noscript><meta http-equiv="refresh" content="0; url=../"></noscript>
+          <a href="../">Next Up has moved here</a>
+          HTML
+          cp _site/beta/index.html _site/classic/index.html
+          # The old Quest Log page is the Quests page now.
+          printf '<!doctype html><meta charset="utf-8"><script>location.replace("./#quests")</script><a href="./#quests">Quests</a>\n' > _site/quest.html
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deploy
+        uses: actions/deploy-pages@v4

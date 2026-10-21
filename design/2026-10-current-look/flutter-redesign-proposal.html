@@ -1,0 +1,189 @@
+<title>Next Up App Design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Departures-board identity: paper-white by day, signal-board slate by night. Red is reserved for deadlines, teal for progress. */
+:root {
+  --bg: #f3f2ee; --panel: #ffffff; --ink: #1b2024; --muted: #6a7178; --line: #dcdad3;
+  --flap: #1f2a33; --flap-ink: #f4f1e6; --dl: #d63a2f; --ok: #1f8a70; --warn: #c98a12; --chip: #ebe9e2;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif; --f-body: "Barlow", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171b; --panel: #1b2228; --ink: #eceae2; --muted: #98a0a6; --line: #2c353c;
+  --flap: #0b0f12; --flap-ink: #f1ead2; --dl: #ff6a5c; --ok: #4cc3a2; --warn: #e5b04a; --chip: #252e35; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12171b; --panel: #1b2228; --ink: #eceae2; --muted: #98a0a6; --line: #2c353c;
+  --flap: #0b0f12; --flap-ink: #f1ead2; --dl: #ff6a5c; --ok: #4cc3a2; --warn: #e5b04a; --chip: #252e35; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--f-body); padding-inline: 16px; padding-block: 28px 56px; margin: 0; }
+main { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h1 { font-size: clamp(38px, 7vw, 64px); line-height: 1; }
+h2 { font-size: 30px; }
+h3 { font-size: 20px; text-transform: uppercase; letter-spacing: .06em; }
+p { margin: 0; max-width: 65ch; }
+.lead { color: var(--muted); font-size: 18px; margin-top: 12px; }
+.label { font: 600 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.stage { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align-items: flex-start; }
+.col { display: grid; gap: 12px; justify-items: center; width: 300px; }
+.phone { width: 300px; height: 620px; background: var(--panel); border: 1px solid var(--line); border-radius: 34px; box-shadow: 0 18px 40px rgba(0,0,0,.14); overflow: hidden; display: flex; flex-direction: column; }
+.sb { display: flex; justify-content: space-between; font: 600 11px var(--f-mono); padding: 10px 20px 4px; color: var(--muted); }
+.scr { flex: 1; overflow: hidden; padding: 6px 14px 0; display: grid; align-content: start; gap: 12px; }
+.board { background: var(--flap); color: var(--flap-ink); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.board .to { font: 600 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+.board .what { font: 700 26px/1.05 var(--f-display); }
+.flaps { display: flex; gap: 5px; align-items: flex-end; }
+.flap { background: #000; color: var(--flap-ink); font: 600 28px/1 var(--f-mono); padding: 8px 7px; border-radius: 5px; position: relative; font-variant-numeric: tabular-nums; }
+.flap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(255,255,255,.14); }
+.flaps small { font: 600 10px var(--f-mono); opacity: .6; margin: 0 4px 6px 0; text-transform: uppercase; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 0; border-top: 1px solid var(--line); align-items: center; }
+.row b { font-weight: 600; font-size: 14px; }
+.row span { color: var(--muted); font-size: 12px; }
+.row .t { font: 600 12px var(--f-mono); grid-row: span 2; text-align: right; }
+.late { color: var(--dl); } .good { color: var(--ok); }
+.pill { display: inline-block; font: 600 10px var(--f-mono); padding: 2px 7px; border-radius: 999px; background: var(--chip); margin-right: 4px; text-transform: uppercase; }
+.pill.dl { background: var(--dl); color: #fff; }
+.tabs { display: flex; justify-content: space-around; border-top: 1px solid var(--line); padding: 10px 6px 14px; font: 600 11px var(--f-mono); color: var(--muted); }
+.tabs .on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--dl); }
+.lane { display: grid; grid-template-columns: 38px 1fr; gap: 8px; align-items: start; }
+.lane > .d { font: 600 11px var(--f-mono); color: var(--muted); padding-top: 8px; }
+.card { background: var(--bg); border-radius: 10px; padding: 8px 10px; font-size: 13px; display: grid; gap: 2px; }
+.card.dlc { border-left: 4px solid var(--dl); } .card.ok { border-left: 4px solid var(--ok); }
+.dial { width: 190px; height: 190px; border-radius: 50%; margin: 6px auto 0; display: grid; place-items: center;
+  background: conic-gradient(var(--dl) 0 38%, var(--chip) 38% 100%); }
+.dial div { width: 158px; height: 158px; border-radius: 50%; background: var(--panel); display: grid; place-items: center; text-align: center; }
+.dial strong { font: 600 40px var(--f-mono); }
+.btn { text-align: center; background: var(--flap); color: var(--flap-ink); border-radius: 12px; padding: 11px; font: 600 14px var(--f-body); }
+.xp { height: 8px; background: var(--chip); border-radius: 99px; overflow: hidden; } .xp i { display: block; height: 100%; width: 62%; background: var(--ok); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.idea { border-top: 3px solid var(--ink); padding-top: 10px; display: grid; gap: 6px; align-content: start; }
+.idea p { font-size: 15px; color: var(--muted); }
+.idea .why { color: var(--ink); font-weight: 500; }
+.tier { display: grid; gap: 18px; }
+.nav { display: flex; flex-wrap: wrap; gap: 8px; }
+code, pre { font-family: var(--f-mono); font-size: 13px; }
+pre { background: var(--flap); color: var(--flap-ink); padding: 14px; border-radius: 12px; overflow-x: auto; margin: 0; }
+@media (prefers-reduced-motion: no-preference) { .flap { transition: transform .2s; } }
+</style>
+
+<main>
+  <header>
+    <div class="label">Proposal · mobile app · Flutter</div>
+    <h1>Next Up, as a real app</h1>
+    <p class="lead">The current app is the website inside a web view. This design keeps the departures-board idea and rebuilds the screens natively, so deadlines, the timer and the XP loop open instantly, work offline and send reminders you can act on. Sample data below is your real school deadlines.</p>
+  </header>
+
+  <section class="tier" aria-labelledby="s1">
+    <h2 id="s1">Three screens</h2>
+    <div class="stage">
+
+      <div class="col">
+        <div class="phone" aria-label="Today screen">
+          <div class="sb"><span>9:41</span><span>Sat Oct 10</span></div>
+          <div class="scr">
+            <div class="board">
+              <div class="to">Next departure</div>
+              <div class="what">Math: Relearn Polynomial &amp; Sinusoidal</div>
+              <div class="flaps" id="fl"><span class="flap">00</span><small>h</small><span class="flap">00</span><small>m</small><span class="flap">00</span><small>s</small></div>
+              <div class="to">Exam prep · due today</div>
+            </div>
+            <div class="label">Overdue · 7 · clear the oldest first</div>
+            <div>
+              <div class="row"><div><b>Chem quiz: Solutions Quiz 1</b><span><i class="pill dl">Quiz</i>Oct 4</span></div><div class="t late">6d late</div></div>
+              <div class="row"><div><b>English: Personal Response Essay</b><span><i class="pill dl">Essay</i>Oct 6</span></div><div class="t late">4d late</div></div>
+              <div class="row"><div><b>Math: Rationals homework</b><span><i class="pill">Started</i>Oct 5</span></div><div class="t late">5d late</div></div>
+            </div>
+          </div>
+          <nav class="tabs"><span class="on">TODAY</span><span>BOARD</span><span>FOCUS</span><span>QUESTS</span></nav>
+        </div>
+        <div class="label">Today</div>
+      </div>
+
+      <div class="col">
+        <div class="phone" aria-label="Departures board">
+          <div class="sb"><span>9:41</span><span>Week of Oct 5</span></div>
+          <div class="scr">
+            <div style="display:flex; gap:6px;"><span class="pill dl">All</span><span class="pill">School</span><span class="pill">Doctor</span><span class="pill">Home</span></div>
+            <div class="lane"><div class="d">SAT 10</div><div class="card dlc"><b>Relearn Polynomial &amp; Sinusoidal</b><span class="late">Exam prep · due today</span></div></div>
+            <div class="lane"><div class="d">SUN 11</div><div class="card"><b>Nothing due</b><span style="color:var(--muted)">Free block: 2h study fits here</span></div></div>
+            <div class="lane"><div class="d">MON 12</div><div class="card ok"><b>Chem review (Saturday plan)</b><span class="good">Suggested slot 4:00 PM</span></div></div>
+            <div class="lane"><div class="d">NOV 1</div><div class="card dlc"><b>Glasses adjusted at Specsavers</b><span class="late">22 days · book by Oct 25</span></div></div>
+            <div class="label">Swipe right to finish · left to move a day</div>
+          </div>
+          <nav class="tabs"><span>TODAY</span><span class="on">BOARD</span><span>FOCUS</span><span>QUESTS</span></nav>
+        </div>
+        <div class="label">Board: one timeline, any list</div>
+      </div>
+
+      <div class="col">
+        <div class="phone" aria-label="Focus screen">
+          <div class="sb"><span>9:41</span><span>Focus</span></div>
+          <div class="scr">
+            <div class="label" style="text-align:center">Working on · Math exam prep</div>
+            <div class="dial"><div><div><strong>24:10</strong><span class="label">of 25 · round 2</span></div></div></div>
+            <div class="btn">Pause</div>
+            <div style="display:grid; gap:6px; margin-top:4px;">
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><b>Daily XP</b><span class="num" style="font-family:var(--f-mono)">37 / 60</span></div>
+              <div class="xp"><i></i></div>
+              <span style="font-size:12px; color:var(--muted)">Finish this round: +15 XP. Two quests in 45 min starts a combo.</span>
+            </div>
+            <div class="card" style="margin-top:4px;"><b>Block rating</b><span style="color:var(--muted)">Last block: Chem review. Done · Partial · Missed · Skip</span></div>
+          </div>
+          <nav class="tabs"><span>TODAY</span><span>BOARD</span><span class="on">FOCUS</span><span>QUESTS</span></nav>
+        </div>
+        <div class="label">Focus: dial, XP and rating in one place</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tier" aria-labelledby="s2">
+    <h2 id="s2">What changes in the design</h2>
+    <div class="grid">
+      <div class="idea"><h3>Departures board first</h3><p class="why">The next deadline is the whole top of the app.</p><p>Split-flap countdown, red used only for deadlines, so a red item always means something is due.</p></div>
+      <div class="idea"><h3>One timeline, many lists</h3><p class="why">Doctor, school and home stop living in separate places.</p><p>TickTick lists become filter chips. Calendar events and tasks share one week view with free blocks visible.</p></div>
+      <div class="idea"><h3>Native timer</h3><p class="why">Survives locking the phone.</p><p>Lock-screen and watch timer, ending notification with Done and +5 min actions, instead of a web page that sleeps.</p></div>
+      <div class="idea"><h3>Offline first</h3><p class="why">Deadlines show on the train.</p><p>Cache the board locally; queue Done taps and XP rows and send them when back online.</p></div>
+    </div>
+  </section>
+
+  <section class="tier" aria-labelledby="s3">
+    <h2 id="s3">Feature ideas for your rules</h2>
+    <div class="grid">
+      <div class="idea"><h3>One-tap sync check</h3><p class="why">Your rule: Notion is the archive, TickTick is the view.</p><p>A "Sync" screen that lists anything dated in Notion but missing in TickTick (or the reverse), with a Fix button. It would have caught the Sep 29 homework.</p></div>
+      <div class="idea"><h3>Add a deadline by typing or voice</h3><p class="why">Docs stays a place you can dump into.</p><p>"Chem lab report Friday 11:59" creates the Notion row and the TickTick task together. Dump a paragraph from Docs and it asks only about the dates it cannot read.</p></div>
+      <div class="idea"><h3>Overdue triage</h3><p class="why">Seven past-due items is a lot to look at.</p><p>A short flow: finish, reschedule or drop each. It reschedules into your free calendar blocks instead of piling onto today.</p></div>
+      <div class="idea"><h3>Study plan from an exam date</h3><p class="why">Exams are the deadlines that need lead time.</p><p>Pick an exam and it drafts spaced review blocks (Chem, Math, English colours) into the week, which you accept or edit.</p></div>
+      <div class="idea"><h3>Weight-aware priority</h3><p class="why">Notion already stores Weight % and scores.</p><p>Rank the board by how much a task moves your grade, not only by date. Show the running course grade beside each course.</p></div>
+      <div class="idea"><h3>Gentle streaks and Sunday review</h3><p class="why">You already plan Sundays at 6 PM.</p><p>A weekly recap: blocks done, hours missed, next week's heavy days, then a prefilled plan. Streaks pause on rest days instead of breaking.</p></div>
+      <div class="idea"><h3>Health and errands lane</h3><p class="why">Your doctor list is long and undated.</p><p>Undated items get a "book by" nudge and a call-hours reminder. Stay separate from school deadlines so they never crowd the countdown.</p></div>
+      <div class="idea"><h3>Home-screen widgets</h3><p class="why">Seeing the next deadline should cost zero taps.</p><p>Small: countdown. Medium: next three. Lock screen: days left to the next exam.</p></div>
+    </div>
+  </section>
+
+  <section class="tier" aria-labelledby="s4">
+    <h2 id="s4">How it would be built</h2>
+    <p>Native Flutter screens call the same Cloudflare Worker the website uses, so sign-in, TickTick and sheets keep working and the site stays as the desktop version. Nothing personal goes in the repo.</p>
+<pre>app/lib/
+  theme/        tokens (light, dark), Barlow Condensed + Plex Mono
+  data/         worker client, local cache, offline queue
+  features/
+    today/      flap countdown, overdue list
+    board/      week timeline, filters, swipe actions
+    focus/      dial, XP, block rating, notifications
+    quests/     XP log, streaks
+    sync/       Notion vs TickTick check</pre>
+    <p>Suggested order: 1) theme and Today screen, 2) Board, 3) Focus with notifications, 4) Sync check. Each can ship as its own pull request, and the web view stays as a fallback until a screen is replaced.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  var end = new Date(); end.setHours(23, 59, 0, 0);
+  function p(n) { return String(n).padStart(2, "0"); }
+  function tick() {
+    var s = Math.max(0, Math.floor((end - new Date()) / 1000));
+    var f = document.querySelectorAll("#fl .flap");
+    if (f.length === 3) { f[0].textContent = p(Math.floor(s / 3600)); f[1].textContent = p(Math.floor(s % 3600 / 60)); f[2].textContent = p(s % 60); }
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>

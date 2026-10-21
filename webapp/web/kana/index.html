@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kana">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="dark light">
+<title>Kana and kanji practice</title>
+<style>
+:root{--bg:#0f141b;--panel:#18212f;--fg:#eef2f8;--muted:#9db0cc;--accent:#4d8dff;--good:#2e9e5b;--bad:#e0524a;--line:#2a3548}
+@media (prefers-color-scheme:light){:root{--bg:#f3f5f9;--panel:#fff;--fg:#17202e;--muted:#5d6b82;--line:#d7deea}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+main{max-width:720px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+h1{font-size:24px;margin:8px 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.row>label.t{min-width:104px;color:var(--muted)}
+select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+label.c{display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
+button{font:inherit;font-weight:600;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-height:48px;touch-action:manipulation}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.good{background:var(--good);border-color:var(--good);color:#fff}
+button.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+button:active{filter:brightness(.9)}
+.hint{color:var(--muted);font-size:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+#prompt{font-size:64px;line-height:1.1;text-align:center;margin:6px 0 2px;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;word-break:break-word}
+#prompt.small{font-size:36px}
+#hintline{text-align:center;color:var(--muted);min-height:22px}
+#padwrap{display:flex;justify-content:center;margin:8px 0}
+canvas.wide{width:min(94vw,720px);height:calc(min(94vw,720px) / 2.4)}
+canvas{background:#fff;border-radius:14px;border:2px solid var(--line);touch-action:none;width:min(92vw,54vh,520px);height:min(92vw,54vh,520px)}
+#answer{text-align:center;font-size:20px;white-space:pre-line;min-height:28px;margin:4px 0}
+.btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+#missed{white-space:pre-line;max-height:34vh;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;user-select:text;-webkit-user-select:text}
+.typedwrap{display:flex;justify-content:center;margin:10px 0}
+input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:center;padding:12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--fg);-webkit-user-select:text;user-select:text}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<section id="setup">
+  <h1>Kana and kanji practice</h1>
+  <div class="card">
+    <div class="row"><label class="t" for="deck">Deck</label>
+      <select id="deck"><option value="hiragana">Hiragana</option><option value="katakana">Katakana</option><option value="kanji">Kanji (covered so far)</option></select></div>
+    <div class="row" id="scriptrow" hidden><label class="t" for="script">Words in</label>
+      <select id="script"><option value="all">All words</option><option value="hiragana">Hiragana words only</option><option value="katakana">Katakana words only (loanwords)</option><option value="mixed">Mixed hiragana + katakana</option></select></div>
+    <div class="row" id="lessonsrow" hidden><label class="t">Lessons</label>
+      <label class="c"><input type="checkbox" id="l-0" checked> 0</label><label class="c"><input type="checkbox" id="l-1" checked> 1</label>
+      <label class="c"><input type="checkbox" id="l-2" checked> 2</label><label class="c"><input type="checkbox" id="l-3" checked> 3</label></div>
+    <div class="row" id="groupsrow"><label class="t">Groups</label>
+      <label class="c"><input type="checkbox" id="g-basic" checked> Basic</label>
+      <label class="c"><input type="checkbox" id="g-dakuten"> Dakuten (が ぱ)</label>
+      <label class="c"><input type="checkbox" id="g-yoon"> Combos (きゃ)</label>
+      <label class="c" id="g-ext-label"><input type="checkbox" id="g-extended"> Extended (ファ)</label>
+      <label class="c"><input type="checkbox" id="g-lookalike"> Look-alikes</label></div>
+    <div class="row"><label class="t" for="dir">Mode</label>
+      <select id="dir"><option value="draw">Draw it (romaji or meaning → character)</option><option value="flip">Flip card (character → romaji or meaning)</option><option value="type">Type it: romaji or kana (word decks only)</option></select></div>
+    <div class="row"><label class="c"><input type="checkbox" id="preview"> Look through all the cards first</label>
+      <label class="c"><input type="checkbox" id="missedonly"> Only cards I have missed before</label>
+      <label class="c"><input type="checkbox" id="boostkana" checked> Bring forgotten kana back more often</label></div>
+    <p class="hint" id="weaknote"></p>
+    <div class="row"><label class="c"><input type="checkbox" id="pencilonly"> Apple Pencil only (ignore finger)</label></div>
+    <p class="hint" id="setupmsg"></p>
+    <p class="hint" id="decknote"></p>
+    <div class="btns"><button class="primary" id="startbtn">Start</button></div>
+  </div>
+  <p class="hint">Write with the Apple Pencil or your finger. Tap Check to see the model character behind your strokes, then grade yourself. Progress stays on this device.</p>
+</section>
+
+<section id="quiz" hidden>
+  <div class="top"><button id="leave">Back</button><span class="hint" id="stats"></span></div>
+  <div id="prompt"></div>
+  <div id="hintline"></div>
+  <div id="padwrap"><canvas id="pad"></canvas></div>
+  <div id="typedwrap" class="typedwrap" hidden><input id="typed" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Type in romaji or kana"></div>
+  <div id="answer"></div>
+  <div class="btns" id="btns">
+    <button id="b-clear">Clear</button><button id="b-undo">Undo stroke</button><button id="b-skip">Skip</button><button id="b-prev">Back</button>
+    <button class="primary" id="b-main">Check</button>
+    <button class="bad" id="b-again">Again</button><button class="good" id="b-good">Got it</button>
+  </div>
+</section>
+
+<section id="done" hidden>
+  <h1>Session feedback</h1>
+  <div class="card"><div id="summary" style="font-size:20px;margin-bottom:8px"></div><div id="missed"></div>
+    <div class="btns"><button class="primary" id="retry">Retry missed cards</button><button id="again-setup">Back to setup</button></div></div>
+</section>
+</main>
+
+<script>
+"use strict";
+const BASIC="a あ i い u う e え o お ka か ki き ku く ke け ko こ sa さ shi し su す se せ so そ ta た chi ち tsu つ te て to と na な ni に nu ぬ ne ね no の ha は hi ひ fu ふ he へ ho ほ ma ま mi み mu む me め mo も ya や yu ゆ yo よ ra ら ri り ru る re れ ro ろ wa わ wo を n ん";
+const DAKUTEN="ga が gi ぎ gu ぐ ge げ go ご za ざ ji じ zu ず ze ぜ zo ぞ da だ ji ぢ zu づ de で do ど ba ば bi び bu ぶ be べ bo ぼ pa ぱ pi ぴ pu ぷ pe ぺ po ぽ";
+const YOON="kya きゃ kyu きゅ kyo きょ sha しゃ shu しゅ sho しょ cha ちゃ chu ちゅ cho ちょ nya にゃ nyu にゅ nyo にょ hya ひゃ hyu ひゅ hyo ひょ mya みゃ myu みゅ myo みょ rya りゃ ryu りゅ ryo りょ gya ぎゃ gyu ぎゅ gyo ぎょ ja じゃ ju じゅ jo じょ bya びゃ byu びゅ byo びょ pya ぴゃ pyu ぴゅ pyo ぴょ";
+const EXTENDED="fa ファ fi フィ fe フェ fo フォ ti ティ di ディ je ジェ she シェ che チェ wi ウィ we ウェ wo ウォ vu ヴ";
+const LOOK={hiragana:"あおめぬねれわはほにけるろさきちいりこしつそんくへまよもうらすむたな",katakana:"シツソンクケタウワフラコユヨミチテヌスマムメナノアヤ"};
+const KANJI=[{"k": "映", "m": "reflect; project", "r": "えい"}, {"k": "画", "m": "picture; stroke", "r": "が"}, {"k": "音", "m": "sound", "r": "おと, おん"}, {"k": "楽", "m": "enjoy; music", "r": "たの(しい), がく, らく"}, {"k": "雑", "m": "miscellaneous", "r": "ざつ"}, {"k": "誌", "m": "record; magazine", "r": "し"}, {"k": "酒", "m": "sake; alcohol", "r": "さけ, しゅ"}, {"k": "茶", "m": "tea", "r": "ちゃ"}, {"k": "水", "m": "water", "r": "みず, すい"}, {"k": "朝", "m": "morning", "r": "あさ, ちょう"}, {"k": "飯", "m": "meal; cooked rice", "r": "めし, はん"}, {"k": "昼", "m": "noon; daytime", "r": "ひる, ちゅう"}, {"k": "晩", "m": "evening", "r": "ばん"}, {"k": "家", "m": "house; home", "r": "いえ, うち, か"}, {"k": "学", "m": "study; learning", "r": "がく"}, {"k": "校", "m": "school", "r": "こう"}, {"k": "明", "m": "bright", "r": "あ(ける), あした, めい, みょう"}, {"k": "日", "m": "day; sun", "r": "ひ, にち, び"}, {"k": "今", "m": "now", "r": "いま, こん"}, {"k": "毎", "m": "every", "r": "まい"}, {"k": "週", "m": "week", "r": "しゅう"}, {"k": "末", "m": "end", "r": "まつ"}, {"k": "土", "m": "earth; Saturday", "r": "ど, つち"}, {"k": "曜", "m": "day of the week", "r": "よう"}, {"k": "行", "m": "go", "r": "い(く), こう"}, {"k": "帰", "m": "return", "r": "かえ(る), き"}, {"k": "聞", "m": "hear; listen; ask", "r": "き(く), ぶん"}, {"k": "飲", "m": "drink", "r": "の(む), いん"}, {"k": "話", "m": "speak; talk", "r": "はな(す), わ"}, {"k": "読", "m": "read", "r": "よ(む), どく"}, {"k": "起", "m": "get up; rise", "r": "お(きる), き"}, {"k": "食", "m": "eat; food", "r": "た(べる), しょく"}, {"k": "寝", "m": "sleep", "r": "ね(る), しん"}, {"k": "見", "m": "see; look", "r": "み(る), けん"}, {"k": "来", "m": "come", "r": "く(る), らい"}, {"k": "勉", "m": "exert; endeavour", "r": "べん"}, {"k": "強", "m": "strong", "r": "つよ(い), きょう"}, {"k": "早", "m": "early; fast", "r": "はや(い), そう"}, {"k": "全", "m": "whole; all", "r": "ぜん"}, {"k": "然", "m": "-ly; so (in 全然)", "r": "ぜん"}, {"k": "時", "m": "time; hour", "r": "じ, とき"}, {"k": "何", "m": "what", "r": "なに, なん, か"}, {"k": "京", "m": "capital", "r": "きょう"}, {"k": "都", "m": "capital city", "r": "と"}, {"k": "九", "m": "nine", "r": "きゅう, く, ここの"}];
+const FONT='"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
+const $=id=>document.getElementById(id);
+const pairs=s=>{const t=s.split(" "),o=[];for(let i=0;i<t.length;i+=2)o.push([t[i],t[i+1]]);return o};
+const toKata=s=>[...s].map(c=>c>="ぁ"&&c<="ゖ"?String.fromCharCode(c.charCodeAt(0)+0x60):c).join("");
+
+/* ---- romaji -> hiragana (same rules as the desktop app), answer matching ---- */
+const RROWS={"":"あいうえお",k:"かきくけこ",s:"さしすせそ",t:"たちつてと",n:"なにぬねの",h:"はひふへほ",m:"まみむめも",r:"らりるれろ",g:"がぎぐげご",z:"ざじずぜぞ",d:"だぢづでど",b:"ばびぶべぼ",p:"ぱぴぷぺぽ"};
+const RMAP={ya:"や",yu:"ゆ",yo:"よ",wa:"わ",wo:"を",nn:"ん",shi:"し",chi:"ち",tsu:"つ",fu:"ふ",ji:"じ",si:"し",ti:"ち",tu:"つ",hu:"ふ",zi:"じ",di:"ぢ",du:"づ",
+  fa:"ふぁ",fi:"ふぃ",fe:"ふぇ",fo:"ふぉ",sha:"しゃ",shu:"しゅ",sho:"しょ",sya:"しゃ",syu:"しゅ",syo:"しょ",cha:"ちゃ",chu:"ちゅ",cho:"ちょ",tya:"ちゃ",tyu:"ちゅ",tyo:"ちょ",
+  ja:"じゃ",ju:"じゅ",jo:"じょ",jya:"じゃ",jyu:"じゅ",jyo:"じょ",zya:"じゃ",zyu:"じゅ",zyo:"じょ",la:"ら",li:"り",lu:"る",le:"れ",lo:"ろ",hwa:"ふぁ","n'":"ん"};
+for(const [c,k] of Object.entries(RROWS))[...k].forEach((ch,i)=>{const key=c+"aiueo"[i];if(!(key in RMAP))RMAP[key]=ch});
+for(const c of "kngmrbp"){const base=RROWS[c][1];[..."auo"].forEach((v,i)=>{const key=c+"y"+v;if(!(key in RMAP))RMAP[key]=base+"ゃゅょ"[i]})}
+[..."auo"].forEach((v,i)=>{RMAP["hy"+v]="ひ"+"ゃゅょ"[i]});
+const MACRON={"ā":"aa","ī":"ii","ū":"uu","ē":"ee","ō":"oo","â":"aa","î":"ii","û":"uu","ê":"ee","ô":"oo"};
+const toHira=s=>[...s].map(c=>c>="ァ"&&c<="ヶ"?String.fromCharCode(c.charCodeAt(0)-0x60):c).join("");
+function isRomaji(t){t=t.trim();return !!t&&[...t].every(c=>c.charCodeAt(0)<128||c in MACRON)&&/[a-z]/i.test(t)}
+function romajiToHira(text){
+  let s=[...text.toLowerCase()].map(c=>MACRON[c]||c).join("");
+  s=s.replace(/[\s.,!?'’~…。、]+(?![a-z])/g,"").replace(/\s+/g,"");
+  const out=[];let i=0;
+  while(i<s.length){
+    const ch=s[i];
+    if(ch==="-"){i++;continue}
+    if(ch==="n"&&(i+1===s.length||!"aiueoyn'".includes(s[i+1]))){out.push("ん");i++;continue}
+    if(ch==="n"&&s[i+1]==="n"){out.push("ん");i++;continue}
+    if(i+1<s.length&&ch===s[i+1]&&"kstphmrgzdbfjcwy".includes(ch)){out.push("っ");i++;continue}
+    let hit=false;
+    for(const n of [3,2,1]){const k=s.slice(i,i+n);if(k in RMAP){out.push(RMAP[k]);i+=n;hit=true;break}}
+    if(!hit){out.push(ch);i++}
+  }
+  return out.join("");
+}
+function canonHira(h,lenient){
+  h=toHira(h).replace(/([おこそとのほもよろごぞどぼぽょを])う/g,"$1お").replace(/([えけせてねへめれげぜでべぺ])い/g,"$1え");
+  return lenient?h.replace(/は/g,"わ").replace(/を/g,"お").replace(/へ/g,"え"):h;
+}
+const kanaOf=t=>toHira(isRomaji(t)?romajiToHira(t):t.trim());
+const STRIPPED=/[\s~～…。、！？!?.,*()（）]/g;
+function checkTyped(c,text){
+  const t=text.trim();if(!t)return false;
+  if(isRomaji(t))return c.hira.has(canonHira(kanaOf(t),c.lenient));
+  return c.exact.has(t.replace(STRIPPED,""));
+}
+function lcs(a,b){
+  const n=a.length,m=b.length,dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=1;i<=n;i++)for(let j=1;j<=m;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]);
+  const keep=new Set();let i=n,j=m;
+  while(i>0&&j>0){if(a[i-1]===b[j-1]){keep.add(j-1);i--;j--}else if(dp[i-1][j]>=dp[i][j-1])i--;else j--}
+  return{len:dp[n][m],keep};
+}
+
+/* ---- forgotten kana: counted from misses, brought back more often (this device) ---- */
+const KANALOOK=(()=>{const m={};for(const script of ["hiragana","katakana"])for(const g of [BASIC,DAKUTEN])for(const [r,k] of pairs(g)){const ch=script==="katakana"?toKata(k):k;if([...ch].length===1&&!m[ch])m[ch]={script,romaji:r}}return m})();
+const weak={get(){try{return JSON.parse(localStorage.getItem("kana-weak")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("kana-weak",JSON.stringify(v))}catch(e){}}};
+function noteKana(chars,delta){const d=weak.get();for(const ch of chars){const w=Math.max(0,(d[ch]||0)+delta);if(w)d[ch]=w;else delete d[ch]}weak.set(d)}
+function weakList(min=1){return Object.entries(weak.get()).filter(([,w])=>w>=min).sort((a,b)=>b[1]-a[1]).map(([ch])=>ch)}
+function missedChars(c,text){
+  const typed=[...canonHira(kanaOf(text),c.lenient)];let best=null;
+  for(const alt of c.alts){const tgt=[...canonHira(alt,c.lenient)],r=lcs(typed,tgt),score=r.len/Math.max(1,typed.length,tgt.length);if(!best||score>best.score)best={score,alt:[...alt],keep:r.keep}}
+  return best?best.alt.filter((ch,j)=>!best.keep.has(j)&&KANALOOK[ch]):[];
+}
+function trackKana(c,ok){
+  try{
+    if(c.char)noteKana([c.char],ok?-1:1);
+    else if(!ok&&c.alts){
+      if(c.lastTyped)noteKana(missedChars(c,c.lastTyped),1);
+      else noteKana([...c.alts[0]].filter(ch=>KANALOOK[ch]),.5);
+    }
+  }catch(e){}
+}
+function boostQueue(q){
+  const wl=weakList();if(!wl.length||!q.length)return q;
+  const w=weak.get(),out=q.slice(),inDeck=q.filter(c=>c.char);
+  const ins=(c,lo)=>out.splice(lo+Math.floor(Math.random()*(out.length-lo+1)),0,{...c});
+  if(inDeck.length){for(const c of inDeck)for(let i=0;i<Math.min(2,Math.floor(w[c.char]||0));i++)ins(c,Math.floor(out.length/3))}
+  else for(const ch of wl.slice(0,Math.max(1,Math.floor(q.length/6)))){const k=KANALOOK[ch];if(k)ins({id:k.script+":"+ch+":r",prompt:k.romaji,ans:ch,extra:"",hint:"Draw the "+k.script,draw:true,char:ch},0)}
+  return out;
+}
+function updateWeakNote(){const wl=weakList();$("weaknote").textContent=wl.length?"Kana to bring back: "+wl.slice(0,20).join("  "):"No forgotten kana noted yet."}
+
+function kanaCards(script,groups,flip){
+  const src={basic:BASIC,dakuten:DAKUTEN,yoon:YOON},out=[],seen=new Set();
+  for(const g of groups){
+    let ps;
+    if(g==="lookalike"){const m=new Map(pairs(BASIC).map(([r,k])=>[script==="katakana"?toKata(k):k,r]));ps=[...LOOK[script]].filter(c=>m.has(c)).map(c=>[m.get(c),c]);}
+    else if(g==="extended"){if(script!=="katakana")continue;ps=pairs(EXTENDED);}
+    else{ps=pairs(src[g]);if(script==="katakana")ps=ps.map(([r,k])=>[r,toKata(k)]);}
+    for(const [r,ch] of ps){
+      const id=script+":"+ch;if(seen.has(id))continue;seen.add(id);
+      out.push(flip?{id,prompt:ch,ans:r,extra:"",hint:"What is the reading?",draw:false,char:ch}
+                   :{id,prompt:r,ans:ch,extra:"",hint:"Draw the "+script,draw:true,char:ch});
+    }
+  }
+  return out;
+}
+function wordScript(kana){
+  const k=/[ァ-ヺー]/.test(kana),h=/[ぁ-ゖ]/.test(kana);
+  return k&&h?"mixed":k?"katakana":"hiragana";
+}
+function wordCards(sources,lessons,flip,typed){
+  if(!DECK)return[];
+  const sc=$("script").value;
+  return DECK.words.filter(w=>sources.includes(w[1])&&lessons.has(w[0])&&(sc==="all"||wordScript(w[3])===sc)).map(w=>{
+    const [lesson,source,section,kana,kanji,romaji,english,note]=w;
+    const jp=kana+(kanji?"  ["+kanji+"]":""),extra=[romaji,note].filter(Boolean).join("\n"),tag="L"+lesson+" · "+section;
+    const ans=kana.replace(/[\s~～…。、！？!?.,*()（）]/g,"").replace(/\/.*/,"");
+    const alts=kana.split(/[\/;]/).map(a=>a.replace(STRIPPED,"")).filter(Boolean);
+    const lenient=kana.includes(" ")||alts.some(a=>a.endsWith("は"));
+    if(typed&&!flip)return{id:"v:"+lesson+":"+kana,prompt:english,ans:jp,extra,hint:tag+" · type in romaji or kana",typed:true,alts,lenient,
+      hira:new Set(alts.map(a=>canonHira(a,lenient))),exact:new Set([...alts,...(kanji?kanji.split(/[\/;]/).map(x=>x.replace(STRIPPED,"")):[])])};
+    return flip?{id:"v:"+lesson+":"+kana,prompt:jp,ans:english,extra,hint:tag,draw:false,alts,lenient}
+               :{id:"v:"+lesson+":"+kana+":r",prompt:english,ans,extra:[kanji?jp:"",extra].filter(Boolean).join("\n"),hint:tag+" · write it in kana",draw:true,wide:true,alts,lenient};
+  });
+}
+function kanjiCards(flip){
+  const list=DECK&&DECK.kanji&&DECK.kanji.length?DECK.kanji.map(a=>({k:a[0],m:a[1],r:a[2]})):KANJI;
+  return list.map(k=>flip?{id:"k:"+k.k,prompt:k.k,ans:k.m,extra:k.r,hint:"Kanji: what does it mean?",draw:false}
+                          :{id:"k:"+k.k,prompt:k.m,ans:k.k,extra:k.r,hint:"Draw the kanji",draw:true});
+}
+
+/* ---- the owner's word list: loaded from the Worker after sign-in, cached on this device ---- */
+const WORKER=(()=>{const q=new URLSearchParams(location.search).get("worker");
+  return /^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&q?q:"https://next-up-dashboard.aalambheriyani.workers.dev"})();
+let DECK=null;
+function applyDeck(){
+  const deckSel=$("deck"),have=[...deckSel.options].map(o=>o.value);
+  if(DECK&&DECK.words&&DECK.words.length&&!have.includes("vocab")){
+    for(const [v,t] of [["vocab","Vocabulary pages (Genki I)"],["other","Other words (dialogues, classroom, numbers)"],["allwords","All words"]]){const o=document.createElement("option");o.value=v;o.textContent=t;deckSel.insertBefore(o,deckSel.querySelector('option[value="kanji"]'))}
+    $("decknote").textContent="Your word list is loaded ("+DECK.words.length+" words, "+(DECK.kanji||[]).length+" kanji).";
+  }
+}
+async function loadDeck(){
+  try{DECK=JSON.parse(localStorage.getItem("kana-deck")||"null")}catch(e){DECK=null}
+  applyDeck();
+  let sess="";try{sess=localStorage.getItem("nu.web.session")||""}catch(e){}
+  if(!sess){if(!DECK)$("decknote").textContent="To use your word list, sign in on the Next Up dashboard in this browser, then reload this page.";return}
+  try{
+    const t=await fetch(WORKER+"/auth/token",{method:"POST",headers:{Authorization:"Bearer "+sess}});
+    if(!t.ok)throw new Error("sign-in expired");
+    const {access_token}=await t.json();
+    const d=await fetch(WORKER+"/deck",{headers:{Authorization:"Bearer "+access_token}});
+    if(!d.ok)throw new Error("deck "+d.status);
+    const deck=await d.json();
+    if(deck&&deck.words&&deck.words.length){DECK=deck;try{localStorage.setItem("kana-deck",JSON.stringify(deck))}catch(e){}applyDeck();$("decknote").textContent="Your word list is up to date ("+deck.words.length+" words, "+(deck.kanji||[]).length+" kanji)."}
+    else if(!DECK)$("decknote").textContent="No word list on your account yet: the laptop relay sends it from words.csv."
+  }catch(e){if(!DECK)$("decknote").textContent="Could not load your word list ("+e.message+"). Sign in on the Next Up dashboard and reload."}
+}
+
+/* ---- progress (this device only) ---- */
+const store={get(){try{return JSON.parse(localStorage.getItem("kana-miss")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("kana-miss",JSON.stringify(v))}catch(e){}}};
+
+/* ---- drawing pad ---- */
+const pad=$("pad"),ctx=pad.getContext("2d");
+let strokes=[],cur=null,reference=null,pencilOnly=false,W=300,H=300;
+function fitPad(){
+  const r=pad.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  W=r.width;H=r.height;pad.width=Math.round(r.width*dpr);pad.height=Math.round(r.height*dpr);redraw();
+}
+function redraw(){
+  const dpr=pad.width/W;ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#d2d6dd";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);
+  const wide=W>H*1.5;if(!wide){ctx.moveTo(W/2,0);ctx.lineTo(W/2,H)}ctx.stroke();
+  if(reference){
+    ctx.fillStyle="rgba(217,48,37,.30)";ctx.textAlign="center";ctx.textBaseline="middle";
+    const n=Math.max(1,[...reference].length),fs=Math.min(H*.78,W*.94/n);ctx.font=fs+"px "+FONT;
+    ctx.fillText(reference,W/2,H/2+H*.03);
+  }
+  ctx.strokeStyle="#16181d";ctx.lineCap="round";ctx.lineJoin="round";
+  for(const s of strokes){
+    if(s.length===1){ctx.beginPath();ctx.arc(s[0].x,s[0].y,s[0].w/2,0,6.3);ctx.fillStyle="#16181d";ctx.fill();continue}
+    for(let i=1;i<s.length;i++){ctx.lineWidth=(s[i].w+s[i-1].w)/2;ctx.beginPath();ctx.moveTo(s[i-1].x,s[i-1].y);ctx.lineTo(s[i].x,s[i].y);ctx.stroke()}
+  }
+}
+function pt(e){const r=pad.getBoundingClientRect();const p=e.pointerType==="pen"&&e.pressure>0?e.pressure:.5;
+  return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height,w:e.pointerType==="pen"?3+p*8:6}}
+pad.addEventListener("pointerdown",e=>{
+  if(reference!==null||(pencilOnly&&e.pointerType!=="pen"))return;
+  e.preventDefault();try{pad.setPointerCapture(e.pointerId)}catch(_){}cur=[pt(e)];strokes.push(cur);redraw();
+});
+pad.addEventListener("pointermove",e=>{
+  if(!cur||reference!==null)return;e.preventDefault();
+  const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];for(const ev of (evs.length?evs:[e]))cur.push(pt(ev));redraw();
+});
+const endStroke=e=>{if(cur){cur=null}};
+pad.addEventListener("pointerup",endStroke);pad.addEventListener("pointercancel",endStroke);
+pad.addEventListener("contextmenu",e=>e.preventDefault());
+window.addEventListener("resize",()=>{if(!$("quiz").hidden)fitPad()});
+$("b-clear").onclick=()=>{if(reference===null){strokes=[];redraw()}};
+$("b-undo").onclick=()=>{if(reference===null){strokes.pop();redraw()}};
+
+/* ---- session ---- */
+let queue=[],card=null,right=0,wrong=0,missed=new Map(),t0=0,retryMode=false,pvList=null,pv=0,state="";
+const show=(ids,on)=>ids.forEach(i=>$(i).hidden=!on);
+const BTN=["b-clear","b-undo","b-skip","b-prev","b-main","b-again","b-good"];
+let skippedOnce=new Set(),skippedFinal=[];
+
+function setBig(t){const p=$("prompt");p.textContent=t;p.classList.toggle("small",[...t].length>6)}
+function build(){
+  const deck=$("deck").value,mode=$("dir").value,flip=mode==="flip",typed=mode==="type";
+  if(!DECK&&["vocab","other","allwords"].includes(deck))return[];
+  let cards;
+  if(deck==="kanji")cards=kanjiCards(flip);
+  else if(["vocab","other","allwords"].includes(deck)){
+    const lessons=new Set([0,1,2,3].filter(n=>$("l-"+n).checked));
+    cards=wordCards(deck==="vocab"?["vocab"]:deck==="other"?["other"]:["vocab","other"],lessons,flip,typed);
+  }
+  else{const g=["basic","dakuten","yoon","extended","lookalike"].filter(x=>$("g-"+x).checked);cards=kanaCards(deck,g,flip)}
+  if($("missedonly").checked){const m=store.get();cards=cards.filter(c=>m[c.id.replace(/:r$/,"")])}
+  for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}
+  return cards;
+}
+function start(){
+  pencilOnly=$("pencilonly").checked;
+  queue=build();
+  if(!queue.length){$("setupmsg").textContent=$("missedonly").checked?"No missed cards yet for this deck.":"Pick at least one group.";return}
+  $("setupmsg").textContent="";
+  right=wrong=0;missed=new Map();retryMode=false;t0=Date.now();card=null;skippedOnce=new Set();skippedFinal=[];
+  show(["setup","done"],false);show(["quiz"],true);fitPad();
+  const base=queue.slice();
+  if($("boostkana").checked)queue=boostQueue(queue);
+  if($("preview").checked){pvList=base;pv=0;previewShow()}else{pvList=null;next()}
+}
+function stats(t){$("stats").textContent=t}
+function previewShow(){
+  const c=pvList[pv];state="preview-front";
+  setBig(c.prompt);$("hintline").textContent=c.hint;$("answer").textContent="";
+  show(["padwrap","typedwrap","b-clear","b-undo","b-skip","b-again","b-good"],false);
+  show(["b-prev"],pv>0);$("b-main").hidden=false;$("b-main").textContent="Flip";
+  stats("Preview "+(pv+1)+" / "+pvList.length+" (not scored)");
+}
+function previewFlip(){
+  const c=pvList[pv];state="preview-back";setBig(c.ans);$("hintline").textContent="Answer";$("answer").textContent=c.extra;
+  $("b-main").textContent=pv===pvList.length-1?"Start quiz":"Next";
+}
+function previewStep(d){pv+=d;if(pv>=pvList.length){pvList=null;t0=Date.now();next()}else previewShow()}
+function next(){
+  if(!queue.length){finish();return}
+  card=queue.shift();reference=null;strokes=[];pad.classList.toggle("wide",!!card.wide);
+  setBig(card.prompt);$("hintline").textContent=card.hint;$("answer").textContent="";
+  show(BTN,false);show(["typedwrap"],false);$("hintline").style.color="";
+  if(card.typed){state="typed";show(["padwrap"],false);show(["typedwrap","b-skip","b-main"],true);$("b-main").textContent="Check";
+    const t=$("typed");t.value="";t.disabled=false;setTimeout(()=>t.focus(),50)}
+  else if(card.draw){state="draw";show(["padwrap","b-clear","b-undo","b-skip","b-main"],true);$("b-main").textContent="Check";fitPad()}
+  else{state="flip";show(["padwrap"],false);show(["b-skip","b-main"],true);$("b-main").textContent="Flip"}
+  stats(queue.length+1+" left · "+right+" correct · "+wrong+" wrong");
+}
+function reveal(){
+  state="graded";
+  if(card.draw){reference=card.ans;redraw();$("hintline").textContent="Compare with the red character, then grade yourself";$("answer").textContent=card.ans+(card.extra?"\n"+card.extra:"")}
+  else{setBig(card.ans);$("hintline").textContent="Answer";$("answer").textContent=card.extra}
+  show(["b-clear","b-undo","b-skip","b-main"],false);show(["b-again","b-good"],true);
+}
+let typedOk=false;
+function checkTypedAnswer(){
+  const t=$("typed").value;if(!t.trim())return;
+  card.lastTyped=t;typedOk=checkTyped(card,t);state="typedresult";
+  $("typed").disabled=true;
+  $("hintline").textContent=typedOk?"Correct":"Wrong";$("hintline").style.color=typedOk?"var(--good)":"var(--bad)";
+  $("answer").textContent=card.ans+(card.extra?"\n"+card.extra:"");
+  show(["b-skip"],false);$("b-main").textContent="Next";
+}
+function grade(ok){
+  trackKana(card,ok);
+  const m=store.get();
+  if(ok){right++;if(m[card.id]){m[card.id]=Math.max(0,m[card.id]-1);if(!m[card.id])delete m[card.id]}}
+  else{wrong++;if(!missed.has(card.id))missed.set(card.id,card);m[card.id]=(m[card.id]||0)+1;queue.splice(Math.min(queue.length,3+Math.floor(Math.random()*4)),0,card)}
+  store.set(m);next();
+}
+function finish(){
+  state="done";show(["quiz"],false);show(["done"],true);
+  const tot=right+wrong,pct=tot?Math.round(100*right/tot):0,s=Math.round((Date.now()-t0)/1000);
+  $("summary").textContent=right+" of "+tot+" correct ("+pct+"%) in "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+  const lines=[];
+  if(missed.size)lines.push("Missed ("+missed.size+"):",...[...missed.values()].map(c=>"  "+c.prompt+"  →  "+c.ans));
+  else if(!skippedFinal.length)lines.push("No misses. Everything was right.");
+  if(skippedFinal.length)lines.push("Skipped ("+skippedFinal.length+"):",...skippedFinal.map(c=>"  "+c.prompt+"  →  "+c.ans));
+  const wl=weakList();if(wl.length)lines.push("","Kana to bring back: "+wl.slice(0,20).join("  "));
+  $("missed").textContent=lines.join("\n");updateWeakNote();
+  $("retry").hidden=!missed.size;
+}
+$("b-main").onclick=()=>{
+  if(state==="preview-front")previewFlip();else if(state==="preview-back")previewStep(1);
+  else if(state==="typed")checkTypedAnswer();
+  else if(state==="typedresult")grade(typedOk);
+  else if(state==="skipped")next();
+  else if(state==="draw"||state==="flip")reveal();
+};
+$("b-prev").onclick=()=>{if(state.startsWith("preview")&&pv>0)previewStep(-1)};
+$("b-skip").onclick=()=>{
+  if(state!=="draw"&&state!=="flip"&&state!=="typed")return;
+  const c=card;state="skipped";c.lastTyped="";trackKana(c,false);
+  if(c.draw){reference=c.ans;redraw();$("answer").textContent=c.ans+(c.extra?"\n"+c.extra:"")}
+  else if(c.typed){$("answer").textContent=c.ans+(c.extra?"\n"+c.extra:"");$("typed").disabled=true;show(["typedwrap"],false)}
+  else{setBig(c.ans);$("answer").textContent=c.extra}
+  $("hintline").textContent="Skipped. This is the answer";
+  show(["b-clear","b-undo","b-skip"],false);$("b-main").hidden=false;$("b-main").textContent="Next";
+  if(!skippedFinal.some(x=>x.id===c.id))skippedFinal.push(c);
+  queue.splice(Math.min(queue.length,3+Math.floor(Math.random()*4)),0,c);       // comes back a few cards later
+  const m=store.get();m[c.id]=(m[c.id]||0)+1;store.set(m);                       // not knowing it counts as missed
+};
+$("b-again").onclick=()=>grade(false);$("b-good").onclick=()=>grade(true);
+$("leave").onclick=()=>{show(["quiz","done"],false);show(["setup"],true);updateWeakNote()};
+$("again-setup").onclick=()=>{show(["done"],false);show(["setup"],true);updateWeakNote()};
+$("retry").onclick=()=>{
+  queue=[...missed.values()];for(let i=queue.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[queue[i],queue[j]]=[queue[j],queue[i]]}
+  right=wrong=0;missed=new Map();retryMode=true;t0=Date.now();skippedOnce=new Set();skippedFinal=[];show(["done"],false);show(["quiz"],true);fitPad();next();
+};
+window.addEventListener("keydown",e=>{
+  if($("quiz").hidden)return;
+  if(state==="typed"){if(e.key==="Enter"){e.preventDefault();$("b-main").click()}return}
+  if(e.key==="Enter"||e.key===" "){if(state==="graded")return;e.preventDefault();$("b-main").click()}
+  else if(state==="graded"&&e.key==="1")grade(false);else if(state==="graded"&&e.key==="2")grade(true);
+});
+$("startbtn").onclick=start;
+function syncDeck(){const d=$("deck").value,wordDeck=["vocab","other","allwords"].includes(d);
+  $("groupsrow").hidden=d==="kanji"||wordDeck;$("lessonsrow").hidden=!wordDeck;$("scriptrow").hidden=!wordDeck;$("g-ext-label").hidden=d!=="katakana";
+  // Lesson 0 (greetings and numbers) is not on the lesson vocabulary pages: hide it for that deck only.
+  const l0=$("l-0");l0.parentElement.hidden=d==="vocab";
+  if(d==="vocab"){l0.checked=false;l0.dataset.hid="1"}else if(l0.dataset.hid){l0.checked=true;delete l0.dataset.hid}}
+$("deck").onchange=syncDeck;syncDeck();updateWeakNote();loadDeck().then(syncDeck);
+</script>
+</body>
+</html>
