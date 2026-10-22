@@ -509,7 +509,8 @@ function syncDeck(){const d=$("deck").value,wordDeck=["vocab","other","allwords"
   $("listrow").hidden=d!=="kanji"&&d!=="kanjiwords";$("scriptrow").hidden=!wordDeck;$("g-ext-label").hidden=d!=="katakana";
   // Lesson 0 (greetings and numbers) is not on the lesson vocabulary pages: hide it for that deck only.
   const l0=$("l-0");l0.parentElement.hidden=d==="vocab";
-  if(d==="vocab"){l0.checked=false;l0.dataset.hid="1"}else if(l0.dataset.hid){l0.checked=true;delete l0.dataset.hid}}
+  if(d==="vocab"){l0.checked=false;l0.dataset.hid="1"}else if(l0.dataset.hid){l0.checked=true;delete l0.dataset.hid}
+  if(typeof updateMissNote==="function")updateMissNote()}
 $("deck").onchange=syncDeck;restoreSetup();syncDeck();syncQuiz();updateWeakNote();updateQuizHist();updateMissNote();
 $("setup").addEventListener("change",updateMissNote);
 loadDeck().then(()=>{restoreSetup();syncDeck();syncQuiz();updateMissNote()});   // again once the word decks exist in the menu
