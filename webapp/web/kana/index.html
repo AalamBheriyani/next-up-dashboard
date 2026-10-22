@@ -222,6 +222,23 @@ function wordCards(sources,lessons,flip,typed){
 }
 // "あ(ける), あした, めい" -> ["あける","あした","めい"]: each reading with the okurigana brackets dropped
 const kanjiReadings=r=>[...new Set((r||"").split(/[,、]/).map(x=>x.replace(/[()（）\s\-.]/g,"")).filter(Boolean))];
+// Example words of the owner's kanji (5th field, "映画 えいが (movie) | ..."), once each, for the ticked lessons.
+function kanjiWordCards(flip,typed,lessons){
+  if(!DECK||!DECK.kanji)return[];
+  const seen=new Set(),out=[];
+  for(const a of DECK.kanji){
+    if(a[3]!=null&&!lessons.has(+a[3]))continue;
+    for(const part of String(a[4]||"").split("|").map(x=>x.trim())){
+      const m=part.match(/^(\S+)\s+(\S+)\s+(?:\+ \S+ )?\((.+)\)$/);
+      if(!m||seen.has(m[1]))continue;seen.add(m[1]);
+      const [,w,rd,mean]=m,id="kw:"+w,tag="L"+a[3];
+      out.push(typed&&!flip?{id,prompt:w,ans:rd,extra:mean,hint:"Type the reading (romaji or kana) · "+tag,typed:true,alts:[rd],lenient:false,hira:new Set([canonHira(rd,false)]),exact:new Set([rd])}
+        :flip?{id,prompt:w,ans:rd,extra:mean,hint:"Read it · "+tag,draw:false}
+        :{id:id+":d",prompt:rd+" ("+mean+")",ans:w,extra:"",hint:"Write it in kanji · "+tag,draw:true,wide:[...w].length>1});
+    }
+  }
+  return out;
+}
 function kanjiCards(flip,typed,lessons){
   // The owner's deck carries each kanji's lesson (4th field); the built-in list is the Lesson 3 kanji.
   let list=DECK&&DECK.kanji&&DECK.kanji.length?DECK.kanji.map(a=>({k:a[0],m:a[1],r:a[2],l:a[3]})):KANJI.map(k=>({...k,l:3}));
@@ -242,6 +259,9 @@ function applyDeck(){
   if(DECK&&DECK.words&&DECK.words.length&&!have.includes("vocab")){
     for(const [v,t] of [["vocab","Vocabulary pages (Genki I)"],["other","Other words (dialogues, classroom, numbers)"],["allwords","All words"]]){const o=document.createElement("option");o.value=v;o.textContent=t;deckSel.insertBefore(o,deckSel.querySelector('option[value="kanji"]'))}
     $("decknote").textContent="Your word list is loaded ("+DECK.words.length+" words, "+(DECK.kanji||[]).length+" kanji).";
+  }
+  if(DECK&&DECK.kanji&&DECK.kanji.some(a=>a[4])&&!have.includes("kanjiwords")){
+    const o=document.createElement("option");o.value="kanjiwords";o.textContent="Kanji words (readings, e.g. 映画)";deckSel.append(o);
   }
 }
 async function loadDeck(){
@@ -318,6 +338,7 @@ function build(){
   let cards;
   const lessons=new Set([0,1,2,3,4,5,6,7,8,9,10,11,12].filter(n=>$("l-"+n).checked));
   if(deck==="kanji")cards=kanjiCards(flip,typed,lessons);
+  else if(deck==="kanjiwords")cards=kanjiWordCards(flip,typed,lessons);
   else if(["vocab","other","allwords"].includes(deck)){
     cards=wordCards(deck==="vocab"?["vocab"]:deck==="other"?["other"]:["vocab","other"],lessons,flip,typed);
   }
@@ -329,7 +350,7 @@ function build(){
 function start(){
   pencilOnly=$("pencilonly").checked;
   queue=build();
-  if(!queue.length){$("setupmsg").textContent=$("missedonly").checked?"No missed cards yet for this deck.":$("deck").value==="kanji"?"No kanji in the lessons you picked (kanji start at Lesson 3).":"Pick at least one group or lesson.";return}
+  if(!queue.length){$("setupmsg").textContent=$("missedonly").checked?"No missed cards yet for this deck.":["kanji","kanjiwords"].includes($("deck").value)?"No kanji in the lessons you picked (kanji start at Lesson 3).":"Pick at least one group or lesson.";return}
   $("setupmsg").textContent="";
   right=wrong=0;missed=new Map();retryMode=false;t0=Date.now();card=null;skippedOnce=new Set();skippedFinal=[];
   quiz=$("quizmode").checked;quizLog=[];quizDeck=$("deck").selectedOptions[0].textContent;
@@ -457,7 +478,7 @@ function updateQuizHist(){let h=[];try{h=JSON.parse(localStorage.getItem("kana-q
 function syncQuiz(){const q=$("quizmode").checked;$("quizlenwrap").hidden=!q;$("preview").disabled=q;$("boostkana").disabled=q}
 $("quizmode").onchange=syncQuiz;
 function syncDeck(){const d=$("deck").value,wordDeck=["vocab","other","allwords"].includes(d);
-  $("groupsrow").hidden=d==="kanji"||wordDeck;$("lessonsrow").hidden=!wordDeck&&d!=="kanji";   // kanji: Lessons 3-12$("scriptrow").hidden=!wordDeck;$("g-ext-label").hidden=d!=="katakana";
+  $("groupsrow").hidden=d==="kanji"||d==="kanjiwords"||wordDeck;$("lessonsrow").hidden=!wordDeck&&d!=="kanji"&&d!=="kanjiwords";   // kanji: Lessons 3-12$("scriptrow").hidden=!wordDeck;$("g-ext-label").hidden=d!=="katakana";
   // Lesson 0 (greetings and numbers) is not on the lesson vocabulary pages: hide it for that deck only.
   const l0=$("l-0");l0.parentElement.hidden=d==="vocab";
   if(d==="vocab"){l0.checked=false;l0.dataset.hid="1"}else if(l0.dataset.hid){l0.checked=true;delete l0.dataset.hid}}

@@ -39,7 +39,7 @@ export function readDeck(dir) {
   let kanji = [];
   try {
     kanji = parseCsv(readFileSync(join(dir, "kanji.csv"), "utf8")).filter((r) => r.kanji && r.meaning)
-      .map((r) => [r.kanji, r.meaning, r.readings, Number(r.lesson) || null]); // lesson lets the page pick kanji by lesson
+      .map((r) => [r.kanji, r.meaning, r.readings, Number(r.lesson) || null, r.words || ""]); // lesson: pick kanji by lesson; words: example words drill
   } catch {}
   return { v: 1, words, kanji };
 }
