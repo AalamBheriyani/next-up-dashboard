@@ -40,6 +40,8 @@ canvas{background:#fff;border-radius:14px;border:2px solid var(--line);touch-act
 .typedwrap{display:flex;justify-content:center;margin:10px 0}
 input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:center;padding:12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--fg);-webkit-user-select:text;user-select:text}
 [hidden]{display:none!important}
+#progress .pr{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:15px}
+#progress .pr span{min-width:110px}#progress .pr progress{flex:1;height:14px}#progress .pr small{min-width:130px;text-align:right;opacity:.75}
 </style>
 </head>
 <body>
@@ -68,6 +70,7 @@ input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:ce
     <div class="row"><label class="c"><input type="checkbox" id="quizmode"> Quiz mode (a scored test: each card once, no feedback until the end)</label>
       <span id="quizlenwrap" class="row" hidden style="margin:0"><label class="t" for="quizlen" style="min-width:0">Questions</label>
         <select id="quizlen"><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option><option value="50">50</option><option value="0">All</option></select></span></div>
+    <div class="row"><label class="c"><input type="checkbox" id="srs"> Spaced repetition: cards that are due first, then new ones (cards learned recently wait)</label></div>
     <p class="hint" id="quizhist"></p>
     <p class="hint" id="weaknote"></p>
     <p class="hint" id="missnote"></p>
@@ -76,6 +79,7 @@ input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:ce
     <p class="hint" id="decknote"></p>
     <div class="btns"><button class="primary" id="startbtn">Start</button></div>
   </div>
+  <details class="card" id="progresswrap"><summary>Progress (a card counts as learned after two right answers in a row; with spaced repetition they are a day apart)</summary><div id="progress"></div></details>
   <p class="hint">Write with the Apple Pencil or your finger. Tap Check to see the model character behind your strokes, then grade yourself. Progress stays on this device.</p>
 </section>
 
@@ -287,6 +291,14 @@ async function loadDeck(){
   }catch(e){if(!DECK)$("decknote").textContent="Could not load your word list ("+e.message+"). Sign in on the Next Up dashboard and reload."}
 }
 
+/* ---- spaced repetition (same boxes and intervals as the desktop app) ---- */
+const INTERVAL_DAYS=[0,0,1,2,4,8,16,32],LEARNED_BOX=3;
+const srs={get(){try{return JSON.parse(localStorage.getItem("kana-srs")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("kana-srs",JSON.stringify(v))}catch(e){}}};
+function srsRecord(id,ok){
+  const s=srs.get(),e=s[id]||{box:1,due:0,seen:0,right:0};
+  e.seen++;if(ok){e.right++;e.box=Math.min(e.box+1,INTERVAL_DAYS.length-1)}else e.box=1;
+  e.due=Date.now()+INTERVAL_DAYS[e.box]*86400000;s[id]=e;srs.set(s);
+}
 /* ---- progress (this device only) ---- */
 const store={get(){try{return JSON.parse(localStorage.getItem("kana-miss")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("kana-miss",JSON.stringify(v))}catch(e){}}};
 
@@ -351,6 +363,8 @@ function build(){
   else{const g=["basic","dakuten","yoon","extended","lookalike"].filter(x=>$("g-"+x).checked);cards=kanaCards(deck,g,flip)}
   if($("missedonly").checked){const m=store.get();cards=cards.filter(c=>m[c.id.replace(/:r$/,"")])}
   for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}
+  if($("srs").checked&&!$("quizmode").checked){const s=srs.get(),now=Date.now();
+    cards=[...cards.filter(c=>s[c.id]&&s[c.id].due<=now),...cards.filter(c=>!s[c.id])]}
   return cards;
 }
 /* ---- remember the setup on this device (deck, lessons, mode and switches) ---- */
@@ -365,6 +379,22 @@ function restoreSetup(){
   for(const id of SETUP_IDS){const el=$(id);if(v[id]!=null&&[...(el.options||[])].some(o=>o.value===v[id]))el.value=v[id]}
   for(const id of SETUP_CHECKS())if(typeof v[id]==="boolean")$(id).checked=v[id];
 }
+// Progress bars: the two kana scripts, each lesson's words, each kanji list. A card counts once even if it was
+// practised in several modes (draw, flip, type); "learned" = box 3 or higher in any mode.
+function renderProgress(){
+  const s=srs.get(),learned=new Set(),seen=new Set();
+  for(const [id,e] of Object.entries(s)){const base=id.replace(/:(r|read|d)$/,"");seen.add(base);if(e.box>=LEARNED_BOX)learned.add(base)}
+  const rows=[];
+  const add=(label,ids)=>{if(!ids.length)return;rows.push([label,ids.length,ids.filter(i=>learned.has(i)).length,ids.filter(i=>seen.has(i)).length])};
+  for(const sc of ["hiragana","katakana"])add(sc[0].toUpperCase()+sc.slice(1),[...new Set(kanaCards(sc,["basic","dakuten","yoon"],true).map(c=>c.id))]);
+  if(DECK&&DECK.words){for(let L=0;L<=12;L++)add("Lesson "+L,[...new Set(DECK.words.filter(w=>w[0]===L).map(w=>"v:"+L+":"+w[3]))])}
+  const kl=DECK&&DECK.kanji&&DECK.kanji.length?DECK.kanji:KANJI.map(k=>[k.k,k.m,k.r,3,"",L3LIST.includes(k.k)?1:0]);
+  for(let L=3;L<=12;L++)add("Kanji L"+L,kl.filter(a=>+a[3]===L&&a[5]!==0).map(a=>"k:"+a[0]));
+  $("progress").innerHTML="";
+  for(const [label,tot,l,n] of rows){const d=document.createElement("div");d.className="pr";
+    const a=document.createElement("span");a.textContent=label;const b=document.createElement("progress");b.max=tot;b.value=l;
+    const c=document.createElement("small");c.textContent=l+" / "+tot+" learned ("+n+" seen)";d.append(a,b,c);$("progress").append(d)}
+}
 // How many cards in the current selection were missed before (the "Only cards I have missed before" pool).
 function updateMissNote(){
   const mo=$("missedonly"),was=mo.checked;mo.checked=false;
@@ -377,7 +407,7 @@ function start(){
   saveSetup();
   pencilOnly=$("pencilonly").checked;
   queue=build();
-  if(!queue.length){$("setupmsg").textContent=$("missedonly").checked?"No missed cards yet for this deck.":["kanji","kanjiwords"].includes($("deck").value)?"No kanji in the lessons you picked (kanji start at Lesson 3).":"Pick at least one group or lesson.";return}
+  if(!queue.length){$("setupmsg").textContent=$("srs").checked&&!$("quizmode").checked?"Nothing due right now: everything here was practised recently. Untick spaced repetition to drill anyway.":$("missedonly").checked?"No missed cards yet for this deck.":["kanji","kanjiwords"].includes($("deck").value)?"No kanji in the lessons you picked (kanji start at Lesson 3).":"Pick at least one group or lesson.";return}
   $("setupmsg").textContent="";
   right=wrong=0;missed=new Map();retryMode=false;t0=Date.now();card=null;skippedOnce=new Set();skippedFinal=[];
   quiz=$("quizmode").checked;quizLog=[];quizDeck=$("deck").selectedOptions[0].textContent;
@@ -436,6 +466,7 @@ function quizRecord(ok,typed,skipped){
 function grade(ok){
   if(quiz){quizRecord(ok,"",false);next();return}                           // self-graded flip/draw card in a quiz
   trackKana(card,ok);
+  if(!retryMode)srsRecord(card.id,ok);
   const m=store.get();
   if(ok){right++;if(m[card.id]){m[card.id]=Math.max(0,m[card.id]-1);if(!m[card.id])delete m[card.id]}}
   else{wrong++;if(!missed.has(card.id))missed.set(card.id,card);m[card.id]=(m[card.id]||0)+1;queue.splice(Math.min(queue.length,3+Math.floor(Math.random()*4)),0,card)}
@@ -487,8 +518,8 @@ $("b-skip").onclick=()=>{
   const m=store.get();m[c.id]=(m[c.id]||0)+1;store.set(m);                       // not knowing it counts as missed
 };
 $("b-again").onclick=()=>grade(false);$("b-good").onclick=()=>grade(true);
-$("leave").onclick=()=>{show(["quiz","done"],false);show(["setup"],true);updateWeakNote();updateQuizHist();updateMissNote()};
-$("again-setup").onclick=()=>{show(["done"],false);show(["setup"],true);updateWeakNote();updateQuizHist();updateMissNote()};
+$("leave").onclick=()=>{show(["quiz","done"],false);show(["setup"],true);updateWeakNote();updateQuizHist();updateMissNote();renderProgress()};
+$("again-setup").onclick=()=>{show(["done"],false);show(["setup"],true);updateWeakNote();updateQuizHist();updateMissNote();renderProgress()};
 $("retry").onclick=()=>{
   queue=[...missed.values()];for(let i=queue.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[queue[i],queue[j]]=[queue[j],queue[i]]}
   right=wrong=0;missed=new Map();retryMode=true;t0=Date.now();skippedOnce=new Set();skippedFinal=[];quizLog=[];quizTotal=queue.length;show(["done"],false);show(["quiz"],true);fitPad();next();
@@ -513,7 +544,8 @@ function syncDeck(){const d=$("deck").value,wordDeck=["vocab","other","allwords"
   if(typeof updateMissNote==="function")updateMissNote()}
 $("deck").onchange=syncDeck;restoreSetup();syncDeck();syncQuiz();updateWeakNote();updateQuizHist();updateMissNote();
 $("setup").addEventListener("change",updateMissNote);
-loadDeck().then(()=>{restoreSetup();syncDeck();syncQuiz();updateMissNote()});   // again once the word decks exist in the menu
+loadDeck().then(()=>{restoreSetup();syncDeck();syncQuiz();updateMissNote();renderProgress()});
+renderProgress();   // again once the word decks exist in the menu
 </script>
 </body>
 </html>
