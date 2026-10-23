@@ -53,6 +53,7 @@ input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:ce
       <select id="script"><option value="all">All words</option><option value="hiragana">Hiragana words only</option><option value="katakana">Katakana words only (loanwords)</option><option value="mixed">Mixed hiragana + katakana</option></select></div>
     <div class="row" id="lessonsrow" hidden><label class="t">Lessons</label>
       <label class="c"><input type="checkbox" id="l-0" checked> 0</label><label class="c"><input type="checkbox" id="l-1" checked> 1</label><label class="c"><input type="checkbox" id="l-2" checked> 2</label><label class="c"><input type="checkbox" id="l-3" checked> 3</label><label class="c"><input type="checkbox" id="l-4" checked> 4</label><label class="c"><input type="checkbox" id="l-5" checked> 5</label><label class="c"><input type="checkbox" id="l-6" checked> 6</label><label class="c"><input type="checkbox" id="l-7" checked> 7</label><label class="c"><input type="checkbox" id="l-8" checked> 8</label><label class="c"><input type="checkbox" id="l-9" checked> 9</label><label class="c"><input type="checkbox" id="l-10" checked> 10</label><label class="c"><input type="checkbox" id="l-11" checked> 11</label><label class="c"><input type="checkbox" id="l-12" checked> 12</label></div>
+    <div class="row" id="listrow" hidden><label class="c"><input type="checkbox" id="listonly" checked> Textbook kanji lists only (what the kanji tests cover)</label></div>
     <div class="row" id="groupsrow"><label class="t">Groups</label>
       <label class="c"><input type="checkbox" id="g-basic" checked> Basic</label>
       <label class="c"><input type="checkbox" id="g-dakuten"> Dakuten (が ぱ)</label>
@@ -60,7 +61,7 @@ input[type=text]{width:min(92vw,520px);font:inherit;font-size:26px;text-align:ce
       <label class="c" id="g-ext-label"><input type="checkbox" id="g-extended"> Extended (ファ)</label>
       <label class="c"><input type="checkbox" id="g-lookalike"> Look-alikes</label></div>
     <div class="row"><label class="t" for="dir">Mode</label>
-      <select id="dir"><option value="draw">Draw it (romaji or meaning → character)</option><option value="flip">Flip card (character → romaji or meaning)</option><option value="type">Type it: romaji or kana (word decks only)</option></select></div>
+      <select id="dir"><option value="draw">Draw it (romaji or meaning → character)</option><option value="flip">Flip card (character → romaji or meaning)</option><option value="type">Type it: romaji or kana (words; for kanji, type a reading)</option></select></div>
     <div class="row"><label class="c"><input type="checkbox" id="preview"> Look through all the cards first</label>
       <label class="c"><input type="checkbox" id="missedonly"> Only cards I have missed before</label>
       <label class="c"><input type="checkbox" id="boostkana" checked> Bring forgotten kana back more often</label></div>
@@ -105,7 +106,7 @@ const DAKUTEN="ga が gi ぎ gu ぐ ge げ go ご za ざ ji じ zu ず ze ぜ zo
 const YOON="kya きゃ kyu きゅ kyo きょ sha しゃ shu しゅ sho しょ cha ちゃ chu ちゅ cho ちょ nya にゃ nyu にゅ nyo にょ hya ひゃ hyu ひゅ hyo ひょ mya みゃ myu みゅ myo みょ rya りゃ ryu りゅ ryo りょ gya ぎゃ gyu ぎゅ gyo ぎょ ja じゃ ju じゅ jo じょ bya びゃ byu びゅ byo びょ pya ぴゃ pyu ぴゅ pyo ぴょ";
 const EXTENDED="fa ファ fi フィ fe フェ fo フォ ti ティ di ディ je ジェ she シェ che チェ wi ウィ we ウェ wo ウォ vu ヴ";
 const LOOK={hiragana:"あおめぬねれわはほにけるろさきちいりこしつそんくへまよもうらすむたな",katakana:"シツソンクケタウワフラコユヨミチテヌスマムメナノアヤ"};
-const KANJI=[{"k": "映", "m": "reflect; project", "r": "えい"}, {"k": "画", "m": "picture; stroke", "r": "が"}, {"k": "音", "m": "sound", "r": "おと, おん"}, {"k": "楽", "m": "enjoy; music", "r": "たの(しい), がく, らく"}, {"k": "雑", "m": "miscellaneous", "r": "ざつ"}, {"k": "誌", "m": "record; magazine", "r": "し"}, {"k": "酒", "m": "sake; alcohol", "r": "さけ, しゅ"}, {"k": "茶", "m": "tea", "r": "ちゃ"}, {"k": "水", "m": "water", "r": "みず, すい"}, {"k": "朝", "m": "morning", "r": "あさ, ちょう"}, {"k": "飯", "m": "meal; cooked rice", "r": "めし, はん"}, {"k": "昼", "m": "noon; daytime", "r": "ひる, ちゅう"}, {"k": "晩", "m": "evening", "r": "ばん"}, {"k": "家", "m": "house; home", "r": "いえ, うち, か"}, {"k": "学", "m": "study; learning", "r": "がく"}, {"k": "校", "m": "school", "r": "こう"}, {"k": "明", "m": "bright", "r": "あ(ける), あした, めい, みょう"}, {"k": "日", "m": "day; sun", "r": "ひ, にち, び"}, {"k": "今", "m": "now", "r": "いま, こん"}, {"k": "毎", "m": "every", "r": "まい"}, {"k": "週", "m": "week", "r": "しゅう"}, {"k": "末", "m": "end", "r": "まつ"}, {"k": "土", "m": "earth; Saturday", "r": "ど, つち"}, {"k": "曜", "m": "day of the week", "r": "よう"}, {"k": "行", "m": "go", "r": "い(く), こう"}, {"k": "帰", "m": "return", "r": "かえ(る), き"}, {"k": "聞", "m": "hear; listen; ask", "r": "き(く), ぶん"}, {"k": "飲", "m": "drink", "r": "の(む), いん"}, {"k": "話", "m": "speak; talk", "r": "はな(す), わ"}, {"k": "読", "m": "read", "r": "よ(む), どく"}, {"k": "起", "m": "get up; rise", "r": "お(きる), き"}, {"k": "食", "m": "eat; food", "r": "た(べる), しょく"}, {"k": "寝", "m": "sleep", "r": "ね(る), しん"}, {"k": "見", "m": "see; look", "r": "み(る), けん"}, {"k": "来", "m": "come", "r": "く(る), らい"}, {"k": "勉", "m": "exert; endeavour", "r": "べん"}, {"k": "強", "m": "strong", "r": "つよ(い), きょう"}, {"k": "早", "m": "early; fast", "r": "はや(い), そう"}, {"k": "全", "m": "whole; all", "r": "ぜん"}, {"k": "然", "m": "-ly; so (in 全然)", "r": "ぜん"}, {"k": "時", "m": "time; hour", "r": "じ, とき"}, {"k": "何", "m": "what", "r": "なに, なん, か"}, {"k": "京", "m": "capital", "r": "きょう"}, {"k": "都", "m": "capital city", "r": "と"}, {"k": "九", "m": "nine", "r": "きゅう, く, ここの"}];
+const KANJI=[{"k": "映", "m": "reflect; project", "r": "えい"}, {"k": "画", "m": "picture; stroke", "r": "が"}, {"k": "音", "m": "sound", "r": "おと, おん"}, {"k": "楽", "m": "enjoy; music", "r": "たの(しい), がく, らく"}, {"k": "雑", "m": "miscellaneous", "r": "ざつ"}, {"k": "誌", "m": "record; magazine", "r": "し"}, {"k": "酒", "m": "sake; alcohol", "r": "さけ, しゅ"}, {"k": "茶", "m": "tea", "r": "ちゃ"}, {"k": "水", "m": "water", "r": "みず, すい"}, {"k": "朝", "m": "morning", "r": "あさ, ちょう"}, {"k": "飯", "m": "meal; cooked rice", "r": "めし, はん"}, {"k": "昼", "m": "noon; daytime", "r": "ひる, ちゅう"}, {"k": "晩", "m": "evening", "r": "ばん"}, {"k": "家", "m": "house; home", "r": "いえ, うち, か"}, {"k": "学", "m": "study; learning", "r": "がく"}, {"k": "校", "m": "school", "r": "こう"}, {"k": "明", "m": "bright", "r": "あ(ける), あした, めい, みょう"}, {"k": "日", "m": "day; sun", "r": "ひ, にち, び"}, {"k": "今", "m": "now", "r": "いま, こん"}, {"k": "毎", "m": "every", "r": "まい"}, {"k": "週", "m": "week", "r": "しゅう"}, {"k": "末", "m": "end", "r": "まつ"}, {"k": "土", "m": "earth; Saturday", "r": "ど, つち"}, {"k": "曜", "m": "day of the week", "r": "よう"}, {"k": "行", "m": "go", "r": "い(く), こう"}, {"k": "帰", "m": "return", "r": "かえ(る), き"}, {"k": "聞", "m": "hear; listen; ask", "r": "き(く), ぶん"}, {"k": "飲", "m": "drink", "r": "の(む), いん"}, {"k": "話", "m": "speak; talk", "r": "はな(す), わ"}, {"k": "読", "m": "read", "r": "よ(む), どく"}, {"k": "起", "m": "get up; rise", "r": "お(きる), き"}, {"k": "食", "m": "eat; food", "r": "た(べる), しょく"}, {"k": "寝", "m": "sleep", "r": "ね(る), しん"}, {"k": "見", "m": "see; look", "r": "み(る), けん"}, {"k": "来", "m": "come", "r": "く(る), らい"}, {"k": "勉", "m": "exert; endeavour", "r": "べん"}, {"k": "強", "m": "strong", "r": "つよ(い), きょう"}, {"k": "早", "m": "early; fast", "r": "はや(い), そう"}, {"k": "全", "m": "whole; all", "r": "ぜん"}, {"k": "然", "m": "-ly; so (in 全然)", "r": "ぜん"}, {"k": "時", "m": "time; hour", "r": "じ, とき"}, {"k": "何", "m": "what", "r": "なに, なん, か"}, {"k": "京", "m": "capital", "r": "きょう"}, {"k": "都", "m": "capital city", "r": "と"}, {"k": "九", "m": "nine", "r": "きゅう, く, ここの"}, {"k": "一", "m": "one", "r": "ひと, いち"}, {"k": "二", "m": "two", "r": "ふた, に"}, {"k": "三", "m": "three", "r": "みっ, さん"}, {"k": "四", "m": "four", "r": "よん, よ, し"}, {"k": "五", "m": "five", "r": "いつ, ご"}, {"k": "六", "m": "six", "r": "むっ, ろく"}, {"k": "七", "m": "seven", "r": "なな, しち"}, {"k": "八", "m": "eight", "r": "やっ, はち"}, {"k": "十", "m": "ten", "r": "とお, じゅう"}, {"k": "百", "m": "hundred", "r": "ひゃく, びゃく, ぴゃく"}, {"k": "千", "m": "thousand", "r": "せん, ぜん"}, {"k": "万", "m": "ten thousand", "r": "まん"}, {"k": "円", "m": "yen; circle", "r": "えん"}];
 const FONT='"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
 const $=id=>document.getElementById(id);
 const pairs=s=>{const t=s.split(" "),o=[];for(let i=0;i<t.length;i+=2)o.push([t[i],t[i+1]]);return o};
@@ -220,8 +221,36 @@ function wordCards(sources,lessons,flip,typed){
                :{id:"v:"+lesson+":"+kana+":r",prompt:english,ans,extra:[kanji?jp:"",extra].filter(Boolean).join("\n"),hint:tag+" · write it in kana",draw:true,wide:true,alts,lenient};
   });
 }
-function kanjiCards(flip){
-  const list=DECK&&DECK.kanji&&DECK.kanji.length?DECK.kanji.map(a=>({k:a[0],m:a[1],r:a[2]})):KANJI;
+const L3LIST="一二三四五六七八九十百千万円時";   // the textbook Lesson 3 kanji list (built-in list only)
+// "あ(ける), あした, めい" -> ["あける","あした","めい"]: each reading with the okurigana brackets dropped
+const kanjiReadings=r=>[...new Set((r||"").split(/[,、]/).map(x=>x.replace(/[()（）\s\-.]/g,"")).filter(Boolean))];
+// Example words of the owner's kanji (5th field, "映画 えいが (movie) | ..."), once each, for the ticked lessons.
+function kanjiWordCards(flip,typed,lessons){
+  if(!DECK||!DECK.kanji)return[];
+  const seen=new Set(),out=[];
+  for(const a of DECK.kanji){
+    if(a[3]!=null&&!lessons.has(+a[3]))continue;
+    if($("listonly").checked&&a[5]===0)continue;
+    for(const part of String(a[4]||"").split("|").map(x=>x.trim())){
+      const m=part.match(/^(\S+)\s+(\S+)\s+(?:\+ \S+ )?\((.+)\)$/);
+      if(!m||seen.has(m[1]))continue;seen.add(m[1]);
+      const [,w,rd,mean]=m,id="kw:"+w,tag="L"+a[3];
+      out.push(typed&&!flip?{id,prompt:w,ans:rd,extra:mean,hint:"Type the reading (romaji or kana) · "+tag,typed:true,alts:[rd],lenient:false,hira:new Set([canonHira(rd,false)]),exact:new Set([rd])}
+        :flip?{id,prompt:w,ans:rd,extra:mean,hint:"Read it · "+tag,draw:false}
+        :{id:id+":d",prompt:rd+" ("+mean+")",ans:w,extra:"",hint:"Write it in kanji · "+tag,draw:true,wide:[...w].length>1});
+    }
+  }
+  return out;
+}
+function kanjiCards(flip,typed,lessons){
+  // The owner's deck carries each kanji's lesson (4th field); the built-in list is the Lesson 3 kanji.
+  let list=DECK&&DECK.kanji&&DECK.kanji.length?DECK.kanji.map(a=>({k:a[0],m:a[1],r:a[2],l:a[3],onList:a[5]}))
+    :KANJI.map(k=>({...k,l:3,onList:L3LIST.includes(k.k)?1:0}));
+  if(list.some(k=>k.l!=null))list=list.filter(k=>lessons.has(+k.l));
+  if($("listonly").checked&&list.some(k=>k.onList!=null))list=list.filter(k=>k.onList!==0);
+  if(typed&&!flip)return list.map(k=>({k,alts:kanjiReadings(k.r)})).filter(x=>x.alts.length).map(({k,alts})=>
+    ({id:"k:"+k.k+":read",prompt:k.k,ans:k.r,extra:k.m,hint:"Type a reading (romaji or kana)"+(k.l!=null?" · L"+k.l:""),typed:true,alts,lenient:false,
+      hira:new Set(alts.map(a=>canonHira(a,false))),exact:new Set(alts)}));
   return list.map(k=>flip?{id:"k:"+k.k,prompt:k.k,ans:k.m,extra:k.r,hint:"Kanji: what does it mean?",draw:false}
                           :{id:"k:"+k.k,prompt:k.m,ans:k.k,extra:k.r,hint:"Draw the kanji",draw:true});
 }
@@ -235,6 +264,9 @@ function applyDeck(){
   if(DECK&&DECK.words&&DECK.words.length&&!have.includes("vocab")){
     for(const [v,t] of [["vocab","Vocabulary pages (Genki I)"],["other","Other words (dialogues, classroom, numbers)"],["allwords","All words"]]){const o=document.createElement("option");o.value=v;o.textContent=t;deckSel.insertBefore(o,deckSel.querySelector('option[value="kanji"]'))}
     $("decknote").textContent="Your word list is loaded ("+DECK.words.length+" words, "+(DECK.kanji||[]).length+" kanji).";
+  }
+  if(DECK&&DECK.kanji&&DECK.kanji.some(a=>a[4])&&!have.includes("kanjiwords")){
+    const o=document.createElement("option");o.value="kanjiwords";o.textContent="Kanji words (readings, e.g. 映画)";deckSel.append(o);
   }
 }
 async function loadDeck(){
@@ -309,9 +341,10 @@ function build(){
   const deck=$("deck").value,mode=$("dir").value,flip=mode==="flip",typed=mode==="type";
   if(!DECK&&["vocab","other","allwords"].includes(deck))return[];
   let cards;
-  if(deck==="kanji")cards=kanjiCards(flip);
+  const lessons=new Set([0,1,2,3,4,5,6,7,8,9,10,11,12].filter(n=>$("l-"+n).checked));
+  if(deck==="kanji")cards=kanjiCards(flip,typed,lessons);
+  else if(deck==="kanjiwords")cards=kanjiWordCards(flip,typed,lessons);
   else if(["vocab","other","allwords"].includes(deck)){
-    const lessons=new Set([0,1,2,3,4,5,6,7,8,9,10,11,12].filter(n=>$("l-"+n).checked));
     cards=wordCards(deck==="vocab"?["vocab"]:deck==="other"?["other"]:["vocab","other"],lessons,flip,typed);
   }
   else{const g=["basic","dakuten","yoon","extended","lookalike"].filter(x=>$("g-"+x).checked);cards=kanaCards(deck,g,flip)}
@@ -322,7 +355,7 @@ function build(){
 function start(){
   pencilOnly=$("pencilonly").checked;
   queue=build();
-  if(!queue.length){$("setupmsg").textContent=$("missedonly").checked?"No missed cards yet for this deck.":"Pick at least one group.";return}
+  if(!queue.length){$("setupmsg").textContent=$("missedonly").checked?"No missed cards yet for this deck.":["kanji","kanjiwords"].includes($("deck").value)?"No kanji in the lessons you picked (kanji start at Lesson 3).":"Pick at least one group or lesson.";return}
   $("setupmsg").textContent="";
   right=wrong=0;missed=new Map();retryMode=false;t0=Date.now();card=null;skippedOnce=new Set();skippedFinal=[];
   quiz=$("quizmode").checked;quizLog=[];quizDeck=$("deck").selectedOptions[0].textContent;
@@ -450,7 +483,8 @@ function updateQuizHist(){let h=[];try{h=JSON.parse(localStorage.getItem("kana-q
 function syncQuiz(){const q=$("quizmode").checked;$("quizlenwrap").hidden=!q;$("preview").disabled=q;$("boostkana").disabled=q}
 $("quizmode").onchange=syncQuiz;
 function syncDeck(){const d=$("deck").value,wordDeck=["vocab","other","allwords"].includes(d);
-  $("groupsrow").hidden=d==="kanji"||wordDeck;$("lessonsrow").hidden=!wordDeck;$("scriptrow").hidden=!wordDeck;$("g-ext-label").hidden=d!=="katakana";
+  $("groupsrow").hidden=d==="kanji"||d==="kanjiwords"||wordDeck;$("lessonsrow").hidden=!wordDeck&&d!=="kanji"&&d!=="kanjiwords";   // kanji: Lessons 3-12
+  $("listrow").hidden=d!=="kanji"&&d!=="kanjiwords";$("scriptrow").hidden=!wordDeck;$("g-ext-label").hidden=d!=="katakana";
   // Lesson 0 (greetings and numbers) is not on the lesson vocabulary pages: hide it for that deck only.
   const l0=$("l-0");l0.parentElement.hidden=d==="vocab";
   if(d==="vocab"){l0.checked=false;l0.dataset.hid="1"}else if(l0.dataset.hid){l0.checked=true;delete l0.dataset.hid}}

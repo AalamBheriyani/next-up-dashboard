@@ -39,7 +39,9 @@ export function readDeck(dir) {
   let kanji = [];
   try {
     kanji = parseCsv(readFileSync(join(dir, "kanji.csv"), "utf8")).filter((r) => r.kanji && r.meaning)
-      .map((r) => [r.kanji, r.meaning, r.readings]);
+      // [kanji, meaning, readings, lesson, example words, on a textbook kanji list (1/0)]. lesson = the textbook kanji list
+      // it is on (what the kanji tests cover), else the lesson where it is first met.
+      .map((r) => [r.kanji, r.meaning, r.readings, Number(r.list_lesson || r.lesson) || null, r.words || "", r.list_lesson ? 1 : 0]);
   } catch {}
   return { v: 1, words, kanji };
 }
